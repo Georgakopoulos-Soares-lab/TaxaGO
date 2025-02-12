@@ -1,1 +1,0 @@
-cargo:rerun-if-changed=taxago_assets.tar.gz
