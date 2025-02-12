@@ -114,10 +114,26 @@ PROTEIN K
 
 The tool generates results in CSV format with the following columns:
 
-```text
-WILL ADD
-...
-```
+Single taxon results:
+
+| GO Term ID | Name | Namespace | log(Odds Ratio) | Statistical significance | N Study with term | N Study without term | N Background with term | N Background without term |
+|------------|------|-----------|---------|------------|------------|-------------|-----------|-----------|
+| GO:0042391 | Regulation of membrane potential | Biological Process | 4.328 | 5.53201e-23 | 21 | 60 | 51 | 11045 |
+| GO:0015075 | Monoatomic ion transmembrane transporter activity | Molecular Function | 2.005 | 2.39047e-4 | 20 | 61 | 469 | 10627 |
+| GO:0098916 | Anterograde trans-synaptic signaling | Biological Process | 4.180 | 1.90007e-25 | 24 | 57 | 71 | 11025 |
+| GO:0004888 | Transmembrane signaling receptor activity | Molecular Function | 2.798 | 2.10769e-20 | 37 | 44 | 541 | 10555 |
+| ... | ... | ... | ... | ... | ... | ... | ... | ... |
+
+Taxonomy results:
+
+| GO Term ID | Name | Namespace | log(Odds Ratio) | Statistical significance | Heterogeneity | Species Percentage | N with GO term| N in taxonomy |
+|------------|------|-----------|---------|------------|----------------|------------|----------|------------|
+| GO:0015770 | Sucrose transport | Biological Process | 2.205 | 9.01783e-8 | 3.59790e-1 | 25.160 | 157 | 624 |
+| GO:0043652 | Engulfment of apoptotic cell | Biological Process | 2.541 | 3.27587e-8 | 4.67309e-1 | 27.244 | 170 | 624 |
+| GO:0004703 | G protein-coupled receptor kinase activity | Molecular Function | 2.056 | 3.74576e-8 | 1.20615e0 | 76.603 | 478 | 624 |
+| GO:0004993 | G protein-coupled serotonin receptor activity | Molecular Function | 2.295 | 4.17601e-9 | 0.00000e0 | 98.237 | 613 | 624 |
+| ... | ... | ... | ... | ... | ... | ... | ... | ... |
+
 
 ### Example Workflow
 
@@ -129,7 +145,11 @@ WILL ADD
 
 2. **Run Analysis**
    ```bash
-   taxago --group-results --taxonomic-level phylum --taxonomic-level phylum --study-pop example_study_pop.csv --out-dir results 
+   taxago \
+   --group-results \
+   --taxonomic-level phylum \
+   --study-pop input_study_pop.csv \
+   --out-dir results
    ```
 
 3. **Interpret Results**
