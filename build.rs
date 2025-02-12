@@ -48,9 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|e| format!("Failed to create extraction marker: {}", e))?;
         
         println!("cargo:warning=Assets extracted to: {}", dest_path.display());
-    } else {
-        println!("cargo:warning=Assets are up to date");
-    }
+    } 
 
     Ok(())
 }
