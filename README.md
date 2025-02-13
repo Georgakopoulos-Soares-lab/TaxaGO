@@ -22,6 +22,9 @@ Before installing TaxaGO, ensure you have the following:
 - Git (for cloning the repository)
 - 4GB RAM minimum (8GB recommended)
 - Unix-like operating system (Linux, macOS) or Windows
+- NPM (UPDATE)
+- Mermaid (UPDATE)
+- 
 
 ## Installation
 
