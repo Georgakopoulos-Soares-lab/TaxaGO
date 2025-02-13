@@ -9,8 +9,12 @@ name = "taxago"
 path = "src/bin/main.rs"
 
 [[bin]]
-name = "common_ancestor"
+name = "commmon-ancestors"
 path = "src/utils/common_ancestor.rs"
+
+[[bin]]
+name = "semantic-similarity"
+path = "src/utils/semantic_similarity.rs"
 
 [dependencies]
 thiserror = "2.0.11"

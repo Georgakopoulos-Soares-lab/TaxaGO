@@ -80,7 +80,7 @@ struct CliArgs {
     #[arg(
         long = "obo",
         value_name = "OBO_FILE",
-        help = "Path to the Gene Ontology file in OBO format",
+        help = "Path to the Gene Ontology file in OBO format.",
         default_value_t = DEFAULT_OBO_PATH.to_string(),
     
     )]
@@ -89,7 +89,7 @@ struct CliArgs {
     #[arg(
         long = "study-pop",
         value_name = "STUDY_DIR",
-        help = "Directory containing study popultion for each taxon in FASTA format",
+        help = "Directory containing study popultion for each taxon in FASTA format or CSV file with the study population for each species.",
         required = true
     )]
     study_dir: String,
@@ -97,7 +97,7 @@ struct CliArgs {
     #[arg(
         long = "background-pop",
         value_name = "BACKGROUND_DIR",
-        help = "Directory containing background populations",
+        help = "Directory containing background populations.",
         default_value_t = DEFAULT_BACKGROUND.to_string(),
     )]
     background_dir: String,
@@ -105,14 +105,14 @@ struct CliArgs {
     #[arg(
         long = "out-dir",
         value_name = "RESULTS_DIR",
-        help = "Directory to write results for each taxon",
+        help = "Directory to write results for each taxon and the combined results for the taxonomic level [if specified].",
         required = true
     )]
     output_dir: String,
     
     #[arg(
         long = "propagate-counts",
-        help = "Propagates GO term counts upwards the Ontology graph (from child to parent).",
+        help = "Propagates GO term counts upwards the Ontology graph (from child to parent). [Must be specified to propagate the counts]",
         default_value_t = false
     )]
     propagate_counts: bool,
@@ -120,7 +120,7 @@ struct CliArgs {
     #[arg(
         long = "statistical-test",
         value_name = "TYPE",
-        help = "Statistical test to use (fishers or hypergeometric)",
+        help = "Statistical test to use. [available: fisher, hypergeometric]",
         default_value = "fisher"
     )]
     statistical_test: String,
@@ -128,7 +128,7 @@ struct CliArgs {
     #[arg(
         long = "min-protein-count",
         value_name = "MIN_COUNT",
-        help = "Minimum protein count a GO Term must have to be processed",
+        help = "Minimum protein count a GO Term must have to be processed.",
         default_value = "5",
         required = false
     )]
@@ -137,7 +137,7 @@ struct CliArgs {
     #[arg(
         long = "min-score",
         value_name = "MIN_SCORE",
-        help = "Minimum absolute score (log(odds ratio)) a GO Term must have to be written in the results. Keeps GO terms with score ≥ threshold and GO terms with score ≤ -threshold",
+        help = "Minimum score (log(odds ratio)) a GO Term must have to be written in the results. Keeps GO terms with score ≥ threshold.",
         default_value = "2.0",
         required = false
     )]
@@ -146,7 +146,7 @@ struct CliArgs {
     #[arg(
         long = "significance-threshold",
         value_name = "THRESHOLD",
-        help = "P-value / Q-value threshold to determine significant results",
+        help = "P-value / Adjusted P-value threshold to determine significant results.",
         default_value = "0.05",
         required = false
     )]
@@ -155,7 +155,7 @@ struct CliArgs {
     #[arg(
         long = "adjustment-method",
         value_name = "METHOD",
-        help = "Method to adjust p-values for multiple test correction [possible values: bonferroni, bh, by, no]",
+        help = "Method to adjust p-values for multiple test correction. [available: bonferroni, bh, by, no]",
         default_value = "bonferroni",
         required = false
     )]
@@ -163,7 +163,7 @@ struct CliArgs {
 
     #[arg(
         long = "group-results",
-        help = "Combine results from all taxa into a single output. Requires to also specify the desired taxonomic level to combine the results.",
+        help = "Combine results from all taxa into a single output. [Must be specified to group the results]",
         default_value_t = false
     )]
     combine_results: bool,
@@ -171,7 +171,7 @@ struct CliArgs {
     #[arg(
         long = "taxonomic-level",
         value_name = "TAXONOMIC_LEVEL",
-        help = "Desired Taxonomic level for result combination [possible levels: superkingdom, kingdom, phylum, class, order, family, genus]",
+        help = "Desired taxonomic level for result combination. [available: superkingdom, kingdom, phylum, class, order, family, genus]",
         default_value = "kingdom",
     )]
     taxonomic_level: String,
@@ -179,7 +179,7 @@ struct CliArgs {
     #[arg(
         long = "lineage-percentage",
         value_name = "PERCENTAGE",
-        help = "Percentage of species inside the desired Taxonomic level in which the GO term must be found in [values range from 0.0 to 1.0",
+        help = "Percentage of species inside the desired taxonomic level in which the GO term must be found in. [From 0.0 to 1.0]",
         default_value = "0.25"
     )]
     lineage_percentage: f64,
@@ -187,7 +187,7 @@ struct CliArgs {
     #[arg(
         long = "pm-iterations",
         value_name = "ITERATIONS_NUMBER",
-        help = "Number of maximum iterations the Paule-Mandel estimator can reach when calculating the τ² estimate",
+        help = "Number of maximum iterations the Paule-Mandel estimator can reach when calculating the τ² estimate.",
         default_value = "1000",
         required = false
     )]
@@ -196,7 +196,7 @@ struct CliArgs {
     #[arg(
         long = "pm-tolerance",
         value_name = "TOLERANCE",
-        help = "Minimum acceptable tolerance between two τ² estimates",
+        help = "Minimum acceptable tolerance between two τ² estimates.",
         default_value = "1e-6",
         required = false
     )]

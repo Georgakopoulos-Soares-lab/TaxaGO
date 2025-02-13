@@ -33,7 +33,7 @@ struct CliArgs {
     #[arg(
         long = "obo",
         value_name = "OBO_FILE",
-        help = "Path to the Gene Ontology file in OBO format",
+        help = "Path to the Gene Ontology file in OBO format.",
         default_value_t = DEFAULT_OBO_PATH.to_string(),
     
     )]
@@ -42,7 +42,7 @@ struct CliArgs {
     #[arg(
         long = "terms",
         value_name = "GO_TERMS",
-        help = "Comma-separated list of GO terms (e.g., GO:0016070,GO:0140187)",
+        help = "Comma-separated list of GO terms [e.g., GO:0016070,GO:0140187].",
         required = true,
     )]
     go_terms: String,
@@ -50,7 +50,7 @@ struct CliArgs {
     #[arg(
         long = "graph",
         value_name = "FILE_PATH",
-        help = "Path to write the ancestor graph between the input terms",
+        help = "Path to write the ancestor graph between the input terms.",
         default_value="./"
     )]
     graph_path: String
