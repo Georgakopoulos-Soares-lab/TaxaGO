@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::error::Error;
 use std::fs::create_dir_all;
 use std::env::var;
 use std::collections::HashSet;
@@ -203,7 +204,7 @@ struct CliArgs {
     pm_tolerance: f64,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
 
     let cli_args: CliArgs = CliArgs::parse();  
     create_dir_all(&cli_args.output_dir)?;
