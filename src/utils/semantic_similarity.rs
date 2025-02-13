@@ -257,7 +257,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let ontology = parse_obo_file(&cli_args.obo_file)?;
     let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
-
+    
+    println!("Reading background populations from: {}\n", &cli_args.background_dir);
+    
     let mut background_counts = load_background(
         cli_args.background_dir,
         cli_args.taxon_ids
