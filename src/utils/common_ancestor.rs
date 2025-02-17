@@ -428,6 +428,12 @@ fn main() -> Result<(), Error> {
     }
     
     let common_ancestors = find_common_ancestors(&ancestry_paths, &node_index_to_go_id);
+    
+    if common_ancestors.is_empty() {
+        eprintln!("No common ancestors found between the provided GO terms");
+        std::process::exit(1);
+    }
+
     let first_common_ancestor = find_first_common_ancestor(
         &ancestry_paths, 
         &node_index_to_go_id,
