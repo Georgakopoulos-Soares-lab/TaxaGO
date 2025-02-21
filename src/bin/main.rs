@@ -245,8 +245,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
     
     let significant_fishers_results = adjust_species_p_values(&enrichment_results, &cli_args.correction_method, Some(cli_args.significance_threshold));
-    
-    write_single_taxon_results(&significant_fishers_results, &ontology, cli_args.min_odds_ratio, &cli_args.output_dir)?;
+    let taxid_species_map = taxid_to_species(DEFAULT_LINEAGE.to_string())?;
+    write_single_taxon_results(&significant_fishers_results, &ontology, cli_args.min_odds_ratio, &taxid_species_map, &cli_args.output_dir)?;
     
     if let Some(level_to_combine) = &cli_args.combine_results {
 
@@ -254,7 +254,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         println!("Reading taxonomic lineage information from: {}\n", DEFAULT_LINEAGE.to_string());
         let lineage = read_lineage(DEFAULT_LINEAGE.to_string());
-        
+
         let grouped_species = taxid_to_level(
             &enrichment_results,
             &lineage?,

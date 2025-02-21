@@ -70,10 +70,11 @@ pub fn write_single_taxon_results(
     data: &HashMap<u32, HashMap<u32, GOTermResults>>,
     ontology: &HashMap<u32, OboTerm>,
     min_log_odds_ratio: f64,
+    taxid_species_map: &HashMap<u32, String>,
     output_dir: &str
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("single_taxon_results");
-    let plots_dir = PathBuf::from(&results_dir).join("single_taxon_plots");
+    let plots_dir = PathBuf::from(&results_dir).join("plots");
     clean_directory(&results_dir)?; 
     create_dir_all(&results_dir)?;
     create_dir_all(&plots_dir)?;
@@ -85,7 +86,11 @@ pub fn write_single_taxon_results(
     let mut line_buffer = String::with_capacity(256);
     
     for (taxon_id, go_terms) in data {
-        let filename = results_dir.join(format!("{}_GOEA_results.txt", taxon_id));
+        let species_name = taxid_species_map.get(taxon_id)
+            .unwrap_or(&taxon_id.to_string())
+            .replace(" ", "_");
+
+        let filename = results_dir.join(format!("{}_GOEA_results.txt", species_name));
         let file = File::create(&filename)?;
         let mut writer = BufWriter::with_capacity(BUFFER_SIZE, file);
         
@@ -138,7 +143,7 @@ pub fn write_taxonomy_results(
     level: &String,
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("combined_taxonomy_results");
-    let plots_dir = PathBuf::from(&results_dir).join("single_taxon_plots");
+    let plots_dir = PathBuf::from(&results_dir).join("plots");
     clean_directory(&results_dir)?; 
     create_dir_all(&results_dir)?;
     create_dir_all(&plots_dir)?;

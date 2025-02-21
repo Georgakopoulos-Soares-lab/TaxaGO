@@ -22,6 +22,22 @@ pub fn read_lineage<P: AsRef<Path>>(path: P) -> Result<HashMap<u32, Vec<String>>
     }
     Ok(taxonomy)
 }
+pub fn taxid_to_species<P: AsRef<Path>>(path: P) -> Result<HashMap<u32, String>> {
+    let file = File::open(path)?;
+    let reader = BufReader::with_capacity(32 * 1024, file);
+    let mut taxid_species_map = HashMap::new();
+
+    for line in reader.lines().skip(1) {
+        let line = line?;
+        let fields: Vec<&str> = line.split('\t').collect();
+
+        if let Ok(taxon_id) = fields[0].parse::<u32>() {
+            let species_name = fields[1].to_string();
+            taxid_species_map.insert(taxon_id, species_name);
+        }
+    }
+    Ok(taxid_species_map)
+}
 
 pub fn taxid_to_level(
     significant_results: &HashMap<u32, HashMap<u32, GOTermResults>>,
