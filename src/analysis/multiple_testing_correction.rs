@@ -26,7 +26,7 @@ pub enum AdjustmentMethod {
 impl From<&str> for AdjustmentMethod {
     fn from(s: &str) -> Self {
         match s.to_lowercase().as_str() {
-            "no" => AdjustmentMethod::None,
+            "none" => AdjustmentMethod::None,
             "bonferroni" => AdjustmentMethod::Bonferroni,
             "bh" => AdjustmentMethod::BenjaminiHochberg,
             "by" => AdjustmentMethod::BenjaminiYekutieli,

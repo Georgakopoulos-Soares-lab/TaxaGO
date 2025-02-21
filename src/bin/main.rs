@@ -139,7 +139,7 @@ struct CliArgs {
         long = "min-score",
         value_name = "MIN_SCORE",
         help = "Minimum score (log(odds ratio)) a GO Term must have to be written in the results. Keeps GO terms with score ≥ threshold.",
-        default_value = "2.0",
+        default_value = "0.5",
         required = false
     )]
     min_odds_ratio: f64,
@@ -154,29 +154,21 @@ struct CliArgs {
     significance_threshold: f64,
 
     #[arg(
-        long = "adjustment-method",
+        long = "correction-method",
         value_name = "METHOD",
-        help = "Method to adjust p-values for multiple test correction. [available: bonferroni, bh, by, no]",
-        default_value = "bonferroni",
+        help = "Method to adjust p-values for multiple test correction. [available: bonferroni, bh, by, none]",
+        default_value = "none",
         required = false
     )]
     correction_method: String,
 
     #[arg(
-        long = "group-results",
-        help = "Combine results from all taxa into a single output. [Must be specified to group the results]",
-        default_value_t = false
-    )]
-    combine_results: bool,
-    
-    #[arg(
-        long = "taxonomic-level",
+        long = "combine-results",
         value_name = "TAXONOMIC_LEVEL",
-        help = "Desired taxonomic level for result combination. [available: superkingdom, kingdom, phylum, class, order, family, genus]",
-        default_value = "kingdom",
+        help = "Combine results from all taxa into a single output based on the taxonomic level specified. [Must be specified to group the results]",
     )]
-    taxonomic_level: String,
-
+    combine_results: Option<String>,
+    
     #[arg(
         long = "lineage-percentage",
         value_name = "PERCENTAGE",
@@ -256,8 +248,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     write_single_taxon_results(&significant_fishers_results, &ontology, cli_args.min_odds_ratio, &cli_args.output_dir)?;
     
-    if cli_args.combine_results {
-        let level_to_combine = &cli_args.taxonomic_level;
+    if let Some(level_to_combine) = &cli_args.combine_results {
 
         println!("Grouping species based on {}\n", level_to_combine);
 

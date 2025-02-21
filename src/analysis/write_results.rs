@@ -1,13 +1,29 @@
 use std::collections::HashMap;
-use std::fs::{File, create_dir_all};
-use std::io::{BufWriter, Write};
+use std::fs::{self, File, create_dir_all};
+use std::io::{self, BufWriter, Write};
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::fmt::Write as FmtWrite;
 use lazy_static::lazy_static;
 use crate::parsers::obo_parser::{OboTerm, NameSpace};
 use crate::analysis::enrichment_analysis::GOTermResults;
 use crate::analysis::multiple_testing_correction::TaxonomyGOResult;
+
+fn clean_directory(dir_path: &Path) -> io::Result<()> {
+    if dir_path.exists() {
+        for entry in fs::read_dir(dir_path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                fs::remove_file(path)?;
+            } else if path.is_dir() {
+                fs::remove_dir_all(path)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 
 const BUFFER_SIZE: usize = 8192 * 32;
 
@@ -57,7 +73,10 @@ pub fn write_single_taxon_results(
     output_dir: &str
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("single_taxon_results");
+    let plots_dir = PathBuf::from(&results_dir).join("single_taxon_plots");
+    clean_directory(&results_dir)?; 
     create_dir_all(&results_dir)?;
+    create_dir_all(&plots_dir)?;
 
     println!("Writing single taxon results to: {}\n", results_dir.to_str().unwrap());
     
@@ -119,7 +138,11 @@ pub fn write_taxonomy_results(
     level: &String,
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("combined_taxonomy_results");
+    let plots_dir = PathBuf::from(&results_dir).join("single_taxon_plots");
+    clean_directory(&results_dir)?; 
     create_dir_all(&results_dir)?;
+    create_dir_all(&plots_dir)?;
+
     println!("Writing {} results to: {}\n", level, results_dir.to_str().unwrap());
     
     let mut term_cache = TermCache::new();
