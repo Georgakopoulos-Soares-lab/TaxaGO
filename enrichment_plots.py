@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import textwrap
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 def load_goea_results(path, dictionary):
     for file in path.glob("*_GOEA_results.txt"):
@@ -26,8 +27,6 @@ def create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir):
     goea_results_df['Formatted Odds Ratio'] = goea_results_df['Odds Ratio'].apply(lambda x: f"{x:.2f}")
 
     for namespace in ["Biological Process", "Molecular Function", "Cellular Component"]:
-        namespace_dir = outdir / namespace
-        namespace_dir.mkdir(parents=True, exist_ok=True)
         
         namespace_df = goea_results_df[(goea_results_df["Namespace"] == namespace)]
         if namespace_df.empty:
@@ -85,8 +84,7 @@ def create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir):
             )
         else:
             raise ValueError("Invalid taxonomic_level. Choose 'taxonomy' or 'species'.")
-        print(sorted_namespace_df.head(10))
-        break
+
         fig = px.bar(
             sorted_namespace_df,
             y=wrapped_names,
@@ -129,22 +127,21 @@ def create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir):
             yaxis_showgrid=True
         )
 
-        fig.write_html(f"{namespace_dir}/{name}.html")
-        fig.write_image(f"{namespace_dir}/{name}.png")
+        fig.write_html(f"{outdir}/{namespace}/{name}.html")
+        fig.write_image(f"{outdir}/{namespace}/{name}.png")
+def process_species(task):
+    """Wrapper to call the plotting function for one species."""
+    name, goea_results_df, taxonomic_level, outdir = task
+    create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir)
 
 def main():
     parser = argparse.ArgumentParser(description="Example script")
     parser.add_argument("-i", help="Directory containing the GOEA results.", required=True)
-    
     args = parser.parse_args()
 
     goea_results_dir = Path(args.i)
-    dirs = [entry.name for entry in goea_results_dir.iterdir() if entry.is_dir()]
     goea_results_dict = dict()
 
-    # if (goea_results_dir / "combined_taxonomy_results").exists():
-    #     results_dir = goea_results_dir / "combined_taxonomy_results"
-    #     taxonomic_level = "taxonomy"
     if (goea_results_dir / "single_taxon_results").exists():
         results_dir = goea_results_dir / "single_taxon_results"
         taxonomic_level = "species"
@@ -153,12 +150,24 @@ def main():
         return
 
     load_goea_results(results_dir, goea_results_dict)
-    
     barplots_dir = results_dir / "plots" / "barplots"
     barplots_dir.mkdir(parents=True, exist_ok=True)
 
-    for name, goea_results_df in goea_results_dict.items():
-        create_enrichment_barplots(goea_results_df, taxonomic_level, name, barplots_dir)
+    for namespace in ["Biological Process", "Molecular Function", "Cellular Component"]:
+        (barplots_dir / namespace).mkdir(parents=True, exist_ok=True)
+
+    tasks = [
+        (name, goea_results_df, taxonomic_level, barplots_dir)
+        for name, goea_results_df in goea_results_dict.items()
+    ]
+
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(process_species, task) for task in tasks]
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Error processing species: {e}")
 
 if __name__ == "__main__":
     main()
