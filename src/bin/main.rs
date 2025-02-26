@@ -79,6 +79,7 @@ lazy_static! {
 #[command(name = "taxago")]
 struct CliArgs {
     #[arg(
+        short='o',
         long = "obo",
         value_name = "OBO_FILE",
         help = "Path to the Gene Ontology file in OBO format.",
@@ -88,7 +89,8 @@ struct CliArgs {
     obo_file: String,
     
     #[arg(
-        long = "study-pop",
+        short='s',
+        long = "study",
         value_name = "STUDY_DIR",
         help = "Directory containing study popultion for each taxon in FASTA format or CSV file with the study population for each species.",
         required = true
@@ -96,7 +98,8 @@ struct CliArgs {
     study_dir: String,
     
     #[arg(
-        long = "background-pop",
+        short='b',
+        long = "background",
         value_name = "BACKGROUND_DIR",
         help = "Directory containing background populations.",
         default_value_t = DEFAULT_BACKGROUND.to_string(),
@@ -104,7 +107,8 @@ struct CliArgs {
     background_dir: String,
     
     #[arg(
-        long = "out-dir",
+        short='d',
+        long = "dir",
         value_name = "RESULTS_DIR",
         help = "Directory to write results for each taxon and the combined results for the taxonomic level [if specified].",
         required = true
@@ -112,6 +116,7 @@ struct CliArgs {
     output_dir: String,
     
     #[arg(
+        short='p',
         long = "propagate-counts",
         help = "Propagates GO term counts upwards the Ontology graph (from child to parent). [Must be specified to propagate the counts]",
         default_value_t = false
@@ -119,7 +124,8 @@ struct CliArgs {
     propagate_counts: bool,
 
     #[arg(
-        long = "statistical-test",
+        short='t',
+        long = "test",
         value_name = "TYPE",
         help = "Statistical test to use. [available: fisher, hypergeometric]",
         default_value = "fisher"
@@ -127,7 +133,8 @@ struct CliArgs {
     statistical_test: String,
 
     #[arg(
-        long = "min-protein-count",
+        short='m',
+        long = "min-prot",
         value_name = "MIN_COUNT",
         help = "Minimum protein count a GO Term must have to be processed.",
         default_value = "5",
@@ -136,6 +143,7 @@ struct CliArgs {
     min_protein_count: usize,
     
     #[arg(
+        short='r',
         long = "min-score",
         value_name = "MIN_SCORE",
         help = "Minimum score (log(odds ratio)) a GO Term must have to be written in the results. Keeps GO terms with score ≥ threshold.",
@@ -145,7 +153,8 @@ struct CliArgs {
     min_odds_ratio: f64,
 
     #[arg(
-        long = "significance-threshold",
+        short='a',
+        long = "alpha",
         value_name = "THRESHOLD",
         help = "P-value / Adjusted P-value threshold to determine significant results.",
         default_value = "0.05",
@@ -154,6 +163,7 @@ struct CliArgs {
     significance_threshold: f64,
 
     #[arg(
+        short='c',
         long = "correction-method",
         value_name = "METHOD",
         help = "Method to adjust p-values for multiple test correction. [available: bonferroni, bh, by, none]",
@@ -163,13 +173,15 @@ struct CliArgs {
     correction_method: String,
 
     #[arg(
-        long = "combine-results",
+        short='g',
+        long = "group-results",
         value_name = "TAXONOMIC_LEVEL",
         help = "Combine results from all taxa into a single output based on the taxonomic level specified. [Must be specified to group the results]",
     )]
     combine_results: Option<String>,
     
     #[arg(
+        short = 'l',
         long = "lineage-percentage",
         value_name = "PERCENTAGE",
         help = "Percentage of species inside the desired taxonomic level in which the GO term must be found in. [From 0.0 to 1.0]",
@@ -178,6 +190,7 @@ struct CliArgs {
     lineage_percentage: f64,
 
     #[arg(
+        short = 'i',
         long = "pm-iterations",
         value_name = "ITERATIONS_NUMBER",
         help = "Number of maximum iterations the Paule-Mandel estimator can reach when calculating the τ² estimate.",
@@ -187,6 +200,7 @@ struct CliArgs {
     pm_iterations: usize,
 
     #[arg(
+        short = 'e',
         long = "pm-tolerance",
         value_name = "TOLERANCE",
         help = "Minimum acceptable tolerance between two τ² estimates.",

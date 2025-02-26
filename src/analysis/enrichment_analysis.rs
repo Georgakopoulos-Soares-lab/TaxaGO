@@ -121,14 +121,14 @@ impl EnrichmentAnalysis {
         total_study: usize,
         total_background: usize,
     ) -> ContingencyTable {
-        [
-            study_with_go,
-            total_study.saturating_sub(study_with_go),
-            background_with_go.saturating_sub(study_with_go),
-            total_background
-                .saturating_sub(background_with_go)
-                .saturating_sub(total_study.saturating_sub(study_with_go))
-        ]
+        let a = study_with_go;
+        let b = total_study.saturating_sub(study_with_go);
+        let c = background_with_go.saturating_sub(study_with_go);
+        let d = total_background
+            .saturating_sub(background_with_go)
+            .saturating_sub(total_study.saturating_sub(study_with_go));
+        
+        [a + 1, b + 1, c + 1, d + 1]
     }
 
     fn filter_go_terms(
