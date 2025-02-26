@@ -16,7 +16,7 @@ def wrap_text(text, width=30):
     """Wraps text to a specified width for better readability."""
     return "<br>".join(textwrap.wrap(text, width))
 
-def create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir):
+def create_enrichment_plots(goea_results_df, taxonomic_level, name, outdir):
 
     min_value = np.nextafter(0, 1)
     goea_results_df['-log10(Stat. Sig.)'] = -np.log10(
@@ -27,21 +27,24 @@ def create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir):
     goea_results_df['Formatted Odds Ratio'] = goea_results_df['Odds Ratio'].apply(lambda x: f"{x:.2f}")
 
     for namespace in ["Biological Process", "Molecular Function", "Cellular Component"]:
-        
-        namespace_df = goea_results_df[(goea_results_df["Namespace"] == namespace)]
+        namespace_df = goea_results_df[goea_results_df["Namespace"] == namespace].copy()
         if namespace_df.empty:
             print(f"No valid {namespace} results for {taxonomic_level}.")
-            continue  
+            continue
 
         sorted_namespace_df = namespace_df.sort_values(by="Statistical significance", ascending=True).head(20)
         sorted_namespace_df = sorted_namespace_df.sort_values(by="log(Odds Ratio)", ascending=True)
+
         wrapped_names = sorted_namespace_df['Name'].apply(lambda x: wrap_text(x, width=30))
         
-        if taxonomic_level == "taxonomy":
-            sorted_namespace_df['Coverage'] = (sorted_namespace_df['N with GO term'].astype(str) + "/" +
-                                               sorted_namespace_df['N in taxonomy'].astype(str))
-            sorted_namespace_df['Formatted Percentage'] = sorted_namespace_df['Species Percentage'].apply(lambda x: f"{x:.1f}%")
+        labels_top_10 = namespace_df.nlargest(10, '-log10(Stat. Sig.)')
 
+        if taxonomic_level == "taxonomy":
+            namespace_df['Coverage'] = namespace_df['N with GO term'].astype(str) + "/" + namespace_df['N in taxonomy'].astype(str)
+            namespace_df['Formatted Percentage'] = namespace_df['Species Percentage'].apply(lambda x: f"{x:.1f}%")
+            sorted_namespace_df['Coverage'] = sorted_namespace_df['N with GO term'].astype(str) + "/" + sorted_namespace_df['N in taxonomy'].astype(str)
+            sorted_namespace_df['Formatted Percentage'] = sorted_namespace_df['Species Percentage'].apply(lambda x: f"{x:.1f}%")
+            
             custom_cols = ['Name',
                            'GO Term ID',
                            'Formatted Statistical significance',
@@ -60,6 +63,7 @@ def create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir):
                 "<b>Taxonomic coverage:</b> %{customdata[5]} (%{customdata[4]})<br>" +
                 "<b>Heterogeneity:</b> %{customdata[6]:.2f}"
             )
+            bubble_size_col = "Species Percentage"
         elif taxonomic_level == "species":
             custom_cols = ['Name',
                            'GO Term ID',
@@ -82,26 +86,23 @@ def create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir):
                 "<b>Number of Background proteins with term:</b> %{customdata[6]}<br>" +
                 "<b>Number of Background protein without term:</b> %{customdata[7]}"
             )
+            bubble_size_col = "N Study with term"
         else:
             raise ValueError("Invalid taxonomic_level. Choose 'taxonomy' or 'species'.")
 
-        fig = px.bar(
+        fig_bar = px.bar(
             sorted_namespace_df,
             y=wrapped_names,
             x='log(Odds Ratio)',
             color='-log10(Stat. Sig.)',
             color_continuous_scale="Cividis",
             labels={'log(Odds Ratio)': 'log(Odds Ratio) (Higher is better)', 'y': ''},
-            custom_data = custom_cols,
+            custom_data=custom_cols,
             width=600,
-            height=900,
+            height=1200,
         )
-        
-        fig.update_traces(
-            hovertemplate=hover_template
-        )
-        
-        fig.update_coloraxes(
+        fig_bar.update_traces(hovertemplate=hover_template)
+        fig_bar.update_coloraxes(
             colorbar_title="-log10(Stat. Sig.)",
             colorbar_tickfont=dict(size=10),
             colorbar_title_font=dict(size=12),
@@ -111,8 +112,7 @@ def create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir):
             colorbar_y=0.91,
             colorbar_yanchor="middle"
         )
-        
-        fig.update_layout(
+        fig_bar.update_layout(
             margin=dict(l=10, r=10, t=30, b=10),
             showlegend=False,
             dragmode=False,
@@ -127,12 +127,62 @@ def create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir):
             yaxis_showgrid=True
         )
 
-        fig.write_html(f"{outdir}/{namespace}/{name}.html")
-        fig.write_image(f"{outdir}/{namespace}/{name}.png")
+        fig_bar.write_html(f"{outdir}/{namespace}/{name}_bar.html")
+        fig_bar.write_image(f"{outdir}/{namespace}/{name}_bar.png")
+
+        fig_bubble = px.scatter(
+            namespace_df,
+            x='log(Odds Ratio)',
+            y='-log10(Stat. Sig.)',
+            size=bubble_size_col,
+            custom_data=custom_cols,
+            labels={'log(Odds Ratio)': 'log(Odds Ratio) (Higher is better)'},
+            size_max=30,
+            color="Namespace",
+            color_discrete_map={
+                "Biological Process": "#DE9471",
+                "Molecular Function": "#639CCF",
+                "Cellular Component": "#78C75F"
+            },
+            width=600,
+            height=600,
+        )
+        fig_bubble.update_traces(
+            hovertemplate=hover_template,
+            marker=dict(sizemin=5)
+        )
+        fig_bubble.update_layout(
+            margin=dict(l=10, r=10, t=30, b=10),
+            showlegend=False,
+            xaxis=dict(
+                title_font=dict(size=12),
+                tickfont=dict(size=10)
+            ),
+            yaxis=dict(
+                title_font=dict(size=12),
+                tickfont=dict(size=10)
+            ),
+            yaxis_showgrid=True
+        )
+
+        for idx, row in labels_top_10.iterrows():
+            fig_bubble.add_annotation(
+                x=row['log(Odds Ratio)'],
+                y=row['-log10(Stat. Sig.)'],
+                text=row['Name'],
+                showarrow=True,
+                arrowhead=4,
+                font=dict(size=8)
+            )
+
+        fig_bubble.write_html(f"{outdir}/{namespace}/{name}_bubble.html")
+        fig_bubble.write_image(f"{outdir}/{namespace}/{name}_bubble.png")
+
+
 def process_species(task):
-    """Wrapper to call the plotting function for one species."""
+    """Wrapper to call the combined plotting function for one species."""
     name, goea_results_df, taxonomic_level, outdir = task
-    create_enrichment_barplots(goea_results_df, taxonomic_level, name, outdir)
+    create_enrichment_plots(goea_results_df, taxonomic_level, name, outdir)
 
 def main():
     parser = argparse.ArgumentParser(description="Example script")
@@ -142,7 +192,10 @@ def main():
     goea_results_dir = Path(args.i)
     goea_results_dict = dict()
 
-    if (goea_results_dir / "single_taxon_results").exists():
+    if (goea_results_dir / "combined_taxonomy_results").exists():
+        results_dir = goea_results_dir / "combined_taxonomy_results"
+        taxonomic_level = "taxonomy"
+    elif (goea_results_dir / "single_taxon_results").exists():
         results_dir = goea_results_dir / "single_taxon_results"
         taxonomic_level = "species"
     else:
@@ -150,14 +203,15 @@ def main():
         return
 
     load_goea_results(results_dir, goea_results_dict)
-    barplots_dir = results_dir / "plots" / "barplots"
-    barplots_dir.mkdir(parents=True, exist_ok=True)
+
+    plots_dir = results_dir / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
 
     for namespace in ["Biological Process", "Molecular Function", "Cellular Component"]:
-        (barplots_dir / namespace).mkdir(parents=True, exist_ok=True)
+        (plots_dir / namespace).mkdir(parents=True, exist_ok=True)
 
     tasks = [
-        (name, goea_results_df, taxonomic_level, barplots_dir)
+        (name, goea_results_df, taxonomic_level, plots_dir)
         for name, goea_results_df in goea_results_dict.items()
     ]
 
