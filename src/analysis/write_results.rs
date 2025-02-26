@@ -97,7 +97,7 @@ pub fn write_single_taxon_results(
         writer.write_all(b"GO Term ID\tName\tNamespace\tlog(Odds Ratio)\tStatistical significance\tN Study with term\tN Study without term\tN Background with term\tN Background without term\n")?;
         
         for (go_term, results) in go_terms {
-            if results.log_odds_ratio.abs() >= min_log_odds_ratio {
+            if results.log_odds_ratio >= min_log_odds_ratio {
                 if let Some(term) = ontology.get(go_term) {
                     if !term.is_obsolete {
                         let formatted_go_term = term_cache.get_go_term(*go_term);
@@ -161,7 +161,7 @@ pub fn write_taxonomy_results(
         writer.write_all(b"GO Term ID\tName\tNamespace\tlog(Odds Ratio)\tStatistical significance\tHeterogeneity\tSpecies Percentage\tN with GO term\tN in taxonomy\n")?;
         
         for (go_term, result) in go_terms {
-            if result.log_odds_ratio.abs() >= min_log_odds_ratio {
+            if result.log_odds_ratio >= min_log_odds_ratio {
                 if let Some(term) = ontology.get(go_term) {
                     if !term.is_obsolete {
                         let formatted_go_term = term_cache.get_go_term(*go_term);
