@@ -14,6 +14,8 @@ use std::io::{self, BufRead, BufReader};
 use rayon::prelude::*;
 use daggy::{NodeIndex, Walker};
 
+pub type InformationContent = f64;
+
 lazy_static! {
     static ref DEFAULT_OBO_PATH: String = {
         let cargo_home = var("CARGO_HOME")
@@ -51,9 +53,10 @@ lazy_static! {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "taxago")]
+#[command(name = "semantic-similarity")]
 struct CliArgs {
     #[arg(
+        short = 'o',
         long = "obo",
         value_name = "OBO_FILE",
         help = "Path to the Gene Ontology file in OBO format.",
@@ -63,23 +66,25 @@ struct CliArgs {
     obo_file: String,
     
     #[arg(
+        short='t',
         long = "terms",
-        value_name = "GO_TERMS",
-        help = "Comma-separated list of GO terms [e.g., GO:0016070,GO:0140187]",
-        required = true
+        value_name = "GO_TERMS_OR_FILE",
+        help = "Either a comma-separated list of GO terms [e.g., GO:0016070,GO:0140187] or a path to a file containing GO terms (one per line)",
     )]
-    go_terms: String,
+    go_terms_input: String,
 
     #[arg(
-        long = "taxon-ids",
+        short ='i',
+        long = "ids",
         value_name = "TAXON_IDS",
         help = "Comma-separated list of Taxon IDs [e.g., 9606,10090]",
-        required = true
+
     )]
     taxon_ids: String,
     
     #[arg(
-        long = "background-pop",
+        short = 'b',
+        long = "background",
         value_name = "BACKGROUND_DIR",
         help = "Directory containing background populations.",
         default_value_t = DEFAULT_BACKGROUND.to_string(),
@@ -87,14 +92,16 @@ struct CliArgs {
     background_dir: String,
 
     #[arg(
-        long = "out-dir",
+        short = 'd',
+        long = "dir",
         value_name = "RESULTS_DIR",
         help = "Directory to write results.",
-        required = true
+
     )]
     output_dir: String,
     
     #[arg(
+        short = 'm',
         long = "method",
         value_name = "METHOD",
         help = "Method to calculate semantic similarity between two GO terms. [available: resnik, wang, lin]",
@@ -103,6 +110,7 @@ struct CliArgs {
     method: String,
 
     #[arg(
+        short = 'p',
         long = "propagate-counts",
         help = "Propagates GO term counts upwards the Ontology graph (from child to parent). [Must be specified to propagate the counts]",
         default_value_t = false
@@ -249,6 +257,101 @@ pub fn load_background(
     Ok(background_counts)
 }
 
+fn parse_single_go_term(term: &str) -> Result<u32, String> {
+    let term = term.trim();
+    
+    let numeric_part = if term.to_lowercase().starts_with("go:") {
+        &term[3..]
+    } else {
+        return Err(format!("Invalid GO term format: {}. Term must start with 'GO:'", term));
+    };
+    
+    numeric_part.parse::<u32>().map_err(|_| {
+        format!("Invalid GO term number: {}. Expected a valid number after 'GO:'", numeric_part)
+    })
+}
+
+fn parse_go_terms(terms: &str) -> Result<Vec<u32>, String> {
+    terms
+        .split(',')
+        .map(parse_single_go_term)
+        .collect()
+}
+
+fn read_go_terms_from_file(file_path: &str) -> Result<Vec<u32>, String> {
+    let file = File::open(file_path)
+        .map_err(|e| format!("Failed to open terms file: {}", e))?;
+    
+    let reader = BufReader::new(file);
+    let mut go_terms = Vec::new();
+    
+    for line_result in reader.lines() {
+        let line = line_result
+            .map_err(|e| format!("Error reading terms file: {}", e))?;
+        
+        let term = line.trim();
+        if !term.is_empty() {
+            match parse_single_go_term(term) {
+                Ok(go_id) => go_terms.push(go_id),
+                Err(e) => return Err(e),
+            }
+        }
+    }
+    
+    if go_terms.is_empty() {
+        return Err(format!("No valid GO terms found in file: {}", file_path));
+    }
+    
+    Ok(go_terms)
+}
+
+fn process_go_terms_input(input: &str) -> Result<Vec<u32>, String> {
+    if !input.contains(',') && Path::new(input).exists() {
+        println!("Input appears to be a file path. Reading GO terms from file: {}\n", input);
+        read_go_terms_from_file(input)
+    } else {
+        println!("Processing input as comma-separated GO terms\n");
+        parse_go_terms(input)
+    }
+}
+
+fn calculate_information_content(
+    background_counts: &BackgroundCounts,
+    go_terms: &[u32],
+    go_id_to_node_index: &HashMap<u32, NodeIndex>,
+) -> HashMap<TaxonID, HashMap<u32, InformationContent>> {
+    background_counts.go_term_counts
+        .par_iter()
+        .map(|(&taxon_id, counts)| {
+
+            let total_annotations: usize = counts.values().copied().sum();
+            
+            let ic_map: HashMap<u32, InformationContent> = go_terms
+                .iter()
+                .filter_map(|&go_id| {
+                    if let Some(&count) = counts.get(&go_id) {
+                        if count > 0 && total_annotations > 0 {
+                            let probability = count as f64 / total_annotations as f64;
+                            let ic = -probability.log2();
+                            Some((go_id, ic))
+                        } else {
+                            if go_id_to_node_index.contains_key(&go_id) {
+                                Some((go_id, f64::INFINITY))
+                            } else {
+                                None
+                            }
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            
+            (taxon_id, ic_map)
+        })
+        .collect()
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let cli_args: CliArgs = CliArgs::parse();  
     create_dir_all(&cli_args.output_dir)?;
@@ -265,10 +368,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         cli_args.taxon_ids
     )?;
 
-    if cli_args.propagate_counts{
+    if cli_args.propagate_counts {
         println!("Propagating counts up the Ontology graph\n");
         background_counts.propagate_counts(&ontology_graph, &go_id_to_node_index);   
     }
+    
+    let go_terms = process_go_terms_input(&cli_args.go_terms_input)?;
+    
+    println!("Calculating information content for {} GO terms\n", go_terms.len());
 
+    let ic_results = calculate_information_content(
+        &background_counts,
+        &go_terms,
+        &go_id_to_node_index
+    );
+    println!("{:?}", &ic_results);
     Ok(())
 }

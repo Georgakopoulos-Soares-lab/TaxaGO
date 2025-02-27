@@ -216,7 +216,7 @@ pub fn paule_mandel_estimator(
 }
 
 pub fn combine_pvalues(p_values: &[f64]) -> f64 {
-    const EPSILON: f64 = 1e-10;
+    const EPSILON: f64 = 1e-300;
 
     if p_values.is_empty() {
         return 1.0;
