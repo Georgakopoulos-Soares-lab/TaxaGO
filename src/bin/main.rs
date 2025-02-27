@@ -20,6 +20,7 @@ use TaxaGO::analysis::{
     result_combination::*,
 
 };
+use std::process::Command;
 
 lazy_static! {
     static ref DEFAULT_OBO_PATH: String = {
@@ -70,6 +71,24 @@ lazy_static! {
         PathBuf::from(cargo_home)
             .join("taxago_assets")
             .join("full_lineage.txt")
+            .to_string_lossy()
+            .into_owned()
+    };
+}
+
+lazy_static! {
+    static ref ENRICHMENT_PLOTS_SCRIPT: String = {
+        let cargo_home = var("CARGO_HOME")
+            .unwrap_or_else(|_| {
+                home_dir()
+                    .expect("Could not determine home directory")
+                    .join(".cargo")
+                    .to_string_lossy()
+                    .into_owned()
+            });
+        PathBuf::from(cargo_home)
+            .join("taxago_assets")
+            .join("enrichment_plots.py")
             .to_string_lossy()
             .into_owned()
     };
@@ -208,6 +227,16 @@ struct CliArgs {
         required = false
     )]
     pm_tolerance: f64,
+
+    #[arg(
+        long = "combination-method",
+        value_name = "METHOD",
+        help = "Method to combine p-values on the taxonomic level. [available: fisher, stouffer, cauchy]",
+        default_value = "cauchy",
+        required = false
+    )]
+    p_combination_method: String,
+
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -279,13 +308,43 @@ fn main() -> Result<(), Box<dyn Error>> {
         
         println!("Applying Paule-Mandel estimator with {} tolerance and {} iterations \n", &cli_args.pm_tolerance, &cli_args.pm_iterations);
 
-        let complex_map = combine_taxonomic_results(&lineage_organized_results, cli_args.pm_tolerance, cli_args.pm_iterations);
+        let combination_method = match cli_args.p_combination_method.to_lowercase().as_str() {
+            "cauchy" => PValueCombinationMethod::Cauchy,
+            "stouffer" => PValueCombinationMethod::Stouffer,
+            "fisher" => PValueCombinationMethod::Fisher,
+            _ => {
+                eprintln!("Warning: Unknown p-value combination method '{}'. Using Cauchy method as default.", cli_args.p_combination_method);
+                PValueCombinationMethod::Cauchy
+            }
+        };
+
+        let complex_map = combine_taxonomic_results(&lineage_organized_results, cli_args.pm_tolerance, cli_args.pm_iterations, &combination_method);
 
         let significant_taxonomy_results = adjust_taxonomy_p_values(&complex_map, &cli_args.correction_method, Some(cli_args.significance_threshold), level_to_combine);
         
         write_taxonomy_results(&significant_taxonomy_results, &ontology, cli_args.min_odds_ratio, &cli_args.output_dir, level_to_combine)?;
     }
-
     println!("Finished analysis!\n");
+    
+    println!("Generating enrichment plots!\n");
+    
+    let plots_result = Command::new("python") 
+        .arg(&*ENRICHMENT_PLOTS_SCRIPT)
+        .arg("-i")
+        .arg(&cli_args.output_dir)
+        .status();
+        
+    match plots_result {
+        Ok(status) => {
+            if status.success() {
+                println!("Python script executed successfully\n");
+            } else {
+                eprintln!("Python script failed with exit code: {:?}\n", status.code());
+            }
+        },
+        Err(e) => {
+            eprintln!("Failed to execute Python script: {}\n", e);
+        }
+    }
     Ok(())
 }

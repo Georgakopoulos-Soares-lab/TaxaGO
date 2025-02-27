@@ -9,7 +9,7 @@ name = "taxago"
 path = "src/bin/main.rs"
 
 [[bin]]
-name = "commmon-ancestors"
+name = "common-ancestors"
 path = "src/utils/common_ancestor.rs"
 
 [[bin]]
