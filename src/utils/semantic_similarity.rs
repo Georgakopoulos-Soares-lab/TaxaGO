@@ -352,6 +352,164 @@ fn calculate_information_content(
         .collect()
 }
 
+fn create_node_index_to_go_id_map(go_id_to_node_index: &HashMap<u32, NodeIndex>) -> HashMap<NodeIndex, u32> {
+    go_id_to_node_index
+        .iter()
+        .map(|(&go_id, &node_idx)| (node_idx, go_id))
+        .collect()
+}
+
+fn find_mica(
+    term1_idx: NodeIndex,
+    term2_idx: NodeIndex,
+    graph: &OntologyGraph,
+    ic_map: &HashMap<u32, InformationContent>,
+    node_index_to_go_id: &HashMap<NodeIndex, u32>
+) -> Option<(NodeIndex, f64)> {
+    let mut ancestors1 = get_unique_ancestors(term1_idx, graph);
+    ancestors1.insert(term1_idx);
+    
+    let mut ancestors2 = get_unique_ancestors(term2_idx, graph);
+    ancestors2.insert(term2_idx); 
+    
+    let common_ancestors: HashSet<_> = ancestors1.intersection(&ancestors2).cloned().collect();
+    
+    if common_ancestors.is_empty() {
+        return None;
+    }
+    
+    common_ancestors.into_iter()
+        .filter_map(|ancestor_idx| {
+            let go_id = node_index_to_go_id.get(&ancestor_idx)?;
+            let ic = ic_map.get(go_id)?;
+            Some((ancestor_idx, *ic))
+        })
+        .max_by(|(_, ic1), (_, ic2)| {
+
+            ic1.partial_cmp(ic2).unwrap_or(std::cmp::Ordering::Equal)
+        })
+}
+
+fn calculate_resnik_similarity(
+    taxon_id: u32,
+    term1: u32,
+    term2: u32,
+    ic_maps: &HashMap<TaxonID, HashMap<u32, InformationContent>>,
+    graph: &OntologyGraph,
+    go_id_to_node_index: &HashMap<u32, NodeIndex>,
+    node_index_to_go_id: &HashMap<NodeIndex, u32>
+) -> Option<f64> {
+    let ic_map = ic_maps.get(&taxon_id)?;
+    
+    let term1_idx = go_id_to_node_index.get(&term1)?;
+    let term2_idx = go_id_to_node_index.get(&term2)?;
+    
+    if term1 == term2 {
+        return ic_map.get(&term1).copied();
+    }
+    
+    let similarity = find_mica(*term1_idx, *term2_idx, graph, ic_map, node_index_to_go_id)
+        .map(|(_, ic)| ic);
+    
+    if let Some(sim) = similarity {
+        if sim.is_infinite() {
+            return Some(1000.0);
+        }
+    }
+    
+    similarity
+}
+
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
+pub struct TermPair(u32, u32);
+
+impl TermPair {
+    pub fn new(a: u32, b: u32) -> Self {
+        if a <= b {
+            TermPair(a, b)
+        } else {
+            TermPair(b, a)
+        }
+    }
+    
+    pub fn first(&self) -> u32 {
+        self.0
+    }
+    
+    pub fn second(&self) -> u32 {
+        self.1
+    }
+    
+    pub fn as_tuple(&self) -> (u32, u32) {
+        (self.0, self.1)
+    }
+    
+    pub fn is_self_pair(&self) -> bool {
+        self.0 == self.1
+    }
+}
+
+fn calculate_pairwise_resnik_similarities(
+    go_terms: &[u32],
+    ic_maps: &HashMap<TaxonID, HashMap<u32, InformationContent>>,
+    graph: &OntologyGraph,
+    go_id_to_node_index: &HashMap<u32, NodeIndex>,
+    node_index_to_go_id: &HashMap<NodeIndex, u32>
+) -> HashMap<TaxonID, HashMap<TermPair, f64>> {
+    ic_maps.par_iter()
+        .map(|(&taxon_id, _)| {
+            let mut similarities = HashMap::new();
+            
+            for i in 0..go_terms.len() {
+                for j in i..go_terms.len() {
+                    let term1 = go_terms[i];
+                    let term2 = go_terms[j];
+                    
+                    if let Some(sim) = calculate_resnik_similarity(
+                        taxon_id,
+                        term1,
+                        term2,
+                        ic_maps,
+                        graph,
+                        go_id_to_node_index,
+                        node_index_to_go_id
+                    ) {
+                        similarities.insert(TermPair::new(term1, term2), sim);
+                    }
+                }
+            }
+            
+            (taxon_id, similarities)
+        })
+        .collect()
+}
+
+// fn write_similarity_results(
+//     similarity_results: &HashMap<TaxonID, HashMap<(u32, u32), f64>>,
+//     output_dir: &str,
+//     method: &str
+// ) -> io::Result<()> {
+//     for (&taxon_id, similarities) in similarity_results {
+//         let output_path = Path::new(output_dir)
+//             .join(format!("{}_{}_similarity.tsv", taxon_id, method));
+        
+//         let mut file = File::create(output_path)?;
+        
+//         // Write header
+//         writeln!(file, "GO_Term_1\tGO_Term_2\tSimilarity")?;
+        
+//         // Write similarities
+//         for (&(term1, term2), &similarity) in similarities {
+//             writeln!(
+//                 file, 
+//                 "GO:{:07}\tGO:{:07}\t{:.4}", 
+//                 term1, term2, similarity
+//             )?;
+//         }
+//     }
+    
+//     Ok(())
+// }
 fn main() -> Result<(), Box<dyn Error>> {
     let cli_args: CliArgs = CliArgs::parse();  
     create_dir_all(&cli_args.output_dir)?;
@@ -360,6 +518,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let ontology = parse_obo_file(&cli_args.obo_file)?;
     let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
+    
+    let node_index_to_go_id = create_node_index_to_go_id_map(&go_id_to_node_index);
     
     println!("Reading background populations from: {}\n", &cli_args.background_dir);
     
@@ -382,6 +542,32 @@ fn main() -> Result<(), Box<dyn Error>> {
         &go_terms,
         &go_id_to_node_index
     );
-    println!("{:?}", &ic_results);
+    
+    match cli_args.method.as_str() {
+        "resnik" => {
+            println!("Calculating Resnik semantic similarity for all term pairs\n");
+            let similarity_results = calculate_pairwise_resnik_similarities(
+                &go_terms,
+                &ic_results,
+                &ontology_graph,
+                &go_id_to_node_index,
+                &node_index_to_go_id
+            );
+            
+            println!("{:?}", &similarity_results);
+            println!("Writing results to: {}\n", cli_args.output_dir);
+            // write_similarity_results(&similarity_results, &cli_args.output_dir, "resnik")?;
+        },
+        "lin" | "wang" => {
+            println!("Method '{}' not yet implemented\n", cli_args.method);
+
+        },
+        _ => {
+            return Err(format!("Unknown semantic similarity method: {}", cli_args.method).into());
+        }
+    }
+    
+    println!("Done!");
+    
     Ok(())
 }

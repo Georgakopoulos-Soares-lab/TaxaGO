@@ -228,15 +228,6 @@ struct CliArgs {
     )]
     pm_tolerance: f64,
 
-    #[arg(
-        long = "combination-method",
-        value_name = "METHOD",
-        help = "Method to combine p-values on the taxonomic level. [available: fisher, stouffer, cauchy]",
-        default_value = "cauchy",
-        required = false
-    )]
-    p_combination_method: String,
-
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -308,25 +299,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         
         println!("Applying Paule-Mandel estimator with {} tolerance and {} iterations \n", &cli_args.pm_tolerance, &cli_args.pm_iterations);
 
-        let combination_method = match cli_args.p_combination_method.to_lowercase().as_str() {
-            "cauchy" => PValueCombinationMethod::Cauchy,
-            "stouffer" => PValueCombinationMethod::Stouffer,
-            "fisher" => PValueCombinationMethod::Fisher,
-            _ => {
-                eprintln!("Warning: Unknown p-value combination method '{}'. Using Cauchy method as default.", cli_args.p_combination_method);
-                PValueCombinationMethod::Cauchy
-            }
-        };
-
-        let complex_map = combine_taxonomic_results(&lineage_organized_results, cli_args.pm_tolerance, cli_args.pm_iterations, &combination_method);
+        let complex_map = combine_taxonomic_results(&lineage_organized_results, cli_args.pm_tolerance, cli_args.pm_iterations);
 
         let significant_taxonomy_results = adjust_taxonomy_p_values(&complex_map, &cli_args.correction_method, Some(cli_args.significance_threshold), level_to_combine);
         
         write_taxonomy_results(&significant_taxonomy_results, &ontology, cli_args.min_odds_ratio, &cli_args.output_dir, level_to_combine)?;
     }
-    println!("Finished analysis!\n");
+    println!("Finished analysis\n");
     
-    println!("Generating enrichment plots!\n");
+    println!("Generating enrichment plots\n");
     
     let plots_result = Command::new("python") 
         .arg(&*ENRICHMENT_PLOTS_SCRIPT)
@@ -337,9 +318,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     match plots_result {
         Ok(status) => {
             if status.success() {
-                println!("Python script executed successfully\n");
+                println!("Enrichment plots created successfully\n");
             } else {
-                eprintln!("Python script failed with exit code: {:?}\n", status.code());
+                eprintln!("Plot generation failed with exit code: {:?}\n", status.code().unwrap());
             }
         },
         Err(e) => {

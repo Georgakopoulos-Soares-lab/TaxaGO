@@ -1,15 +1,8 @@
 use std::collections::HashMap;
-use std::f64::consts::PI;
+use std::cmp::Ordering;
 use crate::analysis::enrichment_analysis::GOTermResults;
 use crate::analysis::multiple_testing_correction::TaxonomyGOResult;
-use statrs::distribution::{Normal, ContinuousCDF};
 
-#[derive(Copy, Clone)]
-pub enum PValueCombinationMethod {
-    Fisher,
-    Stouffer,
-    Cauchy,
-}
 pub fn group_results_by_taxonomy(
     family_taxa: &HashMap<String, Vec<u32>>,
     fisher_results: &HashMap<u32, HashMap<u32, GOTermResults>>,
@@ -116,7 +109,6 @@ pub fn combine_taxonomic_results(
     organized_results: &HashMap<String, HashMap<u32, HashMap<u32, (f64, f64, [usize; 4], f64)>>>,
     tolerance: f64,
     max_iterations: usize,
-    combination_method: &PValueCombinationMethod,
 ) -> HashMap<String, HashMap<u32, TaxonomyGOResult>> {
     let mut final_estimates = HashMap::new();
 
@@ -172,7 +164,7 @@ pub fn combine_taxonomic_results(
                 }
                 _ => {
                     let (tau_squared, mean_effect) = paule_mandel_estimator(&effect_sizes, &variances, tolerance, max_iterations);
-                    let combined_p = combine_pvalues(&p_values, &combination_method);
+                    let combined_p = combine_pvalues(&p_values);
                     go_term_estimates.insert(go_term, TaxonomyGOResult {
                         log_odds_ratio: mean_effect,
                         p_value: combined_p,
@@ -223,44 +215,20 @@ pub fn paule_mandel_estimator(
     }
 }
 
-pub fn combine_pvalues(
-    p_values: &[f64], 
-    method: &PValueCombinationMethod
-) -> f64 {
-    const EPSILON: f64 = 1e-300;
-
+pub fn combine_pvalues(p_values: &[f64]) -> f64 {
     if p_values.is_empty() {
         return 1.0;
     }
-
-    match method {
-        PValueCombinationMethod::Cauchy => {
-            let t = p_values
-                .iter()
-                .map(|&p| (0.5 - p.clamp(EPSILON, 1.0 - EPSILON)) * PI)
-                .map(|term| term.tan())
-                .sum::<f64>();
-
-            let abs_t = t.abs();
-            let survival = 0.5 - (abs_t.atan() / PI);
-            let combined_p = 2.0 * survival;
-
-            combined_p.clamp(0.0, 1.0)
-        },
-        PValueCombinationMethod::Stouffer => {
-            let normal = Normal::new(0.0, 1.0).unwrap();
-            let n = p_values.len() as f64;
-            
-            let z_sum = p_values
-                .iter()
-                .map(|&p| p.clamp(EPSILON, 1.0 - EPSILON))
-                .map(|p| normal.inverse_cdf(1.0 - p))
-                .sum::<f64>();
-            
-            let z_combined = z_sum / n.sqrt();
-            
-            1.0 - normal.cdf(z_combined)
-        },
-        PValueCombinationMethod::Fisher => {0.5} // to update 
-    }
+    
+    let mut sorted_pvalues = p_values.to_vec();
+    sorted_pvalues.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    
+    let n = sorted_pvalues.len() as f64;
+    
+    let min_adjusted: f64 = sorted_pvalues.iter()
+        .enumerate()
+        .map(|(i, &p)| p * n / ((i + 1) as f64))
+        .fold(1.0_f64, |min_so_far, adjusted_p| f64::min(min_so_far, adjusted_p));
+    
+    f64::min(1.0, f64::max(0.0, min_adjusted))
 }
