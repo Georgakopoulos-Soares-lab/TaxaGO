@@ -75,7 +75,7 @@ lazy_static! {
             .into_owned()
     };
 }
-
+// MUST ADD IT TO TAXAGO ASSETS !!!!!!
 lazy_static! {
     static ref ENRICHMENT_PLOTS_SCRIPT: String = {
         let cargo_home = var("CARGO_HOME")
