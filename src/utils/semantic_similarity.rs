@@ -1,311 +1,63 @@
-use clap::Parser;
-use std::collections::{HashMap,HashSet};
-use std::env::var;
-use lazy_static::lazy_static;
-use std::fs::{File, create_dir_all};
-use std::path::{Path,PathBuf};
-use dirs::home_dir;
-use TaxaGO::parsers::{
-    obo_parser::*,
-    background_parser::*
-};
-use std::error::Error;
-use std::io::{self, BufRead, BufReader};
-use rayon::prelude::*;
-use daggy::{NodeIndex, Walker};
+use std::collections::{HashMap, HashSet};
+use std::fs::File;
+use std::path::Path;
+use std::io::{BufRead, BufReader};
+use daggy::NodeIndex;
+
+use crate::parsers::background_parser::*;
 
 pub type InformationContent = f64;
 
-lazy_static! {
-    static ref DEFAULT_OBO_PATH: String = {
-        let cargo_home = var("CARGO_HOME")
-            .unwrap_or_else(|_| {
-                home_dir()
-                    .expect("Could not determine home directory")
-                    .join(".cargo")
-                    .to_string_lossy()
-                    .into_owned()
-            });
-        PathBuf::from(cargo_home)
-            .join("taxago_assets")
-            .join("go.obo")
-            .to_string_lossy()
-            .into_owned()
-    };
-}
-
-lazy_static! {
-    static ref DEFAULT_BACKGROUND: String = {
-        let cargo_home = var("CARGO_HOME")
-            .unwrap_or_else(|_| {
-                home_dir()
-                    .expect("Could not determine home directory")
-                    .join(".cargo")
-                    .to_string_lossy()
-                    .into_owned()
-            });
-        PathBuf::from(cargo_home)
-            .join("taxago_assets")
-            .join("background_pop")
-            .to_string_lossy()
-            .into_owned()
-    };
-}
-
-#[derive(Parser, Debug)]
-#[command(name = "semantic-similarity")]
-struct CliArgs {
-    #[arg(
-        short = 'o',
-        long = "obo",
-        value_name = "OBO_FILE",
-        help = "Path to the Gene Ontology file in OBO format.",
-        default_value_t = DEFAULT_OBO_PATH.to_string(),
-    
-    )]
-    obo_file: String,
-    
-    #[arg(
-        short='t',
-        long = "terms",
-        value_name = "GO_TERMS_OR_FILE",
-        help = "Either a comma-separated list of GO terms [e.g., GO:0016070,GO:0140187] or a path to a file containing GO terms (one per line)",
-    )]
-    go_terms_input: String,
-
-    #[arg(
-        short ='i',
-        long = "ids",
-        value_name = "TAXON_IDS",
-        help = "Comma-separated list of Taxon IDs [e.g., 9606,10090]",
-
-    )]
-    taxon_ids: String,
-    
-    #[arg(
-        short = 'b',
-        long = "background",
-        value_name = "BACKGROUND_DIR",
-        help = "Directory containing background populations.",
-        default_value_t = DEFAULT_BACKGROUND.to_string(),
-    )]
-    background_dir: String,
-
-    #[arg(
-        short = 'd',
-        long = "dir",
-        value_name = "RESULTS_DIR",
-        help = "Directory to write results.",
-
-    )]
-    output_dir: String,
-    
-    #[arg(
-        short = 'm',
-        long = "method",
-        value_name = "METHOD",
-        help = "Method to calculate semantic similarity between two GO terms. [available: resnik, wang, lin]",
-        default_value = "wang",
-    )]
-    method: String,
-
-    #[arg(
-        short = 'p',
-        long = "propagate-counts",
-        help = "Propagates GO term counts upwards the Ontology graph (from child to parent). [Must be specified to propagate the counts]",
-        default_value_t = false
-    )]
-    propagate_counts: bool,
-}
-
-#[derive(Debug, Default)]
-pub struct BackgroundCounts {
-    pub go_term_counts: HashMap<TaxonID, GOTermCount>,
-}
-
-impl BackgroundCounts {
-    pub fn new() -> Self {
-        Self {
-            go_term_counts: HashMap::new(),
-        }
-    }
-
-    pub fn propagate_counts(
-        &mut self,
-        graph: &OntologyGraph,
-        go_id_to_node_index: &HashMap<u32, NodeIndex>
-    ) {
-        let ancestor_cache: HashMap<NodeIndex, HashSet<NodeIndex>> = go_id_to_node_index
-            .values()
-            .par_bridge()
-            .map(|&node_idx| (node_idx, get_unique_ancestors(node_idx, graph)))
-            .collect();
-
-        let node_index_to_go_id: HashMap<NodeIndex, u32> = go_id_to_node_index
-            .iter()
-            .map(|(&go_id, &node_idx)| (node_idx, go_id))
-            .collect();
-
-        let updated_counts: HashMap<_, _> = self.go_term_counts
-            .par_iter()
-            .map(|(&taxon_id, go_term_counts)| {
-                let mut propagated_counts = HashMap::with_capacity(go_term_counts.len() * 2);
-                
-                for (&go_id, &direct_count) in go_term_counts.iter() {
-                    if let Some(&node_idx) = go_id_to_node_index.get(&go_id) {
-                        *propagated_counts.entry(go_id).or_insert(0) += direct_count;
-                        
-                        if let Some(ancestors) = ancestor_cache.get(&node_idx) {
-                            for &ancestor_idx in ancestors {
-                                if let Some(&ancestor_id) = node_index_to_go_id.get(&ancestor_idx) {
-                                    *propagated_counts.entry(ancestor_id).or_insert(0) += direct_count;
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                (taxon_id, propagated_counts)
-            })
-            .collect();
-        
-        self.go_term_counts = updated_counts;
-    }
-}
-
-fn process_taxon_background(file_path: impl AsRef<Path>) -> io::Result<GOTermCount> {
-    let file = File::open(file_path)?;
-    let reader = BufReader::with_capacity(128 * 1024, file);
-    let mut go_term_counts = HashMap::new();
-
-    for line in reader.lines() {
-        let line = line?;
-        let parts: Vec<&str> = line.split('\t').collect();
-        
-        if parts.len() < 2 {
-            continue;
-        }
-
-        if let Some(go_str) = parts[1].strip_prefix("GO:") {
-            if let Ok(go_id) = go_str.parse::<u32>() {
-                *go_term_counts.entry(go_id).or_insert(0) += 1;
-            }
-        }
-    }
-
-    Ok(go_term_counts)
-}
-
-fn get_unique_ancestors(node_idx: NodeIndex, graph: &OntologyGraph) -> HashSet<NodeIndex> {
-    let mut ancestors = HashSet::new();
-    let mut to_visit = vec![node_idx];
-    let mut visited = HashSet::new();
-    
-    while let Some(current_idx) = to_visit.pop() {
-        if !visited.insert(current_idx) {
-            continue;
-        }
-        
-        let mut parents = graph.parents(current_idx);
-        while let Some((edge_idx, parent_idx)) = parents.walk_next(graph) {
-            match graph.edge_weight(edge_idx).unwrap() {
-                Relationship::IsA | Relationship::PartOf => {
-                    ancestors.insert(parent_idx);
-                    to_visit.push(parent_idx);
-                },
-                _ => continue,
-            }
-        }
-    }
-    
-    ancestors
-}
-
-pub fn load_background(
-    background_path: String,
-    taxon_ids: String,
-) -> io::Result<BackgroundCounts> {
-    let taxon_id_set: HashSet<u32> = taxon_ids
-        .split(',')
-        .map(|s| s.trim())
-        .filter_map(|s| s.parse().ok())
-        .collect();
-
-    let mut background_counts = BackgroundCounts::new();
-
-    let results: Vec<(TaxonID, io::Result<GOTermCount>)> = taxon_id_set
-        .par_iter()
-        .map(|&taxon_id| {
-            let file_path = Path::new(&background_path)
-                .join(format!("{}_background.txt", taxon_id));
-            
-            (taxon_id, process_taxon_background(&file_path))
-        })
-        .collect();
-
-    for (taxon_id, result) in results {
-        match result {
-            Ok(counts) => {
-                background_counts.go_term_counts.insert(taxon_id, counts);
-            },
-            Err(e) => {
-                eprintln!("Error processing taxon {}: {}", taxon_id, e);
-            }
-        }
-    }
-
-    Ok(background_counts)
-}
-
-fn parse_single_go_term(term: &str) -> Result<u32, String> {
+pub fn parse_single_go_term(term: &str) -> Result<u32, String> {
     let term = term.trim();
     
-    let numeric_part = if term.to_lowercase().starts_with("go:") {
-        &term[3..]
-    } else {
+    if !term.to_lowercase().starts_with("go:") {
         return Err(format!("Invalid GO term format: {}. Term must start with 'GO:'", term));
-    };
+    }
     
-    numeric_part.parse::<u32>().map_err(|_| {
-        format!("Invalid GO term number: {}. Expected a valid number after 'GO:'", numeric_part)
+    term[3..].parse::<u32>().map_err(|_| {
+        format!("Invalid GO term number: {}. Expected a valid number after 'GO:'", &term[3..])
     })
 }
 
-fn parse_go_terms(terms: &str) -> Result<Vec<u32>, String> {
-    terms
-        .split(',')
-        .map(parse_single_go_term)
-        .collect()
+pub fn parse_go_terms_from_iter<'a, I>(terms: I) -> Result<HashSet<u32>, String> 
+where 
+    I: Iterator<Item = &'a str>
+{
+    let mut results = HashSet::new();
+    
+    for term in terms {
+        let term = term.trim();
+        if !term.is_empty() {
+            results.insert(parse_single_go_term(term)?);
+        }
+    }
+    
+    if results.is_empty() {
+        return Err("No valid GO terms found".to_string());
+    }
+    
+    Ok(results)
 }
 
-fn read_go_terms_from_file(file_path: &str) -> Result<Vec<u32>, String> {
+pub fn parse_go_terms(terms: &str) -> Result<HashSet<u32>, String> {
+    parse_go_terms_from_iter(terms.split(','))
+}
+
+pub fn read_go_terms_from_file(file_path: &str) -> Result<HashSet<u32>, String> {
     let file = File::open(file_path)
         .map_err(|e| format!("Failed to open terms file: {}", e))?;
     
     let reader = BufReader::new(file);
-    let mut go_terms = Vec::new();
+    let lines = reader.lines()
+        .map(|line_result| line_result.map_err(|e| format!("Error reading terms file: {}", e)))
+        .collect::<Result<Vec<String>, String>>()?;
     
-    for line_result in reader.lines() {
-        let line = line_result
-            .map_err(|e| format!("Error reading terms file: {}", e))?;
-        
-        let term = line.trim();
-        if !term.is_empty() {
-            match parse_single_go_term(term) {
-                Ok(go_id) => go_terms.push(go_id),
-                Err(e) => return Err(e),
-            }
-        }
-    }
-    
-    if go_terms.is_empty() {
-        return Err(format!("No valid GO terms found in file: {}", file_path));
-    }
-    
-    Ok(go_terms)
+    parse_go_terms_from_iter(lines.iter().map(|s| s.as_str()))
+        .map_err(|e| format!("{} in file: {}", e, file_path))
 }
 
-fn process_go_terms_input(input: &str) -> Result<Vec<u32>, String> {
+pub fn process_go_terms_input(input: &str) -> Result<HashSet<u32>, String> {
     if !input.contains(',') && Path::new(input).exists() {
         println!("Input appears to be a file path. Reading GO terms from file: {}\n", input);
         read_go_terms_from_file(input)
@@ -315,15 +67,14 @@ fn process_go_terms_input(input: &str) -> Result<Vec<u32>, String> {
     }
 }
 
-fn calculate_information_content(
-    background_counts: &BackgroundCounts,
-    go_terms: &[u32],
+pub fn calculate_information_content(
+    background_go_term_counts: &HashMap<u32, HashMap<u32, usize>>,
+    go_terms: &HashSet<u32>,
     go_id_to_node_index: &HashMap<u32, NodeIndex>,
 ) -> HashMap<TaxonID, HashMap<u32, InformationContent>> {
-    background_counts.go_term_counts
-        .par_iter()
+    background_go_term_counts
+        .iter()
         .map(|(&taxon_id, counts)| {
-
             let total_annotations: usize = counts.values().copied().sum();
             
             let ic_map: HashMap<u32, InformationContent> = go_terms
@@ -332,7 +83,7 @@ fn calculate_information_content(
                     if let Some(&count) = counts.get(&go_id) {
                         if count > 0 && total_annotations > 0 {
                             let probability = count as f64 / total_annotations as f64;
-                            let ic = -probability.log2();
+                            let ic = -probability.ln();
                             Some((go_id, ic))
                         } else {
                             if go_id_to_node_index.contains_key(&go_id) {
@@ -350,224 +101,4 @@ fn calculate_information_content(
             (taxon_id, ic_map)
         })
         .collect()
-}
-
-fn create_node_index_to_go_id_map(go_id_to_node_index: &HashMap<u32, NodeIndex>) -> HashMap<NodeIndex, u32> {
-    go_id_to_node_index
-        .iter()
-        .map(|(&go_id, &node_idx)| (node_idx, go_id))
-        .collect()
-}
-
-fn find_mica(
-    term1_idx: NodeIndex,
-    term2_idx: NodeIndex,
-    graph: &OntologyGraph,
-    ic_map: &HashMap<u32, InformationContent>,
-    node_index_to_go_id: &HashMap<NodeIndex, u32>
-) -> Option<(NodeIndex, f64)> {
-    let mut ancestors1 = get_unique_ancestors(term1_idx, graph);
-    ancestors1.insert(term1_idx);
-    
-    let mut ancestors2 = get_unique_ancestors(term2_idx, graph);
-    ancestors2.insert(term2_idx); 
-    
-    let common_ancestors: HashSet<_> = ancestors1.intersection(&ancestors2).cloned().collect();
-    
-    if common_ancestors.is_empty() {
-        return None;
-    }
-    
-    common_ancestors.into_iter()
-        .filter_map(|ancestor_idx| {
-            let go_id = node_index_to_go_id.get(&ancestor_idx)?;
-            let ic = ic_map.get(go_id)?;
-            Some((ancestor_idx, *ic))
-        })
-        .max_by(|(_, ic1), (_, ic2)| {
-
-            ic1.partial_cmp(ic2).unwrap_or(std::cmp::Ordering::Equal)
-        })
-}
-
-fn calculate_resnik_similarity(
-    taxon_id: u32,
-    term1: u32,
-    term2: u32,
-    ic_maps: &HashMap<TaxonID, HashMap<u32, InformationContent>>,
-    graph: &OntologyGraph,
-    go_id_to_node_index: &HashMap<u32, NodeIndex>,
-    node_index_to_go_id: &HashMap<NodeIndex, u32>
-) -> Option<f64> {
-    let ic_map = ic_maps.get(&taxon_id)?;
-    
-    let term1_idx = go_id_to_node_index.get(&term1)?;
-    let term2_idx = go_id_to_node_index.get(&term2)?;
-    
-    if term1 == term2 {
-        return ic_map.get(&term1).copied();
-    }
-    
-    let similarity = find_mica(*term1_idx, *term2_idx, graph, ic_map, node_index_to_go_id)
-        .map(|(_, ic)| ic);
-    
-    if let Some(sim) = similarity {
-        if sim.is_infinite() {
-            return Some(1000.0);
-        }
-    }
-    
-    similarity
-}
-
-#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
-pub struct TermPair(u32, u32);
-
-impl TermPair {
-    pub fn new(a: u32, b: u32) -> Self {
-        if a <= b {
-            TermPair(a, b)
-        } else {
-            TermPair(b, a)
-        }
-    }
-    
-    pub fn first(&self) -> u32 {
-        self.0
-    }
-    
-    pub fn second(&self) -> u32 {
-        self.1
-    }
-    
-    pub fn as_tuple(&self) -> (u32, u32) {
-        (self.0, self.1)
-    }
-    
-    pub fn is_self_pair(&self) -> bool {
-        self.0 == self.1
-    }
-}
-
-fn calculate_pairwise_resnik_similarities(
-    go_terms: &[u32],
-    ic_maps: &HashMap<TaxonID, HashMap<u32, InformationContent>>,
-    graph: &OntologyGraph,
-    go_id_to_node_index: &HashMap<u32, NodeIndex>,
-    node_index_to_go_id: &HashMap<NodeIndex, u32>
-) -> HashMap<TaxonID, HashMap<TermPair, f64>> {
-    ic_maps.par_iter()
-        .map(|(&taxon_id, _)| {
-            let mut similarities = HashMap::new();
-            
-            for i in 0..go_terms.len() {
-                for j in i..go_terms.len() {
-                    let term1 = go_terms[i];
-                    let term2 = go_terms[j];
-                    
-                    if let Some(sim) = calculate_resnik_similarity(
-                        taxon_id,
-                        term1,
-                        term2,
-                        ic_maps,
-                        graph,
-                        go_id_to_node_index,
-                        node_index_to_go_id
-                    ) {
-                        similarities.insert(TermPair::new(term1, term2), sim);
-                    }
-                }
-            }
-            
-            (taxon_id, similarities)
-        })
-        .collect()
-}
-
-// fn write_similarity_results(
-//     similarity_results: &HashMap<TaxonID, HashMap<(u32, u32), f64>>,
-//     output_dir: &str,
-//     method: &str
-// ) -> io::Result<()> {
-//     for (&taxon_id, similarities) in similarity_results {
-//         let output_path = Path::new(output_dir)
-//             .join(format!("{}_{}_similarity.tsv", taxon_id, method));
-        
-//         let mut file = File::create(output_path)?;
-        
-//         // Write header
-//         writeln!(file, "GO_Term_1\tGO_Term_2\tSimilarity")?;
-        
-//         // Write similarities
-//         for (&(term1, term2), &similarity) in similarities {
-//             writeln!(
-//                 file, 
-//                 "GO:{:07}\tGO:{:07}\t{:.4}", 
-//                 term1, term2, similarity
-//             )?;
-//         }
-//     }
-    
-//     Ok(())
-// }
-fn main() -> Result<(), Box<dyn Error>> {
-    let cli_args: CliArgs = CliArgs::parse();  
-    create_dir_all(&cli_args.output_dir)?;
-    
-    println!("\nReading ontology information from: {}\n\nBuilding ontology graph\n", &cli_args.obo_file);
-
-    let ontology = parse_obo_file(&cli_args.obo_file)?;
-    let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
-    
-    let node_index_to_go_id = create_node_index_to_go_id_map(&go_id_to_node_index);
-    
-    println!("Reading background populations from: {}\n", &cli_args.background_dir);
-    
-    let mut background_counts = load_background(
-        cli_args.background_dir,
-        cli_args.taxon_ids
-    )?;
-
-    if cli_args.propagate_counts {
-        println!("Propagating counts up the Ontology graph\n");
-        background_counts.propagate_counts(&ontology_graph, &go_id_to_node_index);   
-    }
-    
-    let go_terms = process_go_terms_input(&cli_args.go_terms_input)?;
-    
-    println!("Calculating information content for {} GO terms\n", go_terms.len());
-
-    let ic_results = calculate_information_content(
-        &background_counts,
-        &go_terms,
-        &go_id_to_node_index
-    );
-    
-    match cli_args.method.as_str() {
-        "resnik" => {
-            println!("Calculating Resnik semantic similarity for all term pairs\n");
-            let similarity_results = calculate_pairwise_resnik_similarities(
-                &go_terms,
-                &ic_results,
-                &ontology_graph,
-                &go_id_to_node_index,
-                &node_index_to_go_id
-            );
-            
-            println!("{:?}", &similarity_results);
-            println!("Writing results to: {}\n", cli_args.output_dir);
-            // write_similarity_results(&similarity_results, &cli_args.output_dir, "resnik")?;
-        },
-        "lin" | "wang" => {
-            println!("Method '{}' not yet implemented\n", cli_args.method);
-
-        },
-        _ => {
-            return Err(format!("Unknown semantic similarity method: {}", cli_args.method).into());
-        }
-    }
-    
-    println!("Done!");
-    
-    Ok(())
 }
