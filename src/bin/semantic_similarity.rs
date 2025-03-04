@@ -11,6 +11,7 @@ use std::error::Error;
 use TaxaGO::parsers::obo_parser::*;
 use TaxaGO::parsers::background_parser::*;
 use TaxaGO::utils::semantic_similarity::*;
+use TaxaGO::utils::common_ancestor::*;
 
 lazy_static! {
     static ref DEFAULT_OBO_PATH: String = {
@@ -102,7 +103,7 @@ struct CliArgs {
         short = 'm',
         long = "method",
         value_name = "METHOD",
-        help = "Method to calculate semantic similarity between two GO terms. [available: resnik, lin, jiang-conrath]",
+        help = "Method to calculate semantic similarity between two GO terms. [available: resnik, lin, jiang-conrath, wang]",
         default_value = "resnik",
     )]
     method: String,
@@ -151,19 +152,27 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Calculating Information Content (IC) for {} GO terms\n", go_terms.len());
 
+    let mut expanded_terms = go_terms.clone();
+    for &term in go_terms.iter() {
+        if let Some(&node_idx) = go_id_to_node_index.get(&term) {
+            let ancestry_path = collect_ancestry_path(&ontology_graph, node_idx);
+            for (idx, _) in ancestry_path {
+                let ancestor_id = node_index_to_go_id[&idx];
+                expanded_terms.insert(ancestor_id);
+            }
+        }
+    }
     let ic_results = calculate_information_content(
         &go_term_count,
-        &go_terms,
+        &expanded_terms,
         &go_id_to_node_index
     );
 
     println!("Finding Most Informative Common Ancestor (MICA)\n");
     
-    println!("Calculating semantic similarity using {} method", cli_args.method);
+    println!("Calculating semantic similarity using {} method \n", cli_args.method);
     
-    for &taxon_id in &taxon_ids {
-        println!("Processing taxon ID: {}\n", taxon_id);
-        
+    for &taxon_id in &taxon_ids {        
         let term_pairs = generate_term_pairs(
             &go_terms,
             taxon_id,
@@ -173,7 +182,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             &node_index_to_go_id,
             &cli_args.method
         );
-
         write_similarity_to_tsv(&term_pairs, &go_terms, taxon_id, &cli_args.output_dir);
     }
     

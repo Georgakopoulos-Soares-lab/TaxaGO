@@ -182,6 +182,12 @@ pub fn find_mica_for_pair(
     node_index_to_go_id: &HashMap<NodeIndex, u32>,
     ic_values: &HashMap<u32, f64>,
 ) -> Option<(u32, f64)> {
+    if term1 == term2 {
+        if let Some(&ic) = ic_values.get(&term1) {
+            return Some((term1, ic));
+        }
+    }
+    
     let node_idx1 = match go_id_to_node_index.get(&term1) {
         Some(&idx) => idx,
         None => return None,
@@ -197,11 +203,11 @@ pub fn find_mica_for_pair(
     
     let ancestry_paths = vec![path1, path2];
     let common_ancestors = find_common_ancestors(&ancestry_paths, node_index_to_go_id);
-    
+
     let mut max_ic = f64::NEG_INFINITY;
     let mut mica_id = 0;
     
-    for ancestor_id in common_ancestors {
+    for ancestor_id in common_ancestors {  
         if let Some(&ic) = ic_values.get(&ancestor_id) {
             if ic > max_ic {
                 max_ic = ic;
@@ -237,10 +243,7 @@ pub fn generate_term_pairs(
         }
     };
     
-    println!("Generating all pairwise term combinations for taxon {}", taxon_id);
-    
-    let total_pairs = (terms.len() * (terms.len() + 1)) / 2;
-    let mut completed = 0;
+    println!("Generating all pairwise term combinations for taxon {}\n", taxon_id);
     
     for i in 0..terms.len() {
         for j in i..terms.len() {
@@ -267,14 +270,9 @@ pub fn generate_term_pairs(
                 method
             ));
             
-            completed += 1;
-            if completed % 1000 == 0 || completed == total_pairs {
-                println!("Progress: {}/{} pairs processed", completed, total_pairs);
-            }
         }
     }
     
-    println!("Generated {} term pairs for taxon {}", pairs.len(), taxon_id);
     pairs
 }
 
@@ -288,7 +286,7 @@ pub fn write_similarity_to_tsv(
     fs::create_dir_all(output_path).unwrap();
 
     let filename = format!("{}/similarity_taxon_{}.tsv", output_dir, taxon_id);
-    println!("Writing similarity matrix to {}", filename);
+    println!("Writing similarity matrix to {}\n", filename);
 
     let mut file = File::create(&filename).unwrap();
    
@@ -323,5 +321,4 @@ pub fn write_similarity_to_tsv(
         writeln!(file).unwrap();
     }
 
-    println!("Successfully wrote similarity matrix for taxon {} to {}", taxon_id, filename);
 }
