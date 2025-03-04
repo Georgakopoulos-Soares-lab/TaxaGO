@@ -10,7 +10,6 @@ use std::error::Error;
 
 use TaxaGO::parsers::obo_parser::*;
 use TaxaGO::parsers::background_parser::*;
-use TaxaGO::utils::common_ancestor::*;
 use TaxaGO::utils::semantic_similarity::*;
 
 lazy_static! {
@@ -75,6 +74,7 @@ struct CliArgs {
         long = "ids",
         value_name = "TAXON_IDS",
         help = "Comma-separated list of Taxon IDs [e.g., 9606,10090]",
+        default_value = "9606",
 
     )]
     taxon_ids: String,
@@ -93,6 +93,7 @@ struct CliArgs {
         long = "dir",
         value_name = "RESULTS_DIR",
         help = "Directory to write results.",
+        default_value = "./",
 
     )]
     output_dir: String,
@@ -101,8 +102,8 @@ struct CliArgs {
         short = 'm',
         long = "method",
         value_name = "METHOD",
-        help = "Method to calculate semantic similarity between two GO terms. [available: resnik, wang, lin]",
-        default_value = "wang",
+        help = "Method to calculate semantic similarity between two GO terms. [available: resnik, lin, jiang-conrath]",
+        default_value = "resnik",
     )]
     method: String,
 
@@ -147,53 +148,36 @@ fn main() -> Result<(), Box<dyn Error>> {
     let go_term_count: HashMap<u32, HashMap<u32, usize>> = background_data.go_term_count;
 
     let go_terms = process_go_terms_input(&cli_args.go_terms_input)?;
-    
-    println!("Calculating information content for {} GO terms\n", go_terms.len());
+
+    println!("Calculating Information Content (IC) for {} GO terms\n", go_terms.len());
 
     let ic_results = calculate_information_content(
         &go_term_count,
         &go_terms,
         &go_id_to_node_index
     );
-    println!("{:?}",&ic_results);
 
-    let mut ancestry_paths = Vec::new();
+    println!("Finding Most Informative Common Ancestor (MICA)\n");
     
-    for &go_id in &go_terms {
-        let target_node_idx = go_id_to_node_index[&go_id];        
-        let path = collect_ancestry_path(&ontology_graph, target_node_idx);
-        ancestry_paths.push(path);
+    println!("Calculating semantic similarity using {} method", cli_args.method);
+    
+    for &taxon_id in &taxon_ids {
+        println!("Processing taxon ID: {}\n", taxon_id);
+        
+        let term_pairs = generate_term_pairs(
+            &go_terms,
+            taxon_id,
+            &ic_results,
+            &ontology_graph,
+            &go_id_to_node_index,
+            &node_index_to_go_id,
+            &cli_args.method
+        );
+
+        write_similarity_to_tsv(&term_pairs, &go_terms, taxon_id, &cli_args.output_dir);
     }
     
-    let common_ancestors = find_common_ancestors(&ancestry_paths, &node_index_to_go_id);
-    println!("{:?}", common_ancestors);
-    todo!();
-
-    // match cli_args.method.as_str() {
-    //     "resnik" => {
-    //         println!("Calculating Resnik semantic similarity for all term pairs\n");
-    //         let similarity_results = calculate_pairwise_resnik_similarities(
-    //             &go_terms,
-    //             &ic_results,
-    //             &ontology_graph,
-    //             &go_id_to_node_index,
-    //             &node_index_to_go_id
-    //         );
-            
-    //         println!("{:?}", &similarity_results);
-    //         println!("Writing results to: {}\n", cli_args.output_dir);
-    //         // write_similarity_results(&similarity_results, &cli_args.output_dir, "resnik")?;
-    //     },
-    //     "lin" | "wang" => {
-    //         println!("Method '{}' not yet implemented\n", cli_args.method);
-
-    //     },
-    //     _ => {
-    //         return Err(format!("Unknown semantic similarity method: {}", cli_args.method).into());
-    //     }
-    // }
+    println!("All semantic similarity calculations completed successfully!\n");
     
-    // println!("Done!");
-    
-    // Ok(())
+    Ok(())
 }

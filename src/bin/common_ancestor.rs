@@ -33,6 +33,7 @@ lazy_static! {
 #[command(name = "common-ancestors")]
 struct CliArgs {
     #[arg(
+        short = 'o',
         long = "obo",
         value_name = "OBO_FILE",
         help = "Path to the Gene Ontology file in OBO format.",
@@ -42,6 +43,7 @@ struct CliArgs {
     obo_file: String,
     
     #[arg(
+        short = 't',
         long = "terms",
         value_name = "GO_TERMS",
         help = "Comma-separated list of GO terms [e.g., GO:0016070,GO:0140187].",
@@ -50,9 +52,10 @@ struct CliArgs {
     go_terms: String,
 
     #[arg(
-        long = "graph",
-        value_name = "FILE_PATH",
-        help = "Path to write the ancestor graph between the input terms.",
+        short = 'd',
+        long = "dir",
+        value_name = "RESULTS_DIR",
+        help = "Directory to write results.",
         default_value="./"
     )]
     graph_path: String
@@ -134,7 +137,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("\nCommon ancestors:");
     for &go_id in &common_ancestors {
         let term = &obo_map[&go_id];
-        println!("GO:{:07} - {}", go_id, term.name);
+        println!("GO:{:07} - {}", go_id, term.name.replace("_", " "));
     }
     
     let mermaid_chart = generate_mermaid_chart(

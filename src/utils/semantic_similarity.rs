@@ -1,12 +1,24 @@
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
+use std::fs::{self,File};
 use std::path::Path;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use daggy::NodeIndex;
-
-use crate::parsers::background_parser::*;
+use crate::parsers::{
+    background_parser::*,
+    obo_parser::*,
+};
+use crate::utils::common_ancestor::*;
 
 pub type InformationContent = f64;
+#[derive(Debug)]
+pub struct TermPair {
+    pub term1: u32,
+    pub term2: u32,
+    pub ic_term1: f64,
+    pub ic_term2: f64,
+    pub mica: (u32, f64),
+    pub similarity: f64,
+}
 
 pub fn parse_single_go_term(term: &str) -> Result<u32, String> {
     let term = term.trim();
@@ -101,4 +113,215 @@ pub fn calculate_information_content(
             (taxon_id, ic_map)
         })
         .collect()
+}
+
+impl TermPair {
+    // Resnik: Semantic similarity = IC of MICA
+    pub fn resnik_similarity(&self) -> f64 {
+        self.mica.1
+    }
+    
+    // Lin: Semantic similarity = 2 * IC(MICA) / (IC(term1) + IC(term2))
+    pub fn lin_similarity(&self) -> f64 {
+        if self.ic_term1 == 0.0 || self.ic_term2 == 0.0 {
+            return 0.0;
+        }
+        
+        (2.0 * self.mica.1) / (self.ic_term1 + self.ic_term2)
+    }
+    
+    // Jiang-Conrath: Semantic distance = IC(term1) + IC(term2) - 2*IC(MICA)
+    // Converted to similarity: 1 / (1 + distance)
+    pub fn jiang_conrath_similarity(&self) -> f64 {
+        let distance = self.ic_term1 + self.ic_term2 - 2.0 * self.mica.1;
+        1.0 / (1.0 + distance.max(0.0))  
+    }
+    
+    pub fn calculate_similarity(&mut self, method: &str) -> f64 {
+        let similarity = match method.to_lowercase().as_str() {
+            "resnik" => self.resnik_similarity(),
+            "lin" => self.lin_similarity(),
+            "jiang" | "jiang-conrath" => self.jiang_conrath_similarity(),
+            _ => {
+                println!("Warning: Unsupported method '{}', defaulting to Resnik", method);
+                self.resnik_similarity()
+            }
+        };
+        
+        self.similarity = similarity;
+        similarity
+    }
+    
+    
+    pub fn new(
+        term1: u32, 
+        term2: u32, 
+        ic_term1: f64, 
+        ic_term2: f64, 
+        mica: (u32, f64), 
+        method: &str) -> Self {
+            let mut pair = Self {
+                term1,
+                term2,
+                ic_term1,
+                ic_term2,
+                mica,
+                similarity: 0.0,
+            };
+        
+        pair.calculate_similarity(method);
+        pair
+    }
+}
+
+pub fn find_mica_for_pair(
+    term1: u32,
+    term2: u32,
+    ontology_graph: &OntologyGraph,
+    go_id_to_node_index: &HashMap<u32, NodeIndex>,
+    node_index_to_go_id: &HashMap<NodeIndex, u32>,
+    ic_values: &HashMap<u32, f64>,
+) -> Option<(u32, f64)> {
+    let node_idx1 = match go_id_to_node_index.get(&term1) {
+        Some(&idx) => idx,
+        None => return None,
+    };
+    
+    let node_idx2 = match go_id_to_node_index.get(&term2) {
+        Some(&idx) => idx,
+        None => return None,
+    };
+    
+    let path1 = collect_ancestry_path(ontology_graph, node_idx1);
+    let path2 = collect_ancestry_path(ontology_graph, node_idx2);
+    
+    let ancestry_paths = vec![path1, path2];
+    let common_ancestors = find_common_ancestors(&ancestry_paths, node_index_to_go_id);
+    
+    let mut max_ic = f64::NEG_INFINITY;
+    let mut mica_id = 0;
+    
+    for ancestor_id in common_ancestors {
+        if let Some(&ic) = ic_values.get(&ancestor_id) {
+            if ic > max_ic {
+                max_ic = ic;
+                mica_id = ancestor_id;
+            }
+        }
+    }
+    
+    if mica_id != 0 {
+        Some((mica_id, max_ic))
+    } else {
+        None
+    }
+}
+
+pub fn generate_term_pairs(
+    go_terms: &HashSet<u32>,
+    taxon_id: TaxonID,
+    ic_results: &HashMap<TaxonID, HashMap<u32, f64>>,
+    ontology_graph: &OntologyGraph,
+    go_id_to_node_index: &HashMap<u32, NodeIndex>,
+    node_index_to_go_id: &HashMap<NodeIndex, u32>,
+    method: &str,
+) -> Vec<TermPair> {
+    let terms: Vec<u32> = go_terms.iter().cloned().collect();
+    let mut pairs = Vec::new();
+    
+    let ic_values = match ic_results.get(&taxon_id) {
+        Some(values) => values,
+        None => {
+            println!("Warning: No IC values found for taxon ID: {}\n", taxon_id);
+            return pairs;
+        }
+    };
+    
+    println!("Generating all pairwise term combinations for taxon {}", taxon_id);
+    
+    let total_pairs = (terms.len() * (terms.len() + 1)) / 2;
+    let mut completed = 0;
+    
+    for i in 0..terms.len() {
+        for j in i..terms.len() {
+            let term1 = terms[i];
+            let term2 = terms[j];
+            
+            let ic_term1 = ic_values.get(&term1).copied().unwrap_or(f64::INFINITY);
+            let ic_term2 = ic_values.get(&term2).copied().unwrap_or(f64::INFINITY);
+            
+            let mica = find_mica_for_pair(
+                term1, term2,
+                ontology_graph,
+                go_id_to_node_index,
+                node_index_to_go_id,
+                ic_values
+            ).unwrap_or((0, 0.0));
+            
+            pairs.push(TermPair::new(
+                term1,
+                term2,
+                ic_term1,
+                ic_term2,
+                mica,
+                method
+            ));
+            
+            completed += 1;
+            if completed % 1000 == 0 || completed == total_pairs {
+                println!("Progress: {}/{} pairs processed", completed, total_pairs);
+            }
+        }
+    }
+    
+    println!("Generated {} term pairs for taxon {}", pairs.len(), taxon_id);
+    pairs
+}
+
+pub fn write_similarity_to_tsv(
+    term_pairs: &[TermPair],
+    go_terms: &HashSet<u32>,
+    taxon_id: TaxonID,
+    output_dir: &str,
+) {
+    let output_path = Path::new(output_dir);
+    fs::create_dir_all(output_path).unwrap();
+
+    let filename = format!("{}/similarity_taxon_{}.tsv", output_dir, taxon_id);
+    println!("Writing similarity matrix to {}", filename);
+
+    let mut file = File::create(&filename).unwrap();
+   
+    let terms: Vec<String> = go_terms.iter()
+        .map(|&id| format!("GO:{:07}", id))
+        .collect();
+
+    let mut similarity_map: HashMap<(u32, u32), f64> = HashMap::new();
+    for pair in term_pairs {
+        similarity_map.insert((pair.term1, pair.term2), pair.similarity);
+        similarity_map.insert((pair.term2, pair.term1), pair.similarity);
+    }
+
+    write!(file, "\t").unwrap();
+    for term in &terms {
+        write!(file, "{}\t", term).unwrap();
+    }
+    writeln!(file).unwrap();
+
+    for (_, row_term_str) in terms.iter().enumerate() {
+        let row_term = parse_single_go_term(&row_term_str).unwrap();
+        
+        write!(file, "{}\t", row_term_str).unwrap();
+        
+        for (_, col_term_str) in terms.iter().enumerate() {
+            let col_term = parse_single_go_term(&col_term_str).unwrap();
+            
+            let similarity = similarity_map.get(&(row_term, col_term)).copied().unwrap_or(0.0);
+            
+            write!(file, "{:.6}\t", similarity).unwrap();
+        }
+        writeln!(file).unwrap();
+    }
+
+    println!("Successfully wrote similarity matrix for taxon {} to {}", taxon_id, filename);
 }

@@ -250,7 +250,7 @@ pub fn generate_mermaid_chart(
         
         mermaid.push_str(&format!(
             "    GO{:07}(\"**GO:{:07}**<br>{}\"){}\n",
-            go_id, go_id, term.name.replace("\"", "&quot;"), class_name
+            go_id, go_id, term.name.replace("_", " ").replace("\"", "&quot;"), class_name
         ));
     }
 
