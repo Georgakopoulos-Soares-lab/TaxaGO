@@ -141,7 +141,7 @@ impl TermPair {
         let similarity = match method.to_lowercase().as_str() {
             "resnik" => self.resnik_similarity(),
             "lin" => self.lin_similarity(),
-            "jiang" | "jiang-conrath" => self.jiang_conrath_similarity(),
+            "jiang-conrath" => self.jiang_conrath_similarity(),
             _ => {
                 println!("Warning: Unsupported method '{}', defaulting to Resnik", method);
                 self.resnik_similarity()
