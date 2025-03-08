@@ -9,9 +9,10 @@ use crate::parsers::obo_parser::{OboTerm, NameSpace};
 use crate::analysis::enrichment_analysis::GOTermResults;
 use crate::analysis::multiple_testing_correction::TaxonomyGOResult;
 
-fn clean_directory(dir_path: &Path) -> io::Result<()> {
-    if dir_path.exists() {
-        for entry in fs::read_dir(dir_path)? {
+fn clean_directory(dir_path: &str) -> io::Result<()> {
+    let path = Path::new(dir_path);
+    if path.exists() {
+        for entry in fs::read_dir(path)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_file() {
@@ -23,7 +24,6 @@ fn clean_directory(dir_path: &Path) -> io::Result<()> {
     }
     Ok(())
 }
-
 
 const BUFFER_SIZE: usize = 8192 * 32;
 
@@ -75,7 +75,7 @@ pub fn write_single_taxon_results(
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("single_taxon_results");
     let plots_dir = PathBuf::from(&results_dir).join("plots");
-    clean_directory(&results_dir)?; 
+    clean_directory(&output_dir)?; 
     create_dir_all(&results_dir)?;
     create_dir_all(&plots_dir)?;
 
@@ -144,7 +144,7 @@ pub fn write_taxonomy_results(
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("combined_taxonomy_results");
     let plots_dir = PathBuf::from(&results_dir).join("plots");
-    clean_directory(&results_dir)?; 
+    clean_directory(&output_dir)?; 
     create_dir_all(&results_dir)?;
     create_dir_all(&plots_dir)?;
 
