@@ -259,7 +259,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         study_population.propagate_counts(&ontology_graph, &node_index);
         background_data.propagate_counts(&ontology_graph, &node_index);   
     }
-
+    
     println!("Performing Gene Ontology (GO) term enrichment analysis\n");
     let analysis = EnrichmentAnalysis::new(
         cli_args.min_protein_count,
@@ -309,7 +309,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     println!("Generating enrichment plots\n");
     
-    let plots_result = Command::new("python") 
+    let plots_result = Command::new("python3") 
         .arg(&*ENRICHMENT_PLOTS_SCRIPT)
         .arg("-i")
         .arg(&cli_args.output_dir)
