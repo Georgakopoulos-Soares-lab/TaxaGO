@@ -1274,7 +1274,6 @@ def main():
         results_dir)
     lineage = create_lineage(
         get_default_lineage())
-    print("reached lineage")
 
     if taxonomic_level == 'taxonomy':
         taxonomy_id_map = get_taxon_ids(

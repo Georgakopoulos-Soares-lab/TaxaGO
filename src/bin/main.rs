@@ -110,11 +110,11 @@ struct CliArgs {
     #[arg(
         short='s',
         long = "study",
-        value_name = "STUDY_DIR",
+        value_name = "STUDY_POP",
         help = "Directory containing study popultion for each taxon in FASTA format or CSV file with the study population for each species.",
         required = true
     )]
-    study_dir: String,
+    study_pop: String,
     
     #[arg(
         short='b',
@@ -233,16 +233,20 @@ struct CliArgs {
 fn main() -> Result<(), Box<dyn Error>> {
 
     let cli_args: CliArgs = CliArgs::parse();  
+    println!("Cleaning previous results");
+
+    clean_directory(&cli_args.output_dir);
+
     create_dir_all(&cli_args.output_dir)?;
-    
+
     println!("\nReading ontology information from: {}\n\nBuilding ontology graph\n", &cli_args.obo_file);
 
     let ontology = parse_obo_file(&cli_args.obo_file)?;
     let (ontology_graph, node_index) = build_ontology_graph(&ontology)?;
     
-    println!("Reading study populations from: {}\n", &cli_args.study_dir);
+    println!("Reading study populations from: {}\n", &cli_args.study_pop);
 
-    let mut study_population  = read_study_pop(&cli_args.study_dir)?;
+    let mut study_population  = read_study_pop(&cli_args.study_pop)?;
     
     let taxon_ids = study_population.taxon_map.keys().copied().collect::<HashSet<u32>>();
 
@@ -311,10 +315,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     let plots_result = Command::new("python3") 
         .arg(&*ENRICHMENT_PLOTS_SCRIPT)
-        .arg("-i")
+        .arg("-r")
         .arg(&cli_args.output_dir)
+        .arg("-s")
+        .arg(&cli_args.study_pop)
         .status();
-        
+
     match plots_result {
         Ok(status) => {
             if status.success() {

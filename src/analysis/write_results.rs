@@ -74,8 +74,7 @@ pub fn write_single_taxon_results(
     output_dir: &str
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("single_taxon_results");
-    let plots_dir = PathBuf::from(&results_dir).join("plots");
-    clean_directory(&output_dir)?; 
+    let plots_dir = PathBuf::from(&results_dir).join("plots"); 
     create_dir_all(&results_dir)?;
     create_dir_all(&plots_dir)?;
 
@@ -144,7 +143,6 @@ pub fn write_taxonomy_results(
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("combined_taxonomy_results");
     let plots_dir = PathBuf::from(&results_dir).join("plots");
-    clean_directory(&output_dir)?; 
     create_dir_all(&results_dir)?;
     create_dir_all(&plots_dir)?;
 
