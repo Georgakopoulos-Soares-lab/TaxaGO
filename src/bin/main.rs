@@ -313,7 +313,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     println!("Generating enrichment plots\n");
     
-    let plots_result = Command::new("python3") 
+    let plots_result = Command::new("python") 
         .arg(&*ENRICHMENT_PLOTS_SCRIPT)
         .arg("-r")
         .arg(&cli_args.output_dir)
