@@ -289,6 +289,7 @@ def create_network_data(
                 taxon_ids.append(taxon_id)
          else:
             print(f"No files with .fa/.fasta extension found in {study_data}")
+            exit()
     elif study_data.is_file():
         if study_data.suffix.lower() in [".fa", ".fasta"]:
             taxon_id, study_dict = parse_fasta_file(
@@ -303,8 +304,10 @@ def create_network_data(
                 lineage)
         else:
             print(f"{study_data.name} is not a supported file type (must be FASTA or CSV)")
+            exit()
     else:
         print(f"No valid study data found in {study_data}. Must be FASTA, CSV or a directory with FASTA.")
+        exit()
 
     if taxonomic_level == "taxonomy":
         for taxonomy in results_dict.keys():
