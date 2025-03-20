@@ -9,7 +9,7 @@ use crate::parsers::obo_parser::{OboTerm, NameSpace};
 use crate::analysis::enrichment_analysis::GOTermResults;
 use crate::analysis::multiple_testing_correction::TaxonomyGOResult;
 
-fn clean_directory(dir_path: &str) -> io::Result<()> {
+pub fn clean_directory(dir_path: &str) -> io::Result<()> {
     let path = Path::new(dir_path);
     if path.exists() {
         for entry in fs::read_dir(path)? {

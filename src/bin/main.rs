@@ -235,7 +235,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let cli_args: CliArgs = CliArgs::parse();  
     println!("Cleaning previous results");
 
-    clean_directory(&cli_args.output_dir);
+    clean_directory(&cli_args.output_dir)?;
 
     create_dir_all(&cli_args.output_dir)?;
 
