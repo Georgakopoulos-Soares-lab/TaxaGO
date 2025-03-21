@@ -262,6 +262,7 @@ def create_network_data(
           background: Path, 
           lineage: Dict[str, Dict[str, str]],
           taxonomic_level: str,
+          taxonomy_id_map: Dict[str, List[str]], 
           results_dict: Dict[str, pd.DataFrame],
           ) -> Dict[str, Dict[str, Dict[str, Set[str]]]]:
 
@@ -312,6 +313,7 @@ def create_network_data(
         for taxonomy in results_dict.keys():
             taxonomy, taxonomy_data = process_taxonomy_networks(
                 taxonomy, 
+                taxonomy_id_map,
                 background,
                 lineage,
                 study_dict,
@@ -1242,16 +1244,14 @@ def main():
     
     results_dir = Path(args.results_dir)
     
+    taxonomies = []
+    
     if (results_dir / "combined_taxonomy_results").exists():
         results_dir = results_dir / "combined_taxonomy_results"
         taxonomic_level = "taxonomy"
-        taxonomies = list()
         for file in results_dir.glob("*_GOEA_results.txt"):
             taxonomy = file.name.strip().split("_GOEA_results.txt")[0]
             taxonomies.append(taxonomy)
-        taxonomy_id_map = get_taxon_ids(
-            lineage, 
-            taxonomies)
     elif (results_dir / "single_taxon_results").exists():
         results_dir = results_dir / "single_taxon_results"
         taxonomic_level = "species"
@@ -1280,6 +1280,9 @@ def main():
     lineage = create_lineage(
         get_default_lineage())
 
+    taxonomy_id_map = get_taxon_ids(
+        lineage, 
+        taxonomies)
     
     # THIS IS A BIG TIME BOTTLENECK CURRENTLY
     network_data = create_network_data(
@@ -1287,6 +1290,7 @@ def main():
             get_default_background(),
             lineage,
             taxonomic_level,
+            taxonomy_id_map,
             results_dict)
 
     with concurrent.futures.ProcessPoolExecutor() as executor:

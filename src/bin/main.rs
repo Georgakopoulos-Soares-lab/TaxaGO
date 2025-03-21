@@ -282,7 +282,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         &study_population.taxon_protein_count,
     );
     
-    let significant_fishers_results = adjust_species_p_values(&enrichment_results, &cli_args.correction_method, Some(cli_args.significance_threshold));
+    let significant_fishers_results = adjust_species_p_values(
+        &enrichment_results, 
+        &cli_args.correction_method, 
+        Some(cli_args.significance_threshold));
+        
     let taxid_species_map = taxid_to_species(DEFAULT_LINEAGE.to_string())?;
     write_single_taxon_results(&significant_fishers_results, &ontology, cli_args.min_odds_ratio, &taxid_species_map, &cli_args.output_dir)?;
     

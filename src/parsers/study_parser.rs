@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{read_dir, File};
 use std::io::{BufRead, BufReader, Error, ErrorKind, Result};
 use std::path::Path;
-use csv::Reader; // New
+use csv::Reader; 
 use crate::parsers::{
     obo_parser::*,
     background_parser::*,
@@ -93,7 +93,7 @@ impl StudyPop {
         self.go_term_count = updated_counts;
     }
 
-    // New method to create StudyPop from CSV
+    
     pub fn from_csv<P: AsRef<Path>>(csv_path: P) -> Result<Self> {
         let mut taxon_map = HashMap::new();
         let mut taxon_protein_count = HashMap::new();
@@ -101,14 +101,14 @@ impl StudyPop {
         let file = File::open(csv_path)?;
         let mut rdr = Reader::from_reader(file);
         
-        // Get headers (taxon IDs)
+
         let headers = rdr.headers()?.clone();
         let taxon_ids: Vec<TaxonID> = headers
             .iter()
             .filter_map(|id| id.parse::<u32>().ok())
             .collect();
             
-        // Process each row
+
         for result in rdr.records() {
             let record = result?;
             for (idx, protein) in record.iter().enumerate() {
@@ -123,7 +123,7 @@ impl StudyPop {
             }
         }
         
-        // Calculate protein counts
+
         for (&taxon_id, proteins) in &taxon_map {
             taxon_protein_count.insert(taxon_id, proteins.len());
         }
