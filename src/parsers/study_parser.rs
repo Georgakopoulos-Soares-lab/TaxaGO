@@ -2,117 +2,44 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{read_dir, File};
 use std::io::{BufRead, BufReader, Error, ErrorKind, Result};
 use std::path::Path;
-use csv::Reader; 
-use crate::parsers::{
-    obo_parser::*,
-    background_parser::*,
-};
-use daggy::{NodeIndex, Walker};
-use::rayon::prelude::*;
+use csv::Reader;  
+use rayon::prelude::*;
+use crate::parsers::background_parser::*;
 
 #[derive(Debug, Default, Clone)]
 pub struct StudyPop {
-    pub taxon_map: HashMap<TaxonID, HashSet<String>>,
+    pub taxon_map: HashMap<TaxonID, HashSet<Protein>>,
     pub taxon_protein_count: HashMap<TaxonID, usize>,
     pub go_term_count: HashMap<TaxonID, GOTermCount>,
+    pub go_term_to_protein_set: HashMap<TaxonID, HashMap<GOTermID, HashSet<Protein>>>
 }
 
 impl StudyPop {
-    pub fn map_go_terms(&mut self, protein_to_go: &HashMap<TaxonID, ProteinToGO>) -> Result<()> {
+    pub fn new() -> Self {
+        StudyPop::default()
+    }
+
+    pub fn from_csv_file(
+        csv_file: impl AsRef<Path>,
+        protein_to_go: HashMap<TaxonID, ProteinToGO>,
+    ) -> Result<Option<Self>> {
         
-        self.go_term_count = HashMap::new();
-        for (&taxon_id, proteins) in &self.taxon_map {
-            let mut go_term_counts = HashMap::new();
-            if let Some(taxon_proteins) = protein_to_go.get(&taxon_id) {
-                for protein in proteins {
-                    if let Some(go_terms) = taxon_proteins.get(protein) {
-                        for &go_term in go_terms { 
-                            *go_term_counts.entry(go_term).or_insert(0) += 1;
-                        }
-                    }
-                }
-            }
-            if !go_term_counts.is_empty() {
-                self.go_term_count.insert(taxon_id, go_term_counts);
-            }
-        }
-        Ok(())
-    }
-
-    pub fn get_go_term_counts(&self, taxon_id: &TaxonID) -> Option<&GOTermCount> {
-        self.go_term_count.get(taxon_id)
-    }
-
-    pub fn get_go_term_count(&self, taxon_id: &TaxonID, go_term: u32) -> usize {
-        self.go_term_count
-            .get(taxon_id)
-            .and_then(|terms| terms.get(&go_term))
-            .copied()
-            .unwrap_or(0)
-    }
-
-    pub fn propagate_counts(
-        &mut self,
-        graph: &OntologyGraph,
-        go_id_to_node_index: &HashMap<u32, NodeIndex>
-    ) {
-        let ancestor_cache: HashMap<NodeIndex, HashSet<NodeIndex>> = go_id_to_node_index
-            .values()
-            .par_bridge()
-            .map(|&node_idx| (node_idx, get_unique_ancestors(node_idx, graph)))
-            .collect();
-
-        let node_index_to_go_id: HashMap<NodeIndex, u32> = go_id_to_node_index
-            .iter()
-            .map(|(&go_id, &node_idx)| (node_idx, go_id))
-            .collect();
-
-        let updated_counts: HashMap<_, _> = self.go_term_count
-            .par_iter()
-            .map(|(&taxon_id, go_term_counts)| {
-                let mut updated_counts = HashMap::with_capacity(go_term_counts.len() * 2);
-                
-                for (&go_id, &direct_count) in go_term_counts.iter() {
-                    if let Some(&node_idx) = go_id_to_node_index.get(&go_id) {
-                        *updated_counts.entry(go_id).or_insert(0) += direct_count;
-                        
-                        if let Some(ancestors) = ancestor_cache.get(&node_idx) {
-                            for &ancestor_idx in ancestors {
-                                if let Some(&ancestor_id) = node_index_to_go_id.get(&ancestor_idx) {
-                                    *updated_counts.entry(ancestor_id).or_insert(0) += direct_count;
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                (taxon_id, updated_counts)
-            })
-            .collect();
+        let mut taxon_map: HashMap<TaxonID, HashSet<Protein>> = HashMap::new();
         
-        self.go_term_count = updated_counts;
-    }
-
+        let file = File::open(csv_file)?;
+        let mut csv_reader = Reader::from_reader(file);
     
-    pub fn from_csv<P: AsRef<Path>>(csv_path: P) -> Result<Self> {
-        let mut taxon_map = HashMap::new();
-        let mut taxon_protein_count = HashMap::new();
-        
-        let file = File::open(csv_path)?;
-        let mut rdr = Reader::from_reader(file);
-        
-
-        let headers = rdr.headers()?.clone();
-        let taxon_ids: Vec<TaxonID> = headers
+        let taxon_ids: Vec<TaxonID> = csv_reader
+            .headers()?
+            .clone()
             .iter()
             .filter_map(|id| id.parse::<u32>().ok())
             .collect();
             
-
-        for result in rdr.records() {
+        for result in csv_reader.records() {
             let record = result?;
-            for (idx, protein) in record.iter().enumerate() {
-                if let Some(&taxon_id) = taxon_ids.get(idx) {
+            for (index, protein) in record.iter().enumerate() {
+                if let Some(&taxon_id) = taxon_ids.get(index) {
                     if !protein.is_empty() {
                         taxon_map
                             .entry(taxon_id)
@@ -123,112 +50,264 @@ impl StudyPop {
             }
         }
         
-
+        let mut taxon_protein_count = HashMap::with_capacity(taxon_map.len());
+        let mut go_term_to_protein_set = HashMap::with_capacity(taxon_map.len());
+        let mut go_term_count = HashMap::with_capacity(taxon_map.len());
+        
         for (&taxon_id, proteins) in &taxon_map {
             taxon_protein_count.insert(taxon_id, proteins.len());
-        }
-        
-        Ok(StudyPop {
-            taxon_map,
-            taxon_protein_count,
-            go_term_count: HashMap::new(),
-        })
-    }
-}
-
-fn get_unique_ancestors(
-    node_idx: NodeIndex,
-    graph: &OntologyGraph,
-) -> HashSet<NodeIndex> {
-    let mut ancestors = HashSet::new();
-    let mut to_visit = vec![node_idx];
-    let mut visited = HashSet::new();
-    
-    while let Some(current_idx) = to_visit.pop() {
-        if !visited.insert(current_idx) {
-            continue;
-        }
-        
-        let mut parents = graph.parents(current_idx);
-        while let Some((edge_idx, parent_idx)) = parents.walk_next(graph) {
-            match graph.edge_weight(edge_idx).unwrap() {
-                Relationship::IsA | Relationship::PartOf => {
-                    ancestors.insert(parent_idx);
-                    to_visit.push(parent_idx);
-                },
-                _ => continue,
+            
+            if let Some(taxon_protein_to_go) = protein_to_go.get(&taxon_id) {
+                let mut go_term_map = HashMap::new();
+                
+                for protein in proteins {
+                    if let Some(go_terms) = taxon_protein_to_go.get(protein) {
+                        for &go_term_id in go_terms {
+                            go_term_map
+                                .entry(go_term_id)
+                                .or_insert_with(HashSet::new)
+                                .insert(protein.to_string());
+                        }
+                    }
+                }
+                
+                if !go_term_map.is_empty() {
+                    let mut term_count = HashMap::new();
+                    for (&go_term_id, go_proteins) in &go_term_map {
+                        term_count.insert(go_term_id, go_proteins.len());
+                    }
+                    
+                    go_term_count.insert(taxon_id, term_count);
+                    go_term_to_protein_set.insert(taxon_id, go_term_map);
+                }
             }
         }
+        
+        Ok(Some(Self {
+            taxon_map,
+            taxon_protein_count,
+            go_term_count,
+            go_term_to_protein_set
+        }))
     }
+
+    pub fn read_study_pop(
+        study_data: impl AsRef<Path>,
+        protein_to_go: HashMap<TaxonID, ProteinToGO>
+    ) -> Result<Option<Self>> {
+        
+        let path = study_data.as_ref();
+        
+        match path.extension().and_then(|s| s.to_str()) {
+            Some("csv") if path.is_file() => {
+                return StudyPop::from_csv_file(path, protein_to_go);
+            }
+            Some("fa") | Some("fasta") if path.is_file() => {
+                if let Ok(Some((taxon_id, protein_set, go_term_count_map, go_term_to_proteins))) = parse_fasta_file(path, &protein_to_go) {
+
+                    let mut taxon_map = HashMap::new();
+                    let mut taxon_protein_count = HashMap::new();
+                    let mut go_term_count = HashMap::new();
+                    let mut go_term_to_protein_set = HashMap::new();
+
+                    taxon_protein_count.insert(taxon_id, protein_set.len());
+                    taxon_map.insert(taxon_id, protein_set);
+                    go_term_count.insert(taxon_id, go_term_count_map);
+                    go_term_to_protein_set.insert(taxon_id, go_term_to_proteins);
+
+                    return Ok(Some(StudyPop {
+                        taxon_map,
+                        taxon_protein_count,
+                        go_term_count,
+                        go_term_to_protein_set,
+                    }));
+            }}
+            _ => {}
+        }
+
+        let entries: Vec<_> = read_dir(path)?
+            .filter_map(Result::ok)
+            .collect();
+
+        let results: Vec<_> = entries.par_iter()
+        .filter_map(|entry| {
+            parse_fasta_file(entry.path(), &protein_to_go)
+                .ok()
+                .flatten()
+        })
+        .collect();
+
+        let mut taxon_map = HashMap::new();
+        let mut taxon_protein_count = HashMap::new();
+        let mut go_term_count = HashMap::new();
+        let mut go_term_to_protein_set = HashMap::new();
+
+        for (taxon_id, protein_set, go_term_count_map, go_term_to_proteins) in results {
+        taxon_protein_count.insert(taxon_id, protein_set.len());
+        taxon_map.insert(taxon_id, protein_set);
+        go_term_count.insert(taxon_id, go_term_count_map);
+        go_term_to_protein_set.insert(taxon_id, go_term_to_proteins);
+        }
+        
+        Ok(Some(StudyPop {
+            taxon_map,
+            taxon_protein_count,
+            go_term_count,
+            go_term_to_protein_set
+        }))
+    }
+}
+
+pub fn parse_fasta_file(
+        fasta_file_path: impl AsRef<Path>,
+        protein_to_go: &HashMap<TaxonID, ProteinToGO>,
+        ) -> Result<Option<(
+            TaxonID, 
+            HashSet<Protein>, 
+            GOTermCount,
+            HashMap<GOTermID, HashSet<Protein>>)>> {
+
+    let path = fasta_file_path.as_ref();
     
-    ancestors
-}
-
-fn is_fasta_file(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(|s| s.to_str()),
-        Some("fasta" | "fa")
-    )
-}
-
-fn process_fasta_file(file_path: impl AsRef<Path>) -> Result<Option<(TaxonID, HashSet<String>)>> {
-    let path = file_path.as_ref();
-    if !path.is_file() || !is_fasta_file(path) {
+    if !path.is_file() {
         return Ok(None);
     }
 
     let file = File::open(path)?;
-    let mut reader = BufReader::with_capacity(32 * 1024, file).lines();
+    let reader = BufReader::with_capacity(128 * 1024, file);
+
+    let mut taxon_id: TaxonID = TaxonID::default();
+    let mut protein_set: HashSet<Protein> = HashSet::new();
     
-    let taxon_id = match reader.next() {
-        Some(Ok(first_line)) => parse_taxon_id(&first_line)?,
-        _ => return Err(Error::new(ErrorKind::InvalidData, "Empty or invalid FASTA file")),
-    };
+    for line_result in reader.lines() {
+        let line = line_result?;
+        let trimmed_line = line.trim();
+        if !trimmed_line.starts_with(">"){
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!("File does not have correct formatting: {:?}", path)
+            ));
+        }
+        else if trimmed_line.starts_with(">") {
+            let id_str = &trimmed_line[1..].trim();
+            taxon_id = id_str.parse::<TaxonID>()
+                .map_err(|e| Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Failed to parse taxon ID: {}", e)
+                ))?;
+        }
+        else if !trimmed_line.is_empty() {
+            protein_set.insert(trimmed_line.to_owned());
+        }
+    }
+    let mut go_term_count: GOTermCount = HashMap::new();
+    let mut go_term_to_proteins: HashMap<GOTermID, HashSet<Protein>> = HashMap::new();
 
-    let proteins: HashSet<String> = reader
-        .filter_map(|line| line.ok())
-        .map(|line| line.trim().to_string())
-        .filter(|line| !line.is_empty())
-        .collect();
+    let taxon_protein_to_go = protein_to_go.get(&taxon_id).unwrap();
 
-    Ok(Some((taxon_id, proteins)))
+    for protein in &protein_set {
+        if let Some(protein_go_terms) = taxon_protein_to_go.get(protein) {
+            for go_term in protein_go_terms {
+                go_term_to_proteins
+                    .entry(go_term.clone())
+                    .or_insert_with(HashSet::new)
+                    .insert(protein.to_string());
+            }
+        }
+    }
+
+    for (go_term, proteins) in &go_term_to_proteins {
+        go_term_count.insert(go_term.clone(), proteins.len());
+    }
+
+    Ok(Some((
+        taxon_id, 
+        protein_set,
+        go_term_count,
+        go_term_to_proteins
+    )))
 }
 
-fn parse_taxon_id(line: &str) -> Result<TaxonID> {
-    let taxon_id_str = line
-        .trim()
-        .strip_prefix('>')
-        .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid Taxon ID format"))?;
-    
-    taxon_id_str
-        .parse::<u32>()
-        .map_err(|e| Error::new(ErrorKind::InvalidData, e))
-}
+pub fn collect_taxon_ids(
+    study_data: impl AsRef<Path>
+) -> Result<HashSet<TaxonID>> {
 
-pub fn read_study_pop<P: AsRef<Path>>(path: P) -> Result<StudyPop> {
-    let path = path.as_ref();
+    let path = study_data.as_ref();
+    let mut taxon_ids = HashSet::new();
     
-    // If the path is a file and ends with .csv, use CSV parser
-    if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("csv") {
-        return StudyPop::from_csv(path);
+    if let Some("csv") = path.extension().and_then(|s| s.to_str()) {
+        if path.is_file() {
+            let file = File::open(path)?;
+            let mut csv_reader = Reader::from_reader(file);
+            
+            let header_taxons: Vec<TaxonID> = csv_reader
+                .headers()?
+                .clone()
+                .iter()
+                .filter_map(|id| id.parse::<u32>().ok())
+                .collect();
+                
+            taxon_ids.extend(header_taxons);
+            return Ok(taxon_ids);
+        }
     }
     
-    // Otherwise, use existing FASTA directory processing
-    let mut taxon_map = HashMap::new();
-    let mut taxon_protein_count = HashMap::new();
-    
-    for entry in read_dir(path)? {
-        if let Ok(entry) = entry {
-            if let Some((taxon_id, proteins)) = process_fasta_file(entry.path())? {
-                taxon_protein_count.insert(taxon_id, proteins.len());
-                taxon_map.insert(taxon_id, proteins);
+    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+        if (ext == "fa" || ext == "fasta") && path.is_file() {
+            if let Some(id) = extract_taxon_id_from_fasta(path)? {
+                taxon_ids.insert(id);
+                return Ok(taxon_ids);
             }
         }
     }
     
-    Ok(StudyPop {
-        taxon_map,
-        taxon_protein_count,
-        go_term_count: HashMap::new(),
-    })
+    if path.is_dir() {
+        let entries: Vec<_> = read_dir(path)?
+            .filter_map(Result::ok)
+            .collect();
+            
+        for entry in entries {
+            let entry_path = entry.path();
+            if let Some(ext) = entry_path.extension().and_then(|s| s.to_str()) {
+                if ext == "fa" || ext == "fasta" {
+                    if let Some(id) = extract_taxon_id_from_fasta(&entry_path)? {
+                        taxon_ids.insert(id);
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(taxon_ids)
+}
+
+fn extract_taxon_id_from_fasta(
+    fasta_file_path: impl AsRef<Path>
+) -> Result<Option<TaxonID>> {
+
+    let file = File::open(fasta_file_path.as_ref())?;
+    let reader = BufReader::new(file);
+    
+    for line_result in reader.lines() {
+        let line = line_result?;
+        let trimmed_line = line.trim();
+        
+        if trimmed_line.starts_with(">") {
+            let id_str = &trimmed_line[1..].trim();
+            return match id_str.parse::<TaxonID>() {
+                Ok(id) => Ok(Some(id)),
+                Err(e) => Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Failed to parse taxon ID: {}", e)
+                ))
+            };
+        } else {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "File does not have correct FASTA formatting (missing '>' header)"
+            ));
+        }
+    }
+    
+    Ok(None)
 }

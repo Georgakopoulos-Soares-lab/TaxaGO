@@ -138,15 +138,28 @@ fn main() -> Result<(), Box<dyn Error>> {
                                                         .filter_map(|s| s.parse::<u32>().ok())
                                                         .collect();
 
-    let mut background_data: BackgroundPop = read_background_pop(
-        &taxon_ids, 
-        &cli_args.background_dir);
+    let mut background_population: BackgroundPop = BackgroundPop::new();
 
-    if cli_args.propagate_counts {
-        println!("Propagating counts up the Ontology graph\n");
-        background_data.propagate_counts(&ontology_graph, &go_id_to_node_index);   
+    match BackgroundPop::read_background_pop(&taxon_ids, &cli_args.background_dir)? {
+        Some(background_pop) => {
+            println!("Successfully loaded background population for {} taxa\n", &taxon_ids.len());
+            background_population = background_pop;
+        },
+        None => {
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "No background population data could be loaded\n"
+            )));
+        }
     }
-    let go_term_count: HashMap<u32, HashMap<u32, usize>> = background_data.go_term_count;
+                                                    
+
+    // if cli_args.propagate_counts {
+    //     println!("Propagating counts up the Ontology graph\n");
+    //     background_data.propagate_counts(&ontology_graph, &go_id_to_node_index);   
+    // }
+
+    let go_term_count: HashMap<u32, HashMap<u32, usize>> = background_population.go_term_count;
 
     let go_terms = process_go_terms_input(&cli_args.go_terms_input)?;
 

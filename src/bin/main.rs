@@ -4,9 +4,7 @@ use std::fs::create_dir_all;
 use std::env::var;
 use std::collections::HashSet;
 use TaxaGO::parsers::{
-    obo_parser::*,
-    study_parser::read_study_pop,
-    background_parser::{BackgroundPop,read_background_pop},
+    background_parser::*, obo_parser::*, study_parser::*
 };
 use lazy_static::lazy_static;
 use std::path::PathBuf;
@@ -244,25 +242,47 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ontology = parse_obo_file(&cli_args.obo_file)?;
     let (ontology_graph, node_index) = build_ontology_graph(&ontology)?;
     
-    println!("Reading study populations from: {}\n", &cli_args.study_pop);
-
-    let mut study_population  = read_study_pop(&cli_args.study_pop)?;
-    
-    let taxon_ids = study_population.taxon_map.keys().copied().collect::<HashSet<u32>>();
-
     println!("Reading background populations from: {}\n", &cli_args.background_dir);
+
+    let taxon_ids: HashSet<TaxonID> = collect_taxon_ids(&cli_args.study_pop)?;
     
-    let mut background_data: BackgroundPop = read_background_pop(
-        &taxon_ids, 
-        &cli_args.background_dir);
+    let mut background_population: BackgroundPop = BackgroundPop::new();
 
-    study_population.map_go_terms(&background_data.protein_to_go)?;
-
-    if cli_args.propagate_counts{
-        println!("Propagating counts up the Ontology graph\n");
-        study_population.propagate_counts(&ontology_graph, &node_index);
-        background_data.propagate_counts(&ontology_graph, &node_index);   
+    match BackgroundPop::read_background_pop(&taxon_ids, &cli_args.background_dir)? {
+        Some(background_pop) => {
+            println!("Successfully loaded background population for {} taxa\n", &taxon_ids.len());
+            background_population = background_pop;
+        },
+        None => {
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "No background population data could be loaded\n"
+            )));
+        }
     }
+
+    println!("Reading study populations from: {}\n", &cli_args.study_pop);
+    
+    let mut study_population = StudyPop::new();
+
+    match StudyPop::read_study_pop(&cli_args.study_pop, background_population.protein_to_go)? {
+        Some(study_pop) => {
+            println!("Successfully loaded study population with {} taxa\n", &taxon_ids.len());
+            study_population = study_pop;
+        },
+        None => {
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "No study population data could be loaded\n"
+            )));
+        }
+    }
+
+    // if cli_args.propagate_counts{
+    //     println!("Propagating counts up the Ontology graph\n");
+    //     study_population.propagate_counts(&ontology_graph, &node_index);
+    //     background_data.propagate_counts(&ontology_graph, &node_index);   
+    // }
     
     println!("Performing Gene Ontology (GO) term enrichment analysis\n");
     let analysis = EnrichmentAnalysis::new(
@@ -276,9 +296,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     let enrichment_results = analysis.analyze(
         &taxon_ids,          
-        &background_data.go_term_count,
+        &background_population.go_term_count,
         &study_population.go_term_count,
-        &background_data.taxon_protein_count,
+        &background_population.taxon_protein_count,
         &study_population.taxon_protein_count,
     );
     

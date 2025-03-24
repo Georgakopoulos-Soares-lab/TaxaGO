@@ -4,3 +4,4 @@ pub mod write_results;
 pub mod handle_lineage;
 pub mod result_combination;
 pub mod elim_algorithm;
+pub mod count_propagation;
