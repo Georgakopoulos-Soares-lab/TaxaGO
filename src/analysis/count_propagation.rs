@@ -1,60 +1,180 @@
 use std::collections::{HashMap, HashSet};
-use crate::parsers::study_parser::StudyPop;
+use std::io::Result;
+use crate::parsers::{background_parser::*, study_parser::*};
 use crate::parsers::obo_parser::*;
 use daggy::{NodeIndex, Walker};
 use::rayon::prelude::*;
+use petgraph::algo::toposort;
+
+#[derive(Debug, Default, Clone)]
+pub struct GOAncestorCache {
+    pub parent_map: HashMap<GOTermID, HashSet<GOTermID>>,
+    pub propagation_order: Vec<GOTermID>, 
+}
+
+impl GOAncestorCache {
+    pub fn new(
+        ontology_graph: &OntologyGraph,
+        go_term_map: &OboMap,
+        go_id_to_node_index: &HashMap<GOTermID, NodeIndex>
+    ) -> Result<Self> {
+
+        let node_index_to_go_id: HashMap<NodeIndex, GOTermID> = go_id_to_node_index.iter()
+            .map(|(go_term, node_index)| (*node_index, go_term.clone()))
+            .collect();
+       
+        let go_terms: Vec<&GOTermID> = go_term_map.keys().collect();
+
+        let parent_map: HashMap<GOTermID, HashSet<GOTermID>> = go_terms
+            .par_iter()
+            .filter_map(|&go_term| {
+                go_id_to_node_index.get(go_term).map(|&node_idx| {
+                    let ancestors = get_unique_ancestors(
+                        node_idx, ontology_graph, &node_index_to_go_id);
+                    
+                    (*go_term, ancestors)
+                })
+            })
+            .collect();
+        
+        let topo_result = toposort(ontology_graph, None).unwrap();
+
+        let mut propagation_order: Vec<GOTermID> = topo_result.iter()
+                    .filter_map(|&node_idx| node_index_to_go_id.get(&node_idx).copied())
+                    .collect();
+                
+
+        propagation_order.reverse();
+
+        Ok(Self {
+            parent_map,
+            propagation_order
+        })
+    }
+    
+}
 
 impl StudyPop {
     pub fn propagate_counts(
         &mut self,
-        graph: &OntologyGraph,
-        go_id_to_node_index: &HashMap<u32, NodeIndex>
-    ) {
-        let ancestor_cache: HashMap<NodeIndex, HashSet<NodeIndex>> = go_id_to_node_index
-            .values()
-            .par_bridge()
-            .map(|&node_idx| (node_idx, get_unique_ancestors(node_idx, graph)))
-            .collect();
-    
-        let node_index_to_go_id: HashMap<NodeIndex, u32> = go_id_to_node_index
-            .iter()
-            .map(|(&go_id, &node_idx)| (node_idx, go_id))
-            .collect();
-    
-        let updated_counts: HashMap<_, _> = self.go_term_count
-            .par_iter()
-            .map(|(&taxon_id, go_term_counts)| {
-                let mut updated_counts = HashMap::with_capacity(go_term_counts.len() * 2);
+        taxon_ids: &HashSet<TaxonID>,
+        ancestor_cache: &GOAncestorCache
+    ) -> () {
+
+        let results: Vec<(TaxonID, GOTermCount, HashMap<GOTermID, HashSet<String>>)> = taxon_ids
+            .par_iter()  
+            .filter_map(|taxon_id| {
+
+                let go_term_count = self.go_term_count.get(taxon_id)?;
+                let go_term_protein_sets = self.go_term_to_protein_set.get(taxon_id)?;
                 
-                for (&go_id, &direct_count) in go_term_counts.iter() {
-                    if let Some(&node_idx) = go_id_to_node_index.get(&go_id) {
-                        *updated_counts.entry(go_id).or_insert(0) += direct_count;
-                        
-                        if let Some(ancestors) = ancestor_cache.get(&node_idx) {
-                            for &ancestor_idx in ancestors {
-                                if let Some(&ancestor_id) = node_index_to_go_id.get(&ancestor_idx) {
-                                    *updated_counts.entry(ancestor_id).or_insert(0) += direct_count;
-                                }
-                            }
+                let mut local_counts = go_term_count.clone();
+                let mut local_protein_sets = go_term_protein_sets.clone();
+                
+                for go_term in &ancestor_cache.propagation_order {
+
+                    let current_proteins = match local_protein_sets.get(go_term) {
+                        Some(proteins) => proteins.clone(), 
+                        None => continue,
+                    };
+                    
+                    let parent_terms = match ancestor_cache.parent_map.get(go_term) {
+                        Some(parents) => parents.clone(),
+                        None => continue,
+                    };
+                    
+                    for parent in parent_terms {
+                        let parent_proteins = local_protein_sets
+                            .entry(parent)
+                            .or_insert_with(HashSet::new);
+                                                
+                        for protein in &current_proteins {
+                            parent_proteins.insert(protein.clone());
                         }
+                        
+                        let after_count = parent_proteins.len();
+                        *local_counts.entry(parent).or_insert(0) = after_count;
                     }
                 }
                 
-                (taxon_id, updated_counts)
+                Some((*taxon_id, local_counts, local_protein_sets))
             })
             .collect();
         
-        self.go_term_count = updated_counts;
+        for (taxon_id, counts, protein_sets) in results {
+            if let Some(taxon_counts) = self.go_term_count.get_mut(&taxon_id) {
+                *taxon_counts = counts;
+            }
+            
+            if let Some(taxon_protein_sets) = self.go_term_to_protein_set.get_mut(&taxon_id) {
+                *taxon_protein_sets = protein_sets;
+            }
+        }
     }
 }
 
-
-
+impl BackgroundPop {
+    pub fn propagate_counts(
+        &mut self,
+        taxon_ids: &HashSet<TaxonID>,
+        ancestor_cache: &GOAncestorCache
+    ) -> () {
+        let results: Vec<(TaxonID, GOTermCount, HashMap<GOTermID, HashSet<String>>)> = taxon_ids
+            .par_iter()  
+            .filter_map(|taxon_id| {
+                let go_term_count = self.go_term_count.get(taxon_id)?;
+                let go_term_protein_sets = self.go_term_to_protein_set.get(taxon_id)?;
+                
+                let mut local_counts = go_term_count.clone();
+                let mut local_protein_sets = go_term_protein_sets.clone();
+                
+                for go_term in &ancestor_cache.propagation_order {
+                    let current_proteins = match local_protein_sets.get(go_term) {
+                        Some(proteins) => proteins.clone(),
+                        None => continue,
+                    };
+                    
+                    let parent_terms = match ancestor_cache.parent_map.get(go_term) {
+                        Some(parents) => parents.clone(), 
+                        None => continue,
+                    };
+                    
+                    for parent in parent_terms {
+                        let parent_proteins = local_protein_sets
+                            .entry(parent)
+                            .or_insert_with(HashSet::new);
+                                                
+                        for protein in &current_proteins {
+                            parent_proteins.insert(protein.clone());
+                        }
+                        
+                        let after_count = parent_proteins.len();
+                        *local_counts.entry(parent).or_insert(0) = after_count;
+                    }
+                }
+                
+                Some((*taxon_id, local_counts, local_protein_sets))
+            })
+            .collect();
+        
+        for (taxon_id, counts, protein_sets) in results {
+            if let Some(taxon_counts) = self.go_term_count.get_mut(&taxon_id) {
+                *taxon_counts = counts;
+            }
+            
+            if let Some(taxon_protein_sets) = self.go_term_to_protein_set.get_mut(&taxon_id) {
+                *taxon_protein_sets = protein_sets;
+            }
+        }
+    }
+}
 
 fn get_unique_ancestors(
     node_idx: NodeIndex,
-    graph: &OntologyGraph,
-) -> HashSet<NodeIndex> {
+    ontology_graph: &OntologyGraph,
+    node_index_to_go_id: &HashMap<NodeIndex, GOTermID>
+) -> HashSet<GOTermID> {
+
     let mut ancestors = HashSet::new();
     let mut to_visit = vec![node_idx];
     let mut visited = HashSet::new();
@@ -64,11 +184,12 @@ fn get_unique_ancestors(
             continue;
         }
         
-        let mut parents = graph.parents(current_idx);
-        while let Some((edge_idx, parent_idx)) = parents.walk_next(graph) {
-            match graph.edge_weight(edge_idx).unwrap() {
+        let mut parents = ontology_graph.parents(current_idx);
+        while let Some((edge_idx, parent_idx)) = parents.walk_next(ontology_graph) {
+            match ontology_graph.edge_weight(edge_idx).unwrap() {
                 Relationship::IsA | Relationship::PartOf => {
-                    ancestors.insert(parent_idx);
+                    let go_term_id = node_index_to_go_id.get(&parent_idx).unwrap();
+                    ancestors.insert(*go_term_id);
                     to_visit.push(parent_idx);
                 },
                 _ => continue,

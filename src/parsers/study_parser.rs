@@ -15,13 +15,10 @@ pub struct StudyPop {
 }
 
 impl StudyPop {
-    pub fn new() -> Self {
-        StudyPop::default()
-    }
 
     pub fn from_csv_file(
         csv_file: impl AsRef<Path>,
-        protein_to_go: HashMap<TaxonID, ProteinToGO>,
+        protein_to_go: &HashMap<TaxonID, ProteinToGO>,
     ) -> Result<Option<Self>> {
         
         let mut taxon_map: HashMap<TaxonID, HashSet<Protein>> = HashMap::new();
@@ -93,7 +90,7 @@ impl StudyPop {
 
     pub fn read_study_pop(
         study_data: impl AsRef<Path>,
-        protein_to_go: HashMap<TaxonID, ProteinToGO>
+        protein_to_go: &HashMap<TaxonID, ProteinToGO>
     ) -> Result<Option<Self>> {
         
         let path = study_data.as_ref();

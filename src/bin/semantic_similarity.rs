@@ -12,6 +12,7 @@ use TaxaGO::parsers::obo_parser::*;
 use TaxaGO::parsers::background_parser::*;
 use TaxaGO::utils::semantic_similarity::*;
 use TaxaGO::utils::common_ancestor::*;
+use TaxaGO::analysis::count_propagation::*;
 
 lazy_static! {
     static ref DEFAULT_OBO_PATH: String = {
@@ -138,12 +139,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                                                         .filter_map(|s| s.parse::<u32>().ok())
                                                         .collect();
 
-    let mut background_population: BackgroundPop = BackgroundPop::new();
-
-    match BackgroundPop::read_background_pop(&taxon_ids, &cli_args.background_dir)? {
+    let mut background_population = match BackgroundPop::read_background_pop(&taxon_ids, &cli_args.background_dir)? {
         Some(background_pop) => {
             println!("Successfully loaded background population for {} taxa\n", &taxon_ids.len());
-            background_population = background_pop;
+            background_pop
         },
         None => {
             return Err(Box::new(std::io::Error::new(
@@ -151,13 +150,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "No background population data could be loaded\n"
             )));
         }
-    }
-                                                    
+    };
 
-    // if cli_args.propagate_counts {
-    //     println!("Propagating counts up the Ontology graph\n");
-    //     background_data.propagate_counts(&ontology_graph, &go_id_to_node_index);   
-    // }
+    if cli_args.propagate_counts {
+        println!("Propagating counts up the Ontology graph\n");
+        
+        let ancestor_cache: GOAncestorCache = GOAncestorCache::new(
+            &ontology_graph, 
+            &ontology, 
+            &go_id_to_node_index)?;
+
+        background_population.propagate_counts(&taxon_ids, &ancestor_cache);
+        
+    }
 
     let go_term_count: HashMap<u32, HashMap<u32, usize>> = background_population.go_term_count;
 

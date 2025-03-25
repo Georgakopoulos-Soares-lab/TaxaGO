@@ -22,9 +22,6 @@ pub struct BackgroundPop {
 }
 
 impl BackgroundPop {
-    pub fn new() -> Self {
-        BackgroundPop::default()
-    }
 
     pub fn read_background_pop(
         taxon_ids: &HashSet<TaxonID>, 

@@ -16,6 +16,7 @@ use TaxaGO::analysis::{
     write_results::*,
     handle_lineage::*,
     result_combination::*,
+    count_propagation::*
 
 };
 use std::process::Command;
@@ -240,18 +241,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("\nReading ontology information from: {}\n\nBuilding ontology graph\n", &cli_args.obo_file);
 
     let ontology = parse_obo_file(&cli_args.obo_file)?;
-    let (ontology_graph, node_index) = build_ontology_graph(&ontology)?;
+    let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
     
     println!("Reading background populations from: {}\n", &cli_args.background_dir);
 
     let taxon_ids: HashSet<TaxonID> = collect_taxon_ids(&cli_args.study_pop)?;
     
-    let mut background_population: BackgroundPop = BackgroundPop::new();
-
-    match BackgroundPop::read_background_pop(&taxon_ids, &cli_args.background_dir)? {
+    let mut background_population = match BackgroundPop::read_background_pop(&taxon_ids, &cli_args.background_dir)? {
         Some(background_pop) => {
             println!("Successfully loaded background population for {} taxa\n", &taxon_ids.len());
-            background_population = background_pop;
+            background_pop
         },
         None => {
             return Err(Box::new(std::io::Error::new(
@@ -259,16 +258,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "No background population data could be loaded\n"
             )));
         }
-    }
+    };
 
     println!("Reading study populations from: {}\n", &cli_args.study_pop);
     
-    let mut study_population = StudyPop::new();
 
-    match StudyPop::read_study_pop(&cli_args.study_pop, background_population.protein_to_go)? {
+    let mut study_population = match StudyPop::read_study_pop(&cli_args.study_pop, &background_population.protein_to_go)? {
         Some(study_pop) => {
-            println!("Successfully loaded study population with {} taxa\n", &taxon_ids.len());
-            study_population = study_pop;
+            println!("Successfully loaded study population for {} taxa\n", &taxon_ids.len());
+            study_pop
         },
         None => {
             return Err(Box::new(std::io::Error::new(
@@ -276,13 +274,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "No study population data could be loaded\n"
             )));
         }
-    }
+    };
 
-    // if cli_args.propagate_counts{
-    //     println!("Propagating counts up the Ontology graph\n");
-    //     study_population.propagate_counts(&ontology_graph, &node_index);
-    //     background_data.propagate_counts(&ontology_graph, &node_index);   
-    // }
+    if cli_args.propagate_counts{
+        println!("Propagating counts up the Ontology graph\n");
+        
+        let ancestor_cache: GOAncestorCache = GOAncestorCache::new(
+            &ontology_graph, 
+            &ontology, 
+            &go_id_to_node_index)?;
+
+        study_population.propagate_counts(&taxon_ids, &ancestor_cache);
+        background_population.propagate_counts(&taxon_ids, &ancestor_cache);
+        
+    }
     
     println!("Performing Gene Ontology (GO) term enrichment analysis\n");
     let analysis = EnrichmentAnalysis::new(
