@@ -158,7 +158,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         let ancestor_cache: GOAncestorCache = GOAncestorCache::new(
             &ontology_graph, 
             &ontology, 
-            &go_id_to_node_index)?;
+            &go_id_to_node_index,
+            &node_index_to_go_id
+        )?;
 
         background_population.propagate_counts(&taxon_ids, &ancestor_cache);
         

@@ -12,16 +12,14 @@ pub struct GOAncestorCache {
     pub propagation_order: Vec<GOTermID>, 
 }
 
+// NEEDS REFACTORING TO MINIMIZE MEMORY USAGE
 impl GOAncestorCache {
     pub fn new(
         ontology_graph: &OntologyGraph,
         go_term_map: &OboMap,
-        go_id_to_node_index: &HashMap<GOTermID, NodeIndex>
+        go_id_to_node_index: &HashMap<GOTermID, NodeIndex>,
+        node_index_to_go_id: &HashMap<NodeIndex, GOTermID> 
     ) -> Result<Self> {
-
-        let node_index_to_go_id: HashMap<NodeIndex, GOTermID> = go_id_to_node_index.iter()
-            .map(|(go_term, node_index)| (*node_index, go_term.clone()))
-            .collect();
        
         let go_terms: Vec<&GOTermID> = go_term_map.keys().collect();
 

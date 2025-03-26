@@ -2,7 +2,8 @@ use clap::Parser;
 use std::error::Error;
 use std::fs::create_dir_all;
 use std::env::var;
-use std::collections::HashSet;
+use std::collections::{HashMap,HashSet};
+use daggy::NodeIndex;
 use TaxaGO::parsers::{
     background_parser::*, obo_parser::*, study_parser::*
 };
@@ -20,7 +21,6 @@ use TaxaGO::analysis::{
 
 };
 use std::process::Command;
-
 lazy_static! {
     static ref DEFAULT_OBO_PATH: String = {
         let cargo_home = var("CARGO_HOME")
@@ -74,7 +74,7 @@ lazy_static! {
             .into_owned()
     };
 }
-// MUST ADD IT TO TAXAGO ASSETS !!!!!!
+// MUST ADD IT TO TAXAGO ASSETS TAR!!!!!!
 lazy_static! {
     static ref ENRICHMENT_PLOTS_SCRIPT: String = {
         let cargo_home = var("CARGO_HOME")
@@ -155,7 +155,7 @@ struct CliArgs {
         long = "min-prot",
         value_name = "MIN_COUNT",
         help = "Minimum protein count a GO Term must have to be processed.",
-        default_value = "5",
+        default_value = "10",
         required = false
     )]
     min_protein_count: usize,
@@ -242,6 +242,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let ontology = parse_obo_file(&cli_args.obo_file)?;
     let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
+
+    let node_index_to_go_id: HashMap<NodeIndex, GOTermID> = go_id_to_node_index.iter()
+            .map(|(go_term, node_index)| (*node_index, go_term.clone()))
+            .collect();
+
+    let root_go_ids: Vec<u32> = vec![8150, 3674, 5575];
+
+    let (_, level_to_go_term) = assign_levels_from_roots(
+        &ontology_graph,
+        &go_id_to_node_index,
+        &node_index_to_go_id,
+        &root_go_ids
+    );
     
     println!("Reading background populations from: {}\n", &cli_args.background_dir);
 
@@ -262,7 +275,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Reading study populations from: {}\n", &cli_args.study_pop);
     
-
     let mut study_population = match StudyPop::read_study_pop(&cli_args.study_pop, &background_population.protein_to_go)? {
         Some(study_pop) => {
             println!("Successfully loaded study population for {} taxa\n", &taxon_ids.len());
@@ -282,30 +294,50 @@ fn main() -> Result<(), Box<dyn Error>> {
         let ancestor_cache: GOAncestorCache = GOAncestorCache::new(
             &ontology_graph, 
             &ontology, 
-            &go_id_to_node_index)?;
-
+            &go_id_to_node_index,
+            &node_index_to_go_id
+        )?;
         study_population.propagate_counts(&taxon_ids, &ancestor_cache);
         background_population.propagate_counts(&taxon_ids, &ancestor_cache);
         
     }
-    
+
+    study_population.filter_by_threshold(
+        &taxon_ids,
+        cli_args.min_protein_count);
+
+    background_population.filter_by_study_population(
+        &taxon_ids, 
+        &study_population);
+
     println!("Performing Gene Ontology (GO) term enrichment analysis\n");
     let analysis = EnrichmentAnalysis::new(
-        cli_args.min_protein_count,
         match cli_args.statistical_test.to_lowercase().as_str() {
             "fisher" => StatisticalTest::Fishers,
             "hypergeometric" => StatisticalTest::Hypergeometric,
             _ => return Err("Invalid statistical test type".into()),
         }
     );
-    
-    let enrichment_results = analysis.analyze(
-        &taxon_ids,          
-        &background_population.go_term_count,
-        &study_population.go_term_count,
-        &background_population.taxon_protein_count,
-        &study_population.taxon_protein_count,
-    );
+
+    let enrichment_results = if cli_args.propagate_counts {
+        println!("Performing elim algorithm on propagated counts\n");
+        analysis.elim_analysis(
+            &taxon_ids,
+            cli_args.significance_threshold,
+            &study_population,
+            &background_population,
+            &level_to_go_term
+        )
+    } else {
+        println!("Performing classic analysis without count propagation\n");
+        analysis.classic(
+            &taxon_ids,          
+            &background_population.go_term_count,
+            &study_population.go_term_count,
+            &background_population.taxon_protein_count,
+            &study_population.taxon_protein_count,
+        )
+    };
     
     let significant_fishers_results = adjust_species_p_values(
         &enrichment_results, 

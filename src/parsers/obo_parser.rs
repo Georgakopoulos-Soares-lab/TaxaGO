@@ -1,14 +1,19 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs::File;
 use std::io::{BufReader, BufRead, Error};
 use ucfirst::ucfirst;
-use daggy::{Dag, NodeIndex};
+use daggy::{Dag, NodeIndex, Walker};
 use regex::Regex;
 use lazy_static::lazy_static;
+
+use super::background_parser::GOTermID;
 
 pub type OboMap = HashMap<u32, OboTerm>;
 pub type OntologyGraph = Dag<u32, Relationship, u32>;
 pub type AncestryPath = Vec<(NodeIndex, Option<Relationship>)>;
+
+pub type TermToLevel = HashMap<GOTermID, usize>;
+pub type LevelToTerms = HashMap<usize, Vec<GOTermID>>;
 
 #[derive(Debug, Clone)]
 pub enum NameSpace {
@@ -200,23 +205,72 @@ pub fn parse_obo_file(obo_file_path: &str) -> Result<OboMap, Error> {
 pub fn build_ontology_graph(obo_map: &OboMap) -> Result<(OntologyGraph, HashMap<u32, NodeIndex>), Error> {
     let mut ontology_graph: OntologyGraph = Dag::new();
     
-    let mut node_indices: HashMap<u32, NodeIndex> = HashMap::new();
+    let mut go_id_to_node_index: HashMap<u32, NodeIndex> = HashMap::new();
     
     for node_id in obo_map.keys() {
         let node_index = ontology_graph.add_node(*node_id);
-        node_indices.insert(*node_id, node_index);
+        go_id_to_node_index.insert(*node_id, node_index);
     }
     
     for (node_id, term) in obo_map.iter() {
-        let source_index = node_indices[node_id];
+        let source_index = go_id_to_node_index[node_id];
         
         for (parent_id, relationship_type) in term.relationships.iter() {
-            let target_index = node_indices[parent_id];
+            let target_index = go_id_to_node_index[parent_id];
             ontology_graph
                 .add_edge(target_index, source_index, relationship_type.clone())
                 .unwrap();
         }
     }
     
-    Ok((ontology_graph, node_indices))
+    Ok((ontology_graph, go_id_to_node_index))
+}
+pub fn assign_levels_from_roots(
+    graph: &OntologyGraph, 
+    go_id_to_node_index: &HashMap<GOTermID, NodeIndex>,
+    node_index_to_go_id: &HashMap<NodeIndex, GOTermID>,
+    root_ids: &[u32]  
+) -> (TermToLevel, LevelToTerms) {
+
+    let mut term_to_level = HashMap::new();
+    let mut level_to_terms = HashMap::new();
+
+    for &term_id in go_id_to_node_index.keys() {
+        term_to_level.insert(term_id, 0);
+    }
+
+    let mut queue = VecDeque::new();
+
+    for &root_id in root_ids {
+        if let Some(&node_index) = go_id_to_node_index.get(&root_id) {
+            term_to_level.insert(root_id, 0);
+            queue.push_back((node_index, 0));
+        }
+    }
+
+    while let Some((node_index, current_level)) = queue.pop_front() {
+        let term_id = *node_index_to_go_id.get(&node_index).unwrap();
+
+        level_to_terms.entry(current_level)
+            .or_insert_with(Vec::new)
+            .push(term_id);
+
+        let mut children = graph.children(node_index);
+        while let Some((edge, child)) = children.walk_next(graph) {
+            match graph.edge_weight(edge).unwrap() {
+                Relationship::IsA | Relationship::PartOf => {
+                    let child_id = *node_index_to_go_id.get(&child).unwrap();
+                    let child_current_level = term_to_level[&child_id];
+                    
+                    if current_level + 1 > child_current_level {
+                        term_to_level.insert(child_id, current_level + 1);
+                        queue.push_back((child, current_level + 1));
+                    }
+                },
+                _ => continue,
+            }
+        }
+    }
+
+    (term_to_level, level_to_terms)
 }

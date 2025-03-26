@@ -153,6 +153,45 @@ impl StudyPop {
             go_term_to_protein_set
         }))
     }
+
+    pub fn filter_by_threshold(
+        &mut self, 
+        taxon_ids: &HashSet<TaxonID>,
+        threshold: usize) {  
+        
+        for taxon_id in taxon_ids {
+            let terms_to_remove: Vec<GOTermID> = if let Some(term_count) = self.go_term_count.get(&taxon_id) {
+                term_count
+                    .iter()
+                    .filter_map(|(term_id, &count)| {
+                        if count <= threshold {
+                            Some(term_id.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            } else {
+                continue;
+            };
+            
+            if terms_to_remove.is_empty() {
+                continue;
+            }
+            
+            if let Some(count_map) = self.go_term_count.get_mut(&taxon_id) {
+                for term_id in &terms_to_remove {
+                    count_map.remove(term_id);
+                }
+            }
+            
+            if let Some(term_map) = self.go_term_to_protein_set.get_mut(&taxon_id) {
+                for term_id in &terms_to_remove {
+                    term_map.remove(term_id);
+                }
+            }
+        }
+    }
 }
 
 pub fn parse_fasta_file(

@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Result, Error, ErrorKind};
 use std::path::Path;
 use rayon::prelude::*;
+use crate::parsers::study_parser::*;
 
 pub type TaxonID = u32;
 pub type GOTermID = u32;
@@ -72,6 +73,52 @@ impl BackgroundPop {
             go_term_count,
             go_term_to_protein_set
         }))
+    }
+
+    pub fn filter_by_study_population(
+        &mut self,
+        taxon_ids: &HashSet<TaxonID>,
+        study_pop: &StudyPop) {
+        
+        for taxon_id in taxon_ids {
+
+            let study_go_terms = match study_pop.go_term_count.get(&taxon_id) {
+                Some(terms) => terms.keys().collect::<HashSet<&GOTermID>>(),
+                None => continue,
+            };
+            
+            let terms_to_remove = if let Some(bg_terms) = self.go_term_count.get(&taxon_id) {
+                bg_terms
+                    .keys()
+                    .filter(|term_id| !study_go_terms.contains(term_id))
+                    .cloned()
+                    .collect::<Vec<GOTermID>>()
+            } else {
+                continue;
+            };
+            
+            if terms_to_remove.is_empty() {
+                continue;
+            }
+            
+            if let Some(count_map) = self.go_term_count.get_mut(&taxon_id) {
+                for term_id in &terms_to_remove {
+                    count_map.remove(term_id);
+                }
+            }
+            
+            if let Some(term_map) = self.go_term_to_protein_set.get_mut(&taxon_id) {
+                for term_id in &terms_to_remove {
+                    term_map.remove(term_id);
+                }
+            }
+            
+            if let Some(protein_go_map) = self.protein_to_go.get_mut(&taxon_id) {
+                for protein_go_terms in protein_go_map.values_mut() {
+                    protein_go_terms.retain(|go_term| !terms_to_remove.contains(go_term));
+                }
+            }
+        }
     }   
 }
 
