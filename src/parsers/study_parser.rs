@@ -1,27 +1,28 @@
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::fs::{read_dir, File};
 use std::io::{BufRead, BufReader, Error, ErrorKind, Result};
 use std::path::Path;
+use std::sync::Arc;
 use csv::Reader;  
 use rayon::prelude::*;
 use crate::parsers::background_parser::*;
+use compact_str::CompactString;
 
 #[derive(Debug, Default, Clone)]
 pub struct StudyPop {
-    pub taxon_map: HashMap<TaxonID, HashSet<Protein>>,
-    pub taxon_protein_count: HashMap<TaxonID, usize>,
-    pub go_term_count: HashMap<TaxonID, GOTermCount>,
-    pub go_term_to_protein_set: HashMap<TaxonID, HashMap<GOTermID, HashSet<Protein>>>
+    pub taxon_map: FxHashMap<TaxonID, FxHashSet<Protein>>,
+    pub taxon_protein_count: FxHashMap<TaxonID, usize>,
+    pub go_term_count: FxHashMap<TaxonID, GOTermCount>,
+    pub go_term_to_protein_set: FxHashMap<TaxonID, FxHashMap<GOTermID, FxHashSet<Protein>>>
 }
 
 impl StudyPop {
-
     pub fn from_csv_file(
         csv_file: impl AsRef<Path>,
-        protein_to_go: &HashMap<TaxonID, ProteinToGO>,
+        protein_to_go: &FxHashMap<TaxonID, ProteinToGO>,
     ) -> Result<Option<Self>> {
         
-        let mut taxon_map: HashMap<TaxonID, HashSet<Protein>> = HashMap::new();
+        let mut taxon_map: FxHashMap<TaxonID, FxHashSet<Protein>> = FxHashMap::default();
         
         let file = File::open(csv_file)?;
         let mut csv_reader = Reader::from_reader(file);
@@ -40,36 +41,45 @@ impl StudyPop {
                     if !protein.is_empty() {
                         taxon_map
                             .entry(taxon_id)
-                            .or_insert_with(HashSet::new)
-                            .insert(protein.to_string());
+                            .or_insert_with(FxHashSet::default)
+                            .insert(Arc::new(CompactString::new(protein)));
                     }
                 }
             }
         }
         
-        let mut taxon_protein_count = HashMap::with_capacity(taxon_map.len());
-        let mut go_term_to_protein_set = HashMap::with_capacity(taxon_map.len());
-        let mut go_term_count = HashMap::with_capacity(taxon_map.len());
+        let mut taxon_protein_count = FxHashMap::with_capacity_and_hasher(
+            taxon_map.len(),
+            rustc_hash::FxBuildHasher::default()
+        );
+        let mut go_term_to_protein_set = FxHashMap::with_capacity_and_hasher(
+            taxon_map.len(),
+            rustc_hash::FxBuildHasher::default()
+        );
+        let mut go_term_count = FxHashMap::with_capacity_and_hasher(
+            taxon_map.len(),
+            rustc_hash::FxBuildHasher::default()
+        );
         
         for (&taxon_id, proteins) in &taxon_map {
             taxon_protein_count.insert(taxon_id, proteins.len());
             
             if let Some(taxon_protein_to_go) = protein_to_go.get(&taxon_id) {
-                let mut go_term_map = HashMap::new();
+                let mut go_term_map = FxHashMap::default();
                 
                 for protein in proteins {
-                    if let Some(go_terms) = taxon_protein_to_go.get(protein) {
+                    if let Some(go_terms) = taxon_protein_to_go.get(protein.as_ref()) {
                         for &go_term_id in go_terms {
                             go_term_map
                                 .entry(go_term_id)
-                                .or_insert_with(HashSet::new)
-                                .insert(protein.to_string());
+                                .or_insert_with(FxHashSet::default)
+                                .insert(Arc::clone(protein));
                         }
                     }
                 }
                 
                 if !go_term_map.is_empty() {
-                    let mut term_count = HashMap::new();
+                    let mut term_count = FxHashMap::default();
                     for (&go_term_id, go_proteins) in &go_term_map {
                         term_count.insert(go_term_id, go_proteins.len());
                     }
@@ -90,7 +100,7 @@ impl StudyPop {
 
     pub fn read_study_pop(
         study_data: impl AsRef<Path>,
-        protein_to_go: &HashMap<TaxonID, ProteinToGO>
+        protein_to_go: &FxHashMap<TaxonID, ProteinToGO>
     ) -> Result<Option<Self>> {
         
         let path = study_data.as_ref();
@@ -102,10 +112,10 @@ impl StudyPop {
             Some("fa") | Some("fasta") if path.is_file() => {
                 if let Ok(Some((taxon_id, protein_set, go_term_count_map, go_term_to_proteins))) = parse_fasta_file(path, &protein_to_go) {
 
-                    let mut taxon_map = HashMap::new();
-                    let mut taxon_protein_count = HashMap::new();
-                    let mut go_term_count = HashMap::new();
-                    let mut go_term_to_protein_set = HashMap::new();
+                    let mut taxon_map = FxHashMap::default();
+                    let mut taxon_protein_count = FxHashMap::default();
+                    let mut go_term_count = FxHashMap::default();
+                    let mut go_term_to_protein_set = FxHashMap::default();
 
                     taxon_protein_count.insert(taxon_id, protein_set.len());
                     taxon_map.insert(taxon_id, protein_set);
@@ -122,11 +132,9 @@ impl StudyPop {
             _ => {}
         }
 
-        let entries: Vec<_> = read_dir(path)?
-            .filter_map(Result::ok)
-            .collect();
-
-        let results: Vec<_> = entries.par_iter()
+        let results: Vec<_> = read_dir(path)?
+        .filter_map(Result::ok)
+        .par_bridge()  
         .filter_map(|entry| {
             parse_fasta_file(entry.path(), &protein_to_go)
                 .ok()
@@ -134,10 +142,10 @@ impl StudyPop {
         })
         .collect();
 
-        let mut taxon_map = HashMap::new();
-        let mut taxon_protein_count = HashMap::new();
-        let mut go_term_count = HashMap::new();
-        let mut go_term_to_protein_set = HashMap::new();
+        let mut taxon_map = FxHashMap::default();
+        let mut taxon_protein_count = FxHashMap::default();
+        let mut go_term_count = FxHashMap::default();
+        let mut go_term_to_protein_set = FxHashMap::default();
 
         for (taxon_id, protein_set, go_term_count_map, go_term_to_proteins) in results {
         taxon_protein_count.insert(taxon_id, protein_set.len());
@@ -156,7 +164,7 @@ impl StudyPop {
 
     pub fn filter_by_threshold(
         &mut self, 
-        taxon_ids: &HashSet<TaxonID>,
+        taxon_ids: &FxHashSet<TaxonID>,
         threshold: usize) {  
         
         for taxon_id in taxon_ids {
@@ -196,12 +204,12 @@ impl StudyPop {
 
 pub fn parse_fasta_file(
         fasta_file_path: impl AsRef<Path>,
-        protein_to_go: &HashMap<TaxonID, ProteinToGO>,
+        protein_to_go: &FxHashMap<TaxonID, ProteinToGO>,
         ) -> Result<Option<(
             TaxonID, 
-            HashSet<Protein>, 
+            FxHashSet<Protein>, 
             GOTermCount,
-            HashMap<GOTermID, HashSet<Protein>>)>> {
+            FxHashMap<GOTermID, FxHashSet<Protein>>)>> {
 
     let path = fasta_file_path.as_ref();
     
@@ -213,7 +221,7 @@ pub fn parse_fasta_file(
     let reader = BufReader::with_capacity(128 * 1024, file);
 
     let mut taxon_id: TaxonID = TaxonID::default();
-    let mut protein_set: HashSet<Protein> = HashSet::new();
+    let mut protein_set: FxHashSet<Protein> = FxHashSet::default();
     
     for line_result in reader.lines() {
         let line = line_result?;
@@ -233,21 +241,21 @@ pub fn parse_fasta_file(
                 ))?;
         }
         else if !trimmed_line.is_empty() {
-            protein_set.insert(trimmed_line.to_owned());
+            protein_set.insert(Arc::new(CompactString::new(trimmed_line)));
         }
     }
-    let mut go_term_count: GOTermCount = HashMap::new();
-    let mut go_term_to_proteins: HashMap<GOTermID, HashSet<Protein>> = HashMap::new();
+    let mut go_term_count: GOTermCount = FxHashMap::default();
+    let mut go_term_to_proteins: FxHashMap<GOTermID, FxHashSet<Protein>> = FxHashMap::default();
 
     let taxon_protein_to_go = protein_to_go.get(&taxon_id).unwrap();
 
     for protein in &protein_set {
-        if let Some(protein_go_terms) = taxon_protein_to_go.get(protein) {
+        if let Some(protein_go_terms) = taxon_protein_to_go.get(protein.as_ref()) {
             for go_term in protein_go_terms {
                 go_term_to_proteins
-                    .entry(go_term.clone())
-                    .or_insert_with(HashSet::new)
-                    .insert(protein.to_string());
+                    .entry(*go_term)
+                    .or_insert_with(FxHashSet::default)
+                    .insert(Arc::clone(protein));
             }
         }
     }
@@ -266,10 +274,10 @@ pub fn parse_fasta_file(
 
 pub fn collect_taxon_ids(
     study_data: impl AsRef<Path>
-) -> Result<HashSet<TaxonID>> {
+) -> Result<FxHashSet<TaxonID>> {
 
     let path = study_data.as_ref();
-    let mut taxon_ids = HashSet::new();
+    let mut taxon_ids = FxHashSet::default();
     
     if let Some("csv") = path.extension().and_then(|s| s.to_str()) {
         if path.is_file() {

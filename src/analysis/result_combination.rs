@@ -1,16 +1,16 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::cmp::Ordering;
-use crate::analysis::enrichment_analysis::GOTermResults;
-use crate::analysis::multiple_testing_correction::TaxonomyGOResult;
+use crate::analysis::enrichment_analysis::*;
+use crate::analysis::multiple_testing_correction::*;
 
 pub fn group_results_by_taxonomy(
-    family_taxa: &HashMap<String, Vec<u32>>,
-    fisher_results: &HashMap<u32, HashMap<u32, GOTermResults>>,
+    family_taxa: &FxHashMap<String, Vec<u32>>,
+    fisher_results: &FxHashMap<u32, FxHashMap<u32, GOTermResults>>,
     threshold: f64,
-) -> HashMap<String, HashMap<u32, HashMap<u32, (f64, f64, [usize; 4], f64)>>> {
-    let mut result = HashMap::new();
-    let mut go_term_counts: HashMap<String, HashMap<u32, usize>> = HashMap::new();
-    let mut actual_species_counts: HashMap<String, usize> = HashMap::new();
+) -> FxHashMap<String, FxHashMap<u32, FxHashMap<u32, (f64, f64, [usize; 4], f64)>>> {
+    let mut result = FxHashMap::default();
+    let mut go_term_counts: FxHashMap<String, FxHashMap<u32, usize>> = FxHashMap::default();
+    let mut actual_species_counts: FxHashMap<String, usize> = FxHashMap::default();
 
     count_species_and_go_terms(family_taxa, fisher_results, &mut actual_species_counts, &mut go_term_counts);
 
@@ -20,10 +20,10 @@ pub fn group_results_by_taxonomy(
 }
 
 fn count_species_and_go_terms(
-    family_taxa: &HashMap<String, Vec<u32>>,
-    fisher_results: &HashMap<u32, HashMap<u32, GOTermResults>>,
-    actual_species_counts: &mut HashMap<String, usize>,
-    go_term_counts: &mut HashMap<String, HashMap<u32, usize>>,
+    family_taxa: &FxHashMap<String, Vec<u32>>,
+    fisher_results: &FxHashMap<u32, FxHashMap<u32, GOTermResults>>,
+    actual_species_counts: &mut FxHashMap<String, usize>,
+    go_term_counts: &mut FxHashMap<String, FxHashMap<u32, usize>>,
 ) {
     for (family, taxa) in family_taxa {
         let species_count = taxa.len();
@@ -42,12 +42,12 @@ fn count_species_and_go_terms(
 }
 
 fn process_and_filter_results(
-    family_taxa: &HashMap<String, Vec<u32>>,
-    fisher_results: &HashMap<u32, HashMap<u32, GOTermResults>>,
+    family_taxa: &FxHashMap<String, Vec<u32>>,
+    fisher_results: &FxHashMap<u32, FxHashMap<u32, GOTermResults>>,
     threshold: f64,
-    actual_species_counts: &HashMap<String, usize>,
-    go_term_counts: &HashMap<String, HashMap<u32, usize>>,
-    result: &mut HashMap<String, HashMap<u32, HashMap<u32, (f64, f64, [usize; 4], f64)>>>,
+    actual_species_counts: &FxHashMap<String, usize>,
+    go_term_counts: &FxHashMap<String, FxHashMap<u32, usize>>,
+    result: &mut FxHashMap<String, FxHashMap<u32, FxHashMap<u32, (f64, f64, [usize; 4], f64)>>>,
 ) {
     for (family, taxa) in family_taxa {
         let species_count = *actual_species_counts.get(family).unwrap_or(&0);
@@ -56,13 +56,13 @@ fn process_and_filter_results(
             continue;
         }
 
-        let empty_map = HashMap::new();
+        let empty_map = FxHashMap::default();
         let family_go_terms = go_term_counts.get(family).unwrap_or(&empty_map);
-        let mut taxa_map = HashMap::new();
+        let mut taxa_map = FxHashMap::default();
 
         for taxon_id in taxa {
             if let Some(go_terms) = fisher_results.get(taxon_id) {
-                let mut go_terms_with_variance = HashMap::new();
+                let mut go_terms_with_variance = FxHashMap::default();
 
                 for (go_term_id, go_term_result) in go_terms {
                     let go_term_count = family_go_terms.get(go_term_id).unwrap_or(&0);
@@ -106,14 +106,14 @@ fn calculate_variance(contingency: &[usize; 4]) -> f64 {
 }
 
 pub fn combine_taxonomic_results(
-    organized_results: &HashMap<String, HashMap<u32, HashMap<u32, (f64, f64, [usize; 4], f64)>>>,
+    organized_results: &FxHashMap<String, FxHashMap<u32, FxHashMap<u32, (f64, f64, [usize; 4], f64)>>>,
     tolerance: f64,
     max_iterations: usize,
-) -> HashMap<String, HashMap<u32, TaxonomyGOResult>> {
-    let mut final_estimates = HashMap::new();
+) -> FxHashMap<String, FxHashMap<u32, TaxonomyGOResult>> {
+    let mut final_estimates = FxHashMap::default();
 
     for (family, taxa_results) in organized_results {
-        let mut go_term_estimates = HashMap::new();
+        let mut go_term_estimates = FxHashMap::default();
         let total_species = taxa_results.len();
 
         let all_go_terms: Vec<u32> = taxa_results.values().flat_map(|go_maps| go_maps.keys().cloned()).collect();

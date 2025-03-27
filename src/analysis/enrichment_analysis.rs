@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use fishers_exact::fishers_exact;
 use crate::parsers::background_parser::{GOTermCount, GOTermID, TaxonID};
 use statrs::distribution::{Hypergeometric, DiscreteCDF};
@@ -107,12 +107,12 @@ impl EnrichmentAnalysis {
 
     pub fn classic(
         &self,
-        taxon_ids: &HashSet<TaxonID>,
-        background_go_counts: &HashMap<TaxonID, GOTermCount>,
-        study_go_counts: &HashMap<TaxonID, GOTermCount>,
-        background_totals: &HashMap<TaxonID, usize>,
-        study_totals: &HashMap<TaxonID, usize>,
-    ) -> HashMap<TaxonID, HashMap<GOTermID, GOTermResults>> {
+        taxon_ids: &FxHashSet<TaxonID>,
+        background_go_counts: &FxHashMap<TaxonID, GOTermCount>,
+        study_go_counts: &FxHashMap<TaxonID, GOTermCount>,
+        background_totals: &FxHashMap<TaxonID, usize>,
+        study_totals: &FxHashMap<TaxonID, usize>,
+    ) -> FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>> {
         let contingency_tables = self.create_contingency_tables(
             taxon_ids,
             background_go_counts,
@@ -126,12 +126,12 @@ impl EnrichmentAnalysis {
 
     fn create_contingency_tables(
         &self,
-        taxon_ids: &HashSet<u32>,
-        background_go_counts: &HashMap<TaxonID, GOTermCount>,
-        study_go_counts: &HashMap<TaxonID, GOTermCount>,
-        background_totals: &HashMap<TaxonID, usize>,
-        study_totals: &HashMap<TaxonID, usize>,
-    ) -> HashMap<TaxonID, HashMap<u32, ContingencyTable>> {
+        taxon_ids: &FxHashSet<u32>,
+        background_go_counts: &FxHashMap<TaxonID, GOTermCount>,
+        study_go_counts: &FxHashMap<TaxonID, GOTermCount>,
+        background_totals: &FxHashMap<TaxonID, usize>,
+        study_totals: &FxHashMap<TaxonID, usize>,
+    ) -> FxHashMap<TaxonID, FxHashMap<u32, ContingencyTable>> {
         taxon_ids.par_iter()
         .filter_map(|&taxon_id| {
             let tables = self.create_taxon_contingency_tables(
@@ -150,11 +150,11 @@ impl EnrichmentAnalysis {
     fn create_taxon_contingency_tables(
         &self,
         taxon_id: TaxonID,
-        background_go_counts: &HashMap<TaxonID, GOTermCount>,
-        study_go_counts: &HashMap<TaxonID, GOTermCount>,
-        background_totals: &HashMap<TaxonID, usize>,
-        study_totals: &HashMap<TaxonID, usize>,
-    ) -> Option<HashMap<u32, ContingencyTable>> {
+        background_go_counts: &FxHashMap<TaxonID, GOTermCount>,
+        study_go_counts: &FxHashMap<TaxonID, GOTermCount>,
+        background_totals: &FxHashMap<TaxonID, usize>,
+        study_totals: &FxHashMap<TaxonID, usize>,
+    ) -> Option<FxHashMap<u32, ContingencyTable>> {
         let (background_counts, study_counts) = match (
             background_go_counts.get(&taxon_id),
             study_go_counts.get(&taxon_id)
@@ -166,7 +166,7 @@ impl EnrichmentAnalysis {
         let total_background = *background_totals.get(&taxon_id).unwrap_or(&0);
         let total_study = *study_totals.get(&taxon_id).unwrap_or(&0);
 
-        let tables: HashMap<u32, ContingencyTable> = study_counts
+        let tables: FxHashMap<u32, ContingencyTable> = study_counts
             .iter()
             .map(|(&go_id, &study_with_go)| {
                 let background_with_go = *background_counts.get(&go_id).unwrap_or(&0);
@@ -190,15 +190,14 @@ impl EnrichmentAnalysis {
 
     fn calculate_statistics(
         &self,
-        go_counts: &HashMap<TaxonID, HashMap<u32, ContingencyTable>>,
-    ) -> HashMap<TaxonID, HashMap<u32, GOTermResults>> {
+        go_counts: &FxHashMap<TaxonID, FxHashMap<u32, ContingencyTable>>,
+    ) -> FxHashMap<TaxonID, FxHashMap<u32, GOTermResults>> {
         go_counts
             .par_iter()
             .map(|(&taxon_id, go_terms)| {
                 let term_results = go_terms
                     .iter()
                     .map(|(&go_id, counts)| {
-                        // Use the standalone functions
                         let stats = GOTermResults {
                             log_odds_ratio: calculate_log_odds_ratio(counts),
                             p_value: calculate_p_value(counts, self.test_type),

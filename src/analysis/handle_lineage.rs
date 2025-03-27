@@ -1,13 +1,13 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Result};
 use std::path::Path;
-use crate::analysis::enrichment_analysis::GOTermResults;
+use crate::analysis::enrichment_analysis::*;
 
-pub fn read_lineage<P: AsRef<Path>>(path: P) -> Result<HashMap<u32, Vec<String>>> {
+pub fn read_lineage<P: AsRef<Path>>(path: P) -> Result<FxHashMap<u32, Vec<String>>> {
     let file = File::open(path)?;
     let reader = BufReader::with_capacity(32 * 1024, file);
-    let mut taxonomy = HashMap::new();
+    let mut taxonomy = FxHashMap::default();
 
     for line in reader.lines().skip(1) {
         let line = line?;
@@ -22,10 +22,10 @@ pub fn read_lineage<P: AsRef<Path>>(path: P) -> Result<HashMap<u32, Vec<String>>
     }
     Ok(taxonomy)
 }
-pub fn taxid_to_species<P: AsRef<Path>>(path: P) -> Result<HashMap<u32, String>> {
+pub fn taxid_to_species<P: AsRef<Path>>(path: P) -> Result<FxHashMap<u32, String>> {
     let file = File::open(path)?;
     let reader = BufReader::with_capacity(32 * 1024, file);
-    let mut taxid_species_map = HashMap::new();
+    let mut taxid_species_map = FxHashMap::default();
 
     for line in reader.lines().skip(1) {
         let line = line?;
@@ -40,11 +40,11 @@ pub fn taxid_to_species<P: AsRef<Path>>(path: P) -> Result<HashMap<u32, String>>
 }
 
 pub fn taxid_to_level(
-    significant_results: &HashMap<u32, HashMap<u32, GOTermResults>>,
-    taxonomic_lineage: &HashMap<u32, Vec<String>>,
+    significant_results: &FxHashMap<u32, FxHashMap<u32, GOTermResults>>,
+    taxonomic_lineage: &FxHashMap<u32, Vec<String>>,
     taxonomic_level: &str
-) -> HashMap<String, Vec<u32>> {
-    let mut grouped_results: HashMap<String, Vec<u32>> = HashMap::new();
+) -> FxHashMap<String, Vec<u32>> {
+    let mut grouped_results: FxHashMap<String, Vec<u32>> = FxHashMap::default();
     
     let level_index = match taxonomic_level.to_lowercase().as_str() {
         "genus" => 0,
@@ -71,10 +71,13 @@ pub fn taxid_to_level(
     grouped_results
 }
 
-pub fn read_taxon_organism_count <P: AsRef<Path>>(path: P) -> Result<HashMap<String, usize>> {
+pub fn read_taxon_organism_count <P: AsRef<Path>>(path: P) -> Result<FxHashMap<String, usize>> {
     let file = File::open(path)?;
     let reader = BufReader::with_capacity(16 * 1024,file);
-    let mut species_counts = HashMap::with_capacity(35000);
+    let mut species_counts = FxHashMap::with_capacity_and_hasher(
+        35000,
+        rustc_hash::FxBuildHasher::default()
+    );
     
     for line in reader.lines() {
         let line = line?;

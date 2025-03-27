@@ -1,13 +1,19 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::fs::{self, File, create_dir_all};
 use std::io::{self, BufWriter, Write};
 use std::error::Error;
 use std::path::{PathBuf, Path};
 use std::fmt::Write as FmtWrite;
 use lazy_static::lazy_static;
-use crate::parsers::obo_parser::{OboTerm, NameSpace};
-use crate::analysis::enrichment_analysis::GOTermResults;
-use crate::analysis::multiple_testing_correction::TaxonomyGOResult;
+
+use crate::parsers::{
+    background_parser::*,
+    obo_parser::*
+};
+use crate::analysis::{
+    enrichment_analysis::*,
+    multiple_testing_correction::*
+};
 
 pub fn clean_directory(dir_path: &str) -> io::Result<()> {
     let path = Path::new(dir_path);
@@ -28,8 +34,8 @@ pub fn clean_directory(dir_path: &str) -> io::Result<()> {
 const BUFFER_SIZE: usize = 8192 * 32;
 
 lazy_static! {
-    static ref NAMESPACE_MAPPING: HashMap<&'static str, &'static str> = {
-        let mut go_term_class_map = HashMap::new();
+    static ref NAMESPACE_MAPPING: FxHashMap<&'static str, &'static str> = {
+        let mut go_term_class_map = FxHashMap::default();
         go_term_class_map.insert("biological_process", "Biological Process");
         go_term_class_map.insert("molecular_function", "Molecular Function");
         go_term_class_map.insert("cellular_component", "Cellular Component");
@@ -39,25 +45,24 @@ lazy_static! {
 }
 
 struct TermCache {
-    go_terms: HashMap<u32, String>,
+    go_terms: FxHashMap<u32, String>,
 }
 
 impl TermCache {
     fn new() -> Self {
         Self {
-            go_terms: HashMap::new(),
+            go_terms: FxHashMap::with_capacity_and_hasher(
+                10000,
+                rustc_hash::FxBuildHasher::default()
+            ),
         }
     }
 
     #[inline]
-    fn get_go_term(&mut self, go_id: u32) -> String {
-        if let Some(term) = self.go_terms.get(&go_id) {
-            term.clone()
-        } else {
-            let term = format!("GO:{:07}", go_id);
-            self.go_terms.insert(go_id, term.clone());
-            term
-        }
+    fn get_go_term<'a>(&'a mut self, go_id: u32) -> &'a str {
+        self.go_terms.entry(go_id).or_insert_with(|| {
+            format!("GO:{:07}", go_id)
+        })
     }
 }
 
@@ -67,10 +72,10 @@ fn format_namespace(namespace: &str) -> &str {
 }
 
 pub fn write_single_taxon_results(
-    data: &HashMap<u32, HashMap<u32, GOTermResults>>,
-    ontology: &HashMap<u32, OboTerm>,
+    data: &FxHashMap<u32, FxHashMap<GOTermID, GOTermResults>>,
+    ontology: &FxHashMap<u32, OboTerm>,
     min_log_odds_ratio: f64,
-    taxid_species_map: &HashMap<u32, String>,
+    taxid_species_map: &FxHashMap<TaxonID, String>,
     output_dir: &str
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("single_taxon_results");
@@ -135,8 +140,8 @@ pub fn write_single_taxon_results(
 }
 
 pub fn write_taxonomy_results(
-    data: &HashMap<String, HashMap<u32, TaxonomyGOResult>>,
-    ontology: &HashMap<u32, OboTerm>,
+    data: &FxHashMap<String, FxHashMap<u32, TaxonomyGOResult>>,
+    ontology: &FxHashMap<u32, OboTerm>,
     min_log_odds_ratio: f64,
     output_dir: &str,
     level: &String,

@@ -1,6 +1,6 @@
 use crate::parsers::obo_parser::*;
 use daggy::{NodeIndex, Walker};
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 
 pub fn collect_ancestry_path(
     graph: &OntologyGraph,
@@ -23,13 +23,13 @@ pub fn collect_ancestry_path(
 
 pub fn find_common_ancestors(
     paths: &[AncestryPath],
-    node_index_to_go_id: &HashMap<NodeIndex, u32>
+    node_index_to_go_id: &FxHashMap<NodeIndex, u32>
 ) -> Vec<u32> {
     if paths.is_empty() {
         return Vec::new();
     }
 
-    let path_sets: Vec<HashSet<NodeIndex>> = paths
+    let path_sets: Vec<FxHashSet<NodeIndex>> = paths
         .iter()
         .map(|path| path.iter().map(|(idx, _)| *idx).collect())
         .collect();
@@ -49,19 +49,19 @@ pub fn find_common_ancestors(
 
 pub fn find_first_common_ancestor(
     paths: &[AncestryPath],
-    node_index_to_go_id: &HashMap<NodeIndex, u32>,
+    node_index_to_go_id: &FxHashMap<NodeIndex, u32>,
     graph: &OntologyGraph
 ) -> Option<u32> {
     if paths.is_empty() {
         return None;
     }
 
-    let path_sets: Vec<HashSet<NodeIndex>> = paths
+    let path_sets: Vec<FxHashSet<NodeIndex>> = paths
         .iter()
         .map(|path| path.iter().map(|(idx, _)| *idx).collect())
         .collect();
     
-    let common_nodes: HashSet<NodeIndex> = path_sets
+    let common_nodes: FxHashSet<NodeIndex> = path_sets
         .iter()
         .skip(1)
         .fold(path_sets[0].clone(), |acc, set| {
@@ -70,7 +70,7 @@ pub fn find_first_common_ancestor(
 
     let first_intersection = common_nodes.iter()
         .find(|&&node_idx| {
-            let children: HashSet<NodeIndex> = graph.children(node_idx)
+            let children: FxHashSet<NodeIndex> = graph.children(node_idx)
                 .iter(graph)
                 .map(|(_, child_idx)| child_idx)
                 .collect();
@@ -84,19 +84,19 @@ pub fn find_first_common_ancestor(
 pub fn topological_sort(
     graph: &OntologyGraph,
     root_ids: &[u32],
-    go_id_to_node_index: &HashMap<u32, NodeIndex>,
-    node_index_to_go_id: &HashMap<NodeIndex, u32>,
+    go_id_to_node_index: &FxHashMap<u32, NodeIndex>,
+    node_index_to_go_id: &FxHashMap<NodeIndex, u32>,
 ) -> Vec<u32> {
     let mut sorted = Vec::new();
-    let mut visited = HashSet::new();
+    let mut visited = FxHashSet::default();
     
     fn visit(
         node_id: u32,
         graph: &OntologyGraph,
-        visited: &mut HashSet<u32>,
+        visited: &mut FxHashSet<u32>,
         sorted: &mut Vec<u32>,
-        go_id_to_node_index: &HashMap<u32, NodeIndex>,
-        node_index_to_go_id: &HashMap<NodeIndex, u32>,
+        go_id_to_node_index: &FxHashMap<u32, NodeIndex>,
+        node_index_to_go_id: &FxHashMap<NodeIndex, u32>,
     ) {
         if visited.insert(node_id) {
             let node_idx = go_id_to_node_index[&node_id];
@@ -121,8 +121,8 @@ pub fn topological_sort(
 pub fn generate_mermaid_chart(
     graph: &OntologyGraph,
     root_ids: &[u32],
-    go_id_to_node_index: &HashMap<u32, NodeIndex>,
-    node_index_to_go_id: &HashMap<NodeIndex, u32>,
+    go_id_to_node_index: &FxHashMap<u32, NodeIndex>,
+    node_index_to_go_id: &FxHashMap<NodeIndex, u32>,
     obo_map: &OboMap,
     first_common_ancestor: Option<u32>,
 ) -> String {
@@ -187,14 +187,14 @@ pub fn generate_mermaid_chart(
     style Ontology fill:white, stroke:white\n\
     %% Nodes\n");
 
-    let mut processed_nodes = HashSet::new();
+    let mut processed_nodes = FxHashSet::default();
     let mut edges = Vec::new();
 
     fn process_node(
         node_idx: NodeIndex,
         graph: &OntologyGraph,
-        node_index_to_go_id: &HashMap<NodeIndex, u32>,
-        processed_nodes: &mut HashSet<u32>,
+        node_index_to_go_id: &FxHashMap<NodeIndex, u32>,
+        processed_nodes: &mut FxHashSet<u32>,
         edges: &mut Vec<(u32, u32, Relationship)>,
     ) {
         let mut to_visit = vec![node_idx];

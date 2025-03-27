@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::fs::{self,File};
 use std::path::Path;
 use std::io::{BufRead, BufReader, Write};
@@ -32,11 +32,11 @@ pub fn parse_single_go_term(term: &str) -> Result<u32, String> {
     })
 }
 
-pub fn parse_go_terms_from_iter<'a, I>(terms: I) -> Result<HashSet<u32>, String> 
+pub fn parse_go_terms_from_iter<'a, I>(terms: I) -> Result<FxHashSet<u32>, String> 
 where 
     I: Iterator<Item = &'a str>
 {
-    let mut results = HashSet::new();
+    let mut results = FxHashSet::default();
     
     for term in terms {
         let term = term.trim();
@@ -52,11 +52,11 @@ where
     Ok(results)
 }
 
-pub fn parse_go_terms(terms: &str) -> Result<HashSet<u32>, String> {
+pub fn parse_go_terms(terms: &str) -> Result<FxHashSet<u32>, String> {
     parse_go_terms_from_iter(terms.split(','))
 }
 
-pub fn read_go_terms_from_file(file_path: &str) -> Result<HashSet<u32>, String> {
+pub fn read_go_terms_from_file(file_path: &str) -> Result<FxHashSet<u32>, String> {
     let file = File::open(file_path)
         .map_err(|e| format!("Failed to open terms file: {}", e))?;
     
@@ -69,7 +69,7 @@ pub fn read_go_terms_from_file(file_path: &str) -> Result<HashSet<u32>, String> 
         .map_err(|e| format!("{} in file: {}", e, file_path))
 }
 
-pub fn process_go_terms_input(input: &str) -> Result<HashSet<u32>, String> {
+pub fn process_go_terms_input(input: &str) -> Result<FxHashSet<u32>, String> {
     if !input.contains(',') && Path::new(input).exists() {
         println!("Input appears to be a file path. Reading GO terms from file: {}\n", input);
         read_go_terms_from_file(input)
@@ -80,16 +80,16 @@ pub fn process_go_terms_input(input: &str) -> Result<HashSet<u32>, String> {
 }
 
 pub fn calculate_information_content(
-    background_go_term_counts: &HashMap<u32, HashMap<u32, usize>>,
-    go_terms: &HashSet<u32>,
-    go_id_to_node_index: &HashMap<u32, NodeIndex>,
-) -> HashMap<TaxonID, HashMap<u32, InformationContent>> {
+    background_go_term_counts: &FxHashMap<u32, FxHashMap<u32, usize>>,
+    go_terms: &FxHashSet<u32>,
+    go_id_to_node_index: &FxHashMap<u32, NodeIndex>,
+) -> FxHashMap<TaxonID, FxHashMap<u32, InformationContent>> {
     background_go_term_counts
         .iter()
         .map(|(&taxon_id, counts)| {
             let total_annotations: usize = counts.values().copied().sum();
             
-            let ic_map: HashMap<u32, InformationContent> = go_terms
+            let ic_map: FxHashMap<u32, InformationContent> = go_terms
                 .iter()
                 .filter_map(|&go_id| {
                     if let Some(&count) = counts.get(&go_id) {
@@ -178,9 +178,9 @@ pub fn find_mica_for_pair(
     term1: u32,
     term2: u32,
     ontology_graph: &OntologyGraph,
-    go_id_to_node_index: &HashMap<u32, NodeIndex>,
-    node_index_to_go_id: &HashMap<NodeIndex, u32>,
-    ic_values: &HashMap<u32, f64>,
+    go_id_to_node_index: &FxHashMap<u32, NodeIndex>,
+    node_index_to_go_id: &FxHashMap<NodeIndex, u32>,
+    ic_values: &FxHashMap<u32, f64>,
 ) -> Option<(u32, f64)> {
     if term1 == term2 {
         if let Some(&ic) = ic_values.get(&term1) {
@@ -224,12 +224,12 @@ pub fn find_mica_for_pair(
 }
 
 pub fn generate_term_pairs(
-    go_terms: &HashSet<u32>,
+    go_terms: &FxHashSet<u32>,
     taxon_id: TaxonID,
-    ic_results: &HashMap<TaxonID, HashMap<u32, f64>>,
+    ic_results: &FxHashMap<TaxonID, FxHashMap<u32, f64>>,
     ontology_graph: &OntologyGraph,
-    go_id_to_node_index: &HashMap<u32, NodeIndex>,
-    node_index_to_go_id: &HashMap<NodeIndex, u32>,
+    go_id_to_node_index: &FxHashMap<u32, NodeIndex>,
+    node_index_to_go_id: &FxHashMap<NodeIndex, u32>,
     method: &str,
 ) -> Vec<TermPair> {
     let terms: Vec<u32> = go_terms.iter().cloned().collect();
@@ -278,7 +278,7 @@ pub fn generate_term_pairs(
 
 pub fn write_similarity_to_tsv(
     term_pairs: &[TermPair],
-    go_terms: &HashSet<u32>,
+    go_terms: &FxHashSet<u32>,
     taxon_id: TaxonID,
     output_dir: &str,
 ) {
@@ -294,7 +294,7 @@ pub fn write_similarity_to_tsv(
         .map(|&id| format!("GO:{:07}", id))
         .collect();
 
-    let mut similarity_map: HashMap<(u32, u32), f64> = HashMap::new();
+    let mut similarity_map: FxHashMap<(u32, u32), f64> = FxHashMap::default();
     for pair in term_pairs {
         similarity_map.insert((pair.term1, pair.term2), pair.similarity);
         similarity_map.insert((pair.term2, pair.term1), pair.similarity);

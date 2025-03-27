@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use adjustp::{adjust, Procedure};
 use crate::analysis::enrichment_analysis::GOTermResults;
 
@@ -12,8 +12,8 @@ pub struct TaxonomyGOResult {
     pub total_species: usize,
 }
 
-type SpeciesResults = HashMap<u32, HashMap<u32, GOTermResults>>;
-type TaxonomyResults = HashMap<String, HashMap<u32, TaxonomyGOResult>>;
+type SpeciesResults = FxHashMap<u32, FxHashMap<u32, GOTermResults>>;
+type TaxonomyResults = FxHashMap<String, FxHashMap<u32, TaxonomyGOResult>>;
 
 #[derive(Debug)]
 pub enum AdjustmentMethod {
@@ -89,10 +89,10 @@ impl PValueAdjustable for TaxonomyGOResult {
 }
 
 fn adjust_p_values<T: PValueAdjustable + Clone>(
-    results: &HashMap<T::Key, HashMap<u32, T>>,
+    results: &FxHashMap<T::Key, FxHashMap<u32, T>>,
     method: AdjustmentMethod,
     significance_threshold: Option<f64>,
-) -> HashMap<T::Key, HashMap<u32, T>>
+) -> FxHashMap<T::Key, FxHashMap<u32, T>>
 where
     T::Key: Clone + std::hash::Hash + Eq,
 {
@@ -116,14 +116,14 @@ where
         all_pvalues
     };
     
-    let mut adjusted_results = HashMap::new();
+    let mut adjusted_results = FxHashMap::default();
     for (index, (key, go_id, result)) in pvalue_mapping.into_iter().enumerate() {
         let adjusted_p = adjusted_pvalues[index];
         
         if significance_threshold.map_or(true, |threshold| adjusted_p <= threshold) {
             adjusted_results
                 .entry(key)
-                .or_insert_with(HashMap::new)
+                .or_insert_with(FxHashMap::default)
                 .insert(go_id, result.with_adjusted_p_value(adjusted_p));
         }
     }

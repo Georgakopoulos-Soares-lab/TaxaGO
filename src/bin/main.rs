@@ -1,8 +1,12 @@
+#[global_allocator]
+static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 use clap::Parser;
 use std::error::Error;
 use std::fs::create_dir_all;
 use std::env::var;
-use std::collections::{HashMap,HashSet};
+use std::mem;
+use rustc_hash::{FxHashMap, FxHashSet};
 use daggy::NodeIndex;
 use TaxaGO::parsers::{
     background_parser::*, obo_parser::*, study_parser::*
@@ -17,10 +21,12 @@ use TaxaGO::analysis::{
     write_results::*,
     handle_lineage::*,
     result_combination::*,
-    count_propagation::*
+    count_propagation::*,
+    taxonomic_weight::*
 
 };
 use std::process::Command;
+
 lazy_static! {
     static ref DEFAULT_OBO_PATH: String = {
         let cargo_home = var("CARGO_HOME")
@@ -155,7 +161,7 @@ struct CliArgs {
         long = "min-prot",
         value_name = "MIN_COUNT",
         help = "Minimum protein count a GO Term must have to be processed.",
-        default_value = "10",
+        default_value = "5",
         required = false
     )]
     min_protein_count: usize,
@@ -165,7 +171,7 @@ struct CliArgs {
         long = "min-score",
         value_name = "MIN_SCORE",
         help = "Minimum score (log(odds ratio)) a GO Term must have to be written in the results. Keeps GO terms with score ≥ threshold.",
-        default_value = "0.5",
+        default_value = "0.2",
         required = false
     )]
     min_odds_ratio: f64,
@@ -243,13 +249,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ontology = parse_obo_file(&cli_args.obo_file)?;
     let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
 
-    let node_index_to_go_id: HashMap<NodeIndex, GOTermID> = go_id_to_node_index.iter()
+    let node_index_to_go_id: FxHashMap<NodeIndex, GOTermID> = go_id_to_node_index.iter()
             .map(|(go_term, node_index)| (*node_index, go_term.clone()))
             .collect();
 
     let root_go_ids: Vec<u32> = vec![8150, 3674, 5575];
 
-    let (_, level_to_go_term) = assign_levels_from_roots(
+    let (_, _level_to_go_term) = assign_levels_from_roots(
         &ontology_graph,
         &go_id_to_node_index,
         &node_index_to_go_id,
@@ -258,7 +264,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     println!("Reading background populations from: {}\n", &cli_args.background_dir);
 
-    let taxon_ids: HashSet<TaxonID> = collect_taxon_ids(&cli_args.study_pop)?;
+    let taxon_ids: FxHashSet<TaxonID> = collect_taxon_ids(&cli_args.study_pop)?;
     
     let mut background_population = match BackgroundPop::read_background_pop(&taxon_ids, &cli_args.background_dir)? {
         Some(background_pop) => {
@@ -275,7 +281,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Reading study populations from: {}\n", &cli_args.study_pop);
     
-    let mut study_population = match StudyPop::read_study_pop(&cli_args.study_pop, &background_population.protein_to_go)? {
+    let mut study_population = match StudyPop::read_study_pop(
+        &cli_args.study_pop, 
+        &background_population.protein_to_go
+    )? {
         Some(study_pop) => {
             println!("Successfully loaded study population for {} taxa\n", &taxon_ids.len());
             study_pop
@@ -297,20 +306,28 @@ fn main() -> Result<(), Box<dyn Error>> {
             &go_id_to_node_index,
             &node_index_to_go_id
         )?;
-        study_population.propagate_counts(&taxon_ids, &ancestor_cache);
-        background_population.propagate_counts(&taxon_ids, &ancestor_cache);
+        study_population.propagate_counts(
+            &taxon_ids, 
+            &ancestor_cache
+        );
+        background_population.propagate_counts(
+            &taxon_ids, 
+            &ancestor_cache
+        );
         
     }
-
+    
     study_population.filter_by_threshold(
         &taxon_ids,
-        cli_args.min_protein_count);
-
+        cli_args.min_protein_count
+    );
+    
     background_population.filter_by_study_population(
         &taxon_ids, 
-        &study_population);
-
-    println!("Performing Gene Ontology (GO) term enrichment analysis\n");
+        &study_population
+    );
+    
+    println!("Starting Gene Ontology (GO) term enrichment analysis\n");
     let analysis = EnrichmentAnalysis::new(
         match cli_args.statistical_test.to_lowercase().as_str() {
             "fisher" => StatisticalTest::Fishers,
@@ -321,12 +338,23 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let enrichment_results = if cli_args.propagate_counts {
         println!("Performing elim algorithm on propagated counts\n");
-        analysis.elim_analysis(
-            &taxon_ids,
-            cli_args.significance_threshold,
-            &study_population,
-            &background_population,
-            &level_to_go_term
+        
+        //elim algorithm seams to be losing a lot of GO terms !!!
+
+        // analysis.elim_analysis(
+        //     &taxon_ids,
+        //     cli_args.significance_threshold,
+        //     &study_population,
+        //     &background_population,
+        //     &level_to_go_term
+        // )
+
+        analysis.classic(
+            &taxon_ids,          
+            &background_population.go_term_count,
+            &study_population.go_term_count,
+            &background_population.taxon_protein_count,
+            &study_population.taxon_protein_count,
         )
     } else {
         println!("Performing classic analysis without count propagation\n");
@@ -339,13 +367,25 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
     };
     
+    mem::drop(study_population);
+    mem::drop(background_population);
+
     let significant_fishers_results = adjust_species_p_values(
         &enrichment_results, 
         &cli_args.correction_method, 
-        Some(cli_args.significance_threshold));
+        Some(cli_args.significance_threshold)
+    );
         
-    let taxid_species_map = taxid_to_species(DEFAULT_LINEAGE.to_string())?;
-    write_single_taxon_results(&significant_fishers_results, &ontology, cli_args.min_odds_ratio, &taxid_species_map, &cli_args.output_dir)?;
+    let taxid_species_map = taxid_to_species(
+        DEFAULT_LINEAGE.to_string()
+    )?;
+
+    write_single_taxon_results(
+        &significant_fishers_results, 
+        &ontology,
+         cli_args.min_odds_ratio,
+         &taxid_species_map,
+         &cli_args.output_dir)?;
     
     if let Some(level_to_combine) = &cli_args.combine_results {
 
@@ -353,23 +393,42 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         println!("Reading taxonomic lineage information from: {}\n", DEFAULT_LINEAGE.to_string());
         let lineage = read_lineage(DEFAULT_LINEAGE.to_string());
-
+        
+        println!("{:?}", &lineage);
         let grouped_species = taxid_to_level(
             &enrichment_results,
             &lineage?,
             level_to_combine
         );
-
-        let lineage_organized_results = group_results_by_taxonomy(&grouped_species, &enrichment_results, cli_args.lineage_percentage);
+        println!("{:?}", &grouped_species);
+        let lineage_organized_results = group_results_by_taxonomy(
+            &grouped_species, 
+            &enrichment_results, 
+            cli_args.lineage_percentage
+        );
         
         println!("Applying Paule-Mandel estimator with {} tolerance and {} iterations \n", &cli_args.pm_tolerance, &cli_args.pm_iterations);
 
-        let complex_map = combine_taxonomic_results(&lineage_organized_results, cli_args.pm_tolerance, cli_args.pm_iterations);
+        let complex_map = combine_taxonomic_results(
+            &lineage_organized_results, 
+            cli_args.pm_tolerance, 
+            cli_args.pm_iterations);
 
-        let significant_taxonomy_results = adjust_taxonomy_p_values(&complex_map, &cli_args.correction_method, Some(cli_args.significance_threshold), level_to_combine);
+        let significant_taxonomy_results = adjust_taxonomy_p_values(
+            &complex_map, 
+            &cli_args.correction_method, 
+            Some(cli_args.significance_threshold),
+            level_to_combine);
         
-        write_taxonomy_results(&significant_taxonomy_results, &ontology, cli_args.min_odds_ratio, &cli_args.output_dir, level_to_combine)?;
+        write_taxonomy_results(
+            &significant_taxonomy_results,
+            &ontology,
+            cli_args.min_odds_ratio,
+            &cli_args.output_dir,
+            level_to_combine
+        )?;
     }
+
     println!("Finished analysis\n");
     
     println!("Generating enrichment plots\n");

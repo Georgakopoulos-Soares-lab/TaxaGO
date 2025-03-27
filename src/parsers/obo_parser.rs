@@ -1,6 +1,8 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
+use rustc_hash::FxHashMap;
 use std::fs::File;
 use std::io::{BufReader, BufRead, Error};
+use std::mem;
 use ucfirst::ucfirst;
 use daggy::{Dag, NodeIndex, Walker};
 use regex::Regex;
@@ -8,27 +10,28 @@ use lazy_static::lazy_static;
 
 use super::background_parser::GOTermID;
 
-pub type OboMap = HashMap<u32, OboTerm>;
+pub type OboMap = FxHashMap<u32, OboTerm>;
 pub type OntologyGraph = Dag<u32, Relationship, u32>;
 pub type AncestryPath = Vec<(NodeIndex, Option<Relationship>)>;
 
-pub type TermToLevel = HashMap<GOTermID, usize>;
-pub type LevelToTerms = HashMap<usize, Vec<GOTermID>>;
+pub type TermToLevel = FxHashMap<GOTermID, usize>;
+pub type LevelToTerms = FxHashMap<usize, Vec<GOTermID>>;
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub enum NameSpace {
+    #[default]
     BiologicalProcess,
     MolecularFunction,
     CellularComponent,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct OboTerm {
     pub name: String,
     pub namespace: NameSpace,
     pub definition: String,
     pub is_obsolete: bool,
-    pub relationships: HashMap<u32, Relationship>,
+    pub relationships: FxHashMap<u32, Relationship>,
 }
 impl OboTerm {
     pub fn new() -> Self {
@@ -37,7 +40,7 @@ impl OboTerm {
             namespace: NameSpace::BiologicalProcess,
             definition: String::with_capacity(350),
             is_obsolete: false,
-            relationships: HashMap::new(),
+            relationships: FxHashMap::default(),
         }
     }
 }
@@ -100,7 +103,10 @@ pub fn parse_relationship(input: &str, regex: &Regex) -> Option<(u32, Relationsh
 }
 
 pub fn parse_obo_file(obo_file_path: &str) -> Result<OboMap, Error> {
-    let mut obo_terms: HashMap<u32, OboTerm> = HashMap::with_capacity(41_000);
+    let mut obo_terms: FxHashMap<u32, OboTerm> = FxHashMap::with_capacity_and_hasher(
+        41_000, 
+        rustc_hash::FxBuildHasher::default()
+    );
 
     let obo = File::open(obo_file_path)?;
     let reader = BufReader::with_capacity(3000 * 1024, obo);
@@ -187,7 +193,7 @@ pub fn parse_obo_file(obo_file_path: &str) -> Result<OboMap, Error> {
                 line if line.is_empty() => {
                     new_term = false;
                     if current_id != 0 && obsolete_term == false {  
-                        obo_terms.insert(current_id, current_term.clone());
+                        obo_terms.insert(current_id, mem::take(&mut current_term));
                     }
                 },
                 _ => (), 
@@ -196,16 +202,16 @@ pub fn parse_obo_file(obo_file_path: &str) -> Result<OboMap, Error> {
     }
     
     if new_term && current_id != 0 {
-        obo_terms.insert(current_id, current_term);
+        obo_terms.insert(current_id, mem::take(&mut current_term));
     }
     
     Ok(obo_terms)
 }
 
-pub fn build_ontology_graph(obo_map: &OboMap) -> Result<(OntologyGraph, HashMap<u32, NodeIndex>), Error> {
+pub fn build_ontology_graph(obo_map: &OboMap) -> Result<(OntologyGraph, FxHashMap<u32, NodeIndex>), Error> {
     let mut ontology_graph: OntologyGraph = Dag::new();
     
-    let mut go_id_to_node_index: HashMap<u32, NodeIndex> = HashMap::new();
+    let mut go_id_to_node_index: FxHashMap<u32, NodeIndex> = FxHashMap::default();
     
     for node_id in obo_map.keys() {
         let node_index = ontology_graph.add_node(*node_id);
@@ -227,13 +233,13 @@ pub fn build_ontology_graph(obo_map: &OboMap) -> Result<(OntologyGraph, HashMap<
 }
 pub fn assign_levels_from_roots(
     graph: &OntologyGraph, 
-    go_id_to_node_index: &HashMap<GOTermID, NodeIndex>,
-    node_index_to_go_id: &HashMap<NodeIndex, GOTermID>,
+    go_id_to_node_index: &FxHashMap<GOTermID, NodeIndex>,
+    node_index_to_go_id: &FxHashMap<NodeIndex, GOTermID>,
     root_ids: &[u32]  
 ) -> (TermToLevel, LevelToTerms) {
 
-    let mut term_to_level = HashMap::new();
-    let mut level_to_terms = HashMap::new();
+    let mut term_to_level = FxHashMap::default();
+    let mut level_to_terms = FxHashMap::default();
 
     for &term_id in go_id_to_node_index.keys() {
         term_to_level.insert(term_id, 0);

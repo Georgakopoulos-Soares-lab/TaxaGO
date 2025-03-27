@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::error::Error;
 use std::process::Command;
 use lazy_static::lazy_static;
@@ -96,7 +96,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let obo_map = parse_obo_file(&cli_args.obo_file)?;
     let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&obo_map)?;
     
-    let node_index_to_go_id: HashMap<NodeIndex, u32> = go_id_to_node_index
+    let node_index_to_go_id: FxHashMap<NodeIndex, u32> = go_id_to_node_index
         .iter()
         .map(|(&go_id, &node_idx)| (node_idx, go_id))
         .collect();

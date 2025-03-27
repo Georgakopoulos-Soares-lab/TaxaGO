@@ -620,7 +620,7 @@ def create_single_network_plot(
     mid_sizing_value = sorted(values_to_size.values())[len(values_to_size.values()) // 2]
     
     for node in values_to_size.keys():
-        node_sizes[node] = 7 + (28 * (math.sqrt(values_to_size[node] / math.sqrt(max_sizing_value))))
+        node_sizes[node] = 7 + (18 * (math.sqrt(values_to_size[node] / math.sqrt(max_sizing_value))))
 
     edge_weights = [weight for _, _, weight in edge_data]
     min_edge_weight = min(edge_weights)
@@ -729,7 +729,7 @@ def create_single_network_plot(
         width=940, 
         height=460,
         plot_bgcolor='white',
-        title=f"Enrichment network: {taxon_name} - {namespace}"
+        # title=f"Enrichment network: {taxon_name} - {namespace}"
     )
     
     fig.update_xaxes(
@@ -994,7 +994,7 @@ def create_single_barplot(
             gridcolor='rgba(0,0,0,0.05)'
         ),
         bargap=0.4,
-        title=f"Bar chart: {taxon_name} - {namespace}"
+        # title=f"Bar chart: {taxon_name} - {namespace}"
     )
 
     namespace_dir = output_dir / namespace
@@ -1162,7 +1162,7 @@ def create_single_bubbleplot(
             gridcolor='rgba(0,0,0,0.05)'
         ),
         plot_bgcolor='white',
-        title=f"Bubble plot: {taxon_name} - {namespace}"
+        # title=f"Bubble plot: {taxon_name} - {namespace}"
     )
     
     for term_id in top_10_ids:

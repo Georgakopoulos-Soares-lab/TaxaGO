@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::env::var;
 use lazy_static::lazy_static;
 use std::fs::create_dir_all;
@@ -127,14 +127,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ontology = parse_obo_file(&cli_args.obo_file)?;
     let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
     
-    let node_index_to_go_id: HashMap<NodeIndex, u32> = go_id_to_node_index
+    let node_index_to_go_id: FxHashMap<NodeIndex, u32> = go_id_to_node_index
         .iter()
         .map(|(&go_id, &node_idx)| (node_idx, go_id))
         .collect();
     
     println!("Reading background populations from: {}\n", &cli_args.background_dir);
     
-    let taxon_ids: HashSet<TaxonID> = cli_args.taxon_ids.split(',')
+    let taxon_ids: FxHashSet<TaxonID> = cli_args.taxon_ids.split(',')
                                                         .map(|s| s.trim())
                                                         .filter_map(|s| s.parse::<u32>().ok())
                                                         .collect();
@@ -166,7 +166,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         
     }
 
-    let go_term_count: HashMap<u32, HashMap<u32, usize>> = background_population.go_term_count;
+    let go_term_count: FxHashMap<u32, FxHashMap<u32, usize>> = background_population.go_term_count;
 
     let go_terms = process_go_terms_input(&cli_args.go_terms_input)?;
 
