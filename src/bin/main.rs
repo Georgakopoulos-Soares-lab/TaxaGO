@@ -382,7 +382,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             cli_args.lineage_percentage
         );
 
-
         let results = phylogenetic_meta_analysis(
             &taxon_ids,
             lineage_organized_results, 

@@ -7,7 +7,7 @@ pub fn group_results_by_taxonomy(
     threshold: f64,
 ) -> FxHashMap<String, FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>>> {
     let mut result = FxHashMap::default();
-    let mut go_term_counts: FxHashMap<String, FxHashMap<u32, usize>> = FxHashMap::default();
+    let mut go_term_counts: FxHashMap<String, FxHashMap<GOTermID, usize>> = FxHashMap::default();
     let mut actual_species_counts: FxHashMap<String, usize> = FxHashMap::default();
 
     count_species_and_go_terms(family_taxa, fisher_results, &mut actual_species_counts, &mut go_term_counts);

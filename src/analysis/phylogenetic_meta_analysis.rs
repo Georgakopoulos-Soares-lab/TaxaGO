@@ -127,11 +127,9 @@ pub fn phylogenetic_meta_analysis(
     matrix_path: &String
 ) -> FxHashMap<String, FxHashMap<GOTermID, f64>> {
     
-    // Read and filter the main VCV matrix
     let mut vcv_matrix = read_vcv_matrix(matrix_path).unwrap();
     vcv_matrix = filter_vcv_matrix(vcv_matrix, taxon_ids).unwrap();
 
-    // Get the taxon order from the filtered matrix
     let taxon_order: Vec<TaxonID> = vcv_matrix
         .column("taxa")
         .unwrap()
@@ -143,23 +141,19 @@ pub fn phylogenetic_meta_analysis(
 
     let mut results = FxHashMap::default();
 
-    // Process each taxonomic level
     for (level, taxon_map) in lineage_results {
         let mut level_results = FxHashMap::default();
         
-        // Get all GO terms for this level
         let all_go_terms: FxHashSet<GOTermID> = taxon_map
             .values()
             .flat_map(|go_term_map| go_term_map.keys().cloned())
             .collect();
         
-        // Process each GO term
         for go_term in all_go_terms {
             let mut relevant_taxon_ids = FxHashSet::default();
             let mut log_odds_ratios = Vec::new();
             let mut variances = Vec::new();
             
-            // Collect data for taxa that have this GO term
             for &taxon_id in &taxon_order {
                 if let Some(go_term_map) = taxon_map.get(&taxon_id) {
                     if let Some(result) = go_term_map.get(&go_term) {
@@ -170,7 +164,6 @@ pub fn phylogenetic_meta_analysis(
                 }
             }
             
-            // Skip if we don't have any data
             if relevant_taxon_ids.is_empty() {
                 continue;
             }
@@ -178,10 +171,8 @@ pub fn phylogenetic_meta_analysis(
             let b_pma: f64;
             
             if log_odds_ratios.len() == 1 {
-                // If we have just one data point, use it directly
                 b_pma = log_odds_ratios[0];
             } else {
-                // For multiple data points, perform phylogenetic regression
                 let go_term_vcv_matrix = filter_vcv_matrix(vcv_matrix.clone(), &relevant_taxon_ids).unwrap();
                 
                 let log_odds_array = Array1::from(log_odds_ratios);
@@ -194,11 +185,9 @@ pub fn phylogenetic_meta_analysis(
                 );
             }
             
-            // Store the b_pma value
             level_results.insert(go_term, b_pma);
         }
         
-        // Add results for this level if we have any
         if !level_results.is_empty() {
             results.insert(level, level_results);
         }
@@ -207,23 +196,3 @@ pub fn phylogenetic_meta_analysis(
     println!("Phylogenetic meta-analysis results: {:?}", results); 
     results
 }
-
-// FxHashMap<Taxonomic level, FxHashMap<Taxon ID, FxHashMap<GO Term ID, (log(Odds Ratio), P-value, Contingency Table, Variance)>>>
-
-// Process taxonomic levels in parallel 
-/*
-For each taxonomic level, we will:
-    1. We will process each GO term
-    For each term we need to: 
-        1.1 Find the taxon ids that have this term 
-        1.2 Filter the VCV matrix to only include these taxon ids
-        1.3 We need create an Array with log(odds ratio)        DONE
-        1.4 We need create an Array with weights (1/variance)       DONE
-        1.5 We need create an Array with ones           DONE
-        IMPORTANT: All these arrays must have the values in the same order as the taxa appear in the VCV matrix
-        1.6 Calculate the SVD of the VCV matrix             DONE
-        1.7 Perform the calculations with the SVD       DONE
-        1.8 Fit the model       DONE
-        1.9 Combine p-values
-        1.10 Store the results in the FxHashMap
-*/
