@@ -1,13 +1,11 @@
 use rustc_hash::FxHashMap;
-use std::cmp::Ordering;
-use crate::analysis::enrichment_analysis::*;
-use crate::analysis::multiple_testing_correction::*;
+use crate::{analysis::enrichment_analysis::*, parsers::background_parser::{GOTermID, TaxonID}};
 
 pub fn group_results_by_taxonomy(
-    family_taxa: &FxHashMap<String, Vec<u32>>,
-    fisher_results: &FxHashMap<u32, FxHashMap<u32, GOTermResults>>,
+    family_taxa: &FxHashMap<String, Vec<TaxonID>>,
+    fisher_results: &FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>>,
     threshold: f64,
-) -> FxHashMap<String, FxHashMap<u32, FxHashMap<u32, (f64, f64, [usize; 4], f64)>>> {
+) -> FxHashMap<String, FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>>> {
     let mut result = FxHashMap::default();
     let mut go_term_counts: FxHashMap<String, FxHashMap<u32, usize>> = FxHashMap::default();
     let mut actual_species_counts: FxHashMap<String, usize> = FxHashMap::default();
@@ -25,20 +23,18 @@ fn count_species_and_go_terms(
     actual_species_counts: &mut FxHashMap<String, usize>,
     go_term_counts: &mut FxHashMap<String, FxHashMap<u32, usize>>,
 ) {
-    for (family, taxa) in family_taxa {
-        let species_count = taxa.len();
-        actual_species_counts.insert(family.clone(), species_count);
-
+    family_taxa.iter().for_each(|(family, taxa)| {
+        actual_species_counts.insert(family.to_string(), taxa.len());
+        
         let family_go_terms = go_term_counts.entry(family.clone()).or_default();
-
-        for taxon_id in taxa {
-            if let Some(go_terms) = fisher_results.get(taxon_id) {
-                for go_term_id in go_terms.keys() {
-                    *family_go_terms.entry(*go_term_id).or_default() += 1;
-                }
-            }
-        }
-    }
+        
+        taxa.iter()
+            .filter_map(|taxon_id| fisher_results.get(taxon_id))
+            .flat_map(|go_terms| go_terms.keys())
+            .for_each(|go_term_id| {
+                *family_go_terms.entry(*go_term_id).or_default() += 1;
+            });
+    });
 }
 
 fn process_and_filter_results(
@@ -47,188 +43,46 @@ fn process_and_filter_results(
     threshold: f64,
     actual_species_counts: &FxHashMap<String, usize>,
     go_term_counts: &FxHashMap<String, FxHashMap<u32, usize>>,
-    result: &mut FxHashMap<String, FxHashMap<u32, FxHashMap<u32, (f64, f64, [usize; 4], f64)>>>,
+    result: &mut FxHashMap<String, FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>>>,
 ) {
-    for (family, taxa) in family_taxa {
+    family_taxa.iter().for_each(|(family, taxa)| {
         let species_count = *actual_species_counts.get(family).unwrap_or(&0);
 
         if species_count == 0 {
-            continue;
+            return;
         }
 
         let empty_map = FxHashMap::default();
         let family_go_terms = go_term_counts.get(family).unwrap_or(&empty_map);
-        let mut taxa_map = FxHashMap::default();
-
-        for taxon_id in taxa {
-            if let Some(go_terms) = fisher_results.get(taxon_id) {
-                let mut go_terms_with_variance = FxHashMap::default();
-
-                for (go_term_id, go_term_result) in go_terms {
-                    let go_term_count = family_go_terms.get(go_term_id).unwrap_or(&0);
-                    let prevalence = *go_term_count as f64 / species_count as f64;
-
-                    if prevalence >= threshold {
-                        let variance = calculate_variance(&go_term_result.contingency_table);
-                        go_terms_with_variance.insert(
-                            *go_term_id, 
-                            (
-                                go_term_result.log_odds_ratio,
-                                go_term_result.p_value,
-                                go_term_result.contingency_table,
-                                variance
-                            )
-                        );
+        
+        let taxa_map: FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>> = taxa.iter()
+            .filter_map(|taxon_id| {
+                fisher_results.get(taxon_id).map(|go_terms| {
+                    let go_terms_with_variance: FxHashMap<GOTermID, GOTermResults> = go_terms.iter()
+                        .filter_map(|(go_term_id, go_term_result)| {
+                            let go_term_count = family_go_terms.get(go_term_id).unwrap_or(&0);
+                            let prevalence = *go_term_count as f64 / species_count as f64;
+                            
+                            if prevalence >= threshold {
+                                Some((*go_term_id, go_term_result.clone()))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    
+                    if go_terms_with_variance.is_empty() {
+                        None
+                    } else {
+                        Some((*taxon_id, go_terms_with_variance))
                     }
-                }
-
-                if !go_terms_with_variance.is_empty() {
-                    taxa_map.insert(*taxon_id, go_terms_with_variance);
-                }
-            }
-        }
-
+                })
+            })
+            .flatten()
+            .collect();
+        
         if !taxa_map.is_empty() {
             result.insert(family.clone(), taxa_map);
         }
-    }
-}
-
-fn calculate_variance(contingency: &[usize; 4]) -> f64 {
-    if contingency.iter().all(|&x| x > 0) {
-        1.0 / contingency[0] as f64 +
-        1.0 / contingency[1] as f64 +
-        1.0 / contingency[2] as f64 +
-        1.0 / contingency[3] as f64
-    } else {
-        f64::INFINITY
-    }
-}
-
-pub fn combine_taxonomic_results(
-    organized_results: &FxHashMap<String, FxHashMap<u32, FxHashMap<u32, (f64, f64, [usize; 4], f64)>>>,
-    tolerance: f64,
-    max_iterations: usize,
-) -> FxHashMap<String, FxHashMap<u32, TaxonomyGOResult>> {
-    let mut final_estimates = FxHashMap::default();
-
-    for (family, taxa_results) in organized_results {
-        let mut go_term_estimates = FxHashMap::default();
-        let total_species = taxa_results.len();
-
-        let all_go_terms: Vec<u32> = taxa_results.values().flat_map(|go_maps| go_maps.keys().cloned()).collect();
-        let unique_go_terms: Vec<u32> = {
-            let mut temp = all_go_terms.clone();
-            temp.sort_unstable();
-            temp.dedup();
-            temp
-        };
-
-        for go_term in unique_go_terms {
-            let mut effect_sizes = Vec::new();
-            let mut variances = Vec::new();
-            let mut p_values = Vec::new();
-
-            let species_with_go = taxa_results.values()
-                .filter(|taxa_map| taxa_map.contains_key(&go_term))
-                .count();
-            
-            let species_percentage = if total_species > 0 {
-                (species_with_go as f64 / total_species as f64) * 100.0
-            } else {
-                0.0
-            };
-
-            for taxa_map in taxa_results.values() {
-                if let Some(&(lor, p, _, var)) = taxa_map.get(&go_term) {
-                    effect_sizes.push(lor);
-                    variances.push(var);
-                    p_values.push(p);
-                }
-            }
-
-            match effect_sizes.len() {
-                0 => continue,
-                1 => {
-                    let tau_squared = 0.0;
-                    let mean_effect = effect_sizes[0];
-                    let p_value = p_values[0];
-                    go_term_estimates.insert(go_term, TaxonomyGOResult {
-                        log_odds_ratio: mean_effect,
-                        p_value,
-                        tau_squared,
-                        species_percentage,
-                        species_count: species_with_go,
-                        total_species,
-                    });
-                }
-                _ => {
-                    let (tau_squared, mean_effect) = paule_mandel_estimator(&effect_sizes, &variances, tolerance, max_iterations);
-                    let combined_p = combine_pvalues(&p_values);
-                    go_term_estimates.insert(go_term, TaxonomyGOResult {
-                        log_odds_ratio: mean_effect,
-                        p_value: combined_p,
-                        tau_squared,
-                        species_percentage,
-                        species_count: species_with_go,
-                        total_species,
-                    });
-                }
-            }
-        }
-
-        final_estimates.insert(family.clone(), go_term_estimates);
-    }
-
-    final_estimates
-}
-
-pub fn paule_mandel_estimator(
-    effect_sizes: &[f64],
-    variances: &[f64],
-    tolerance: f64,
-    max_iterations: usize,
-) -> (f64, f64) {
-    assert_eq!(effect_sizes.len(), variances.len(), "Effect sizes and variances must have the same length");
-
-    let mut tau_squared = 0.0;
-    let mut iteration = 0;
-
-    loop {
-        let weights: Vec<f64> = variances.iter().map(|&v| 1.0 / (v + tau_squared)).collect();
-        let weighted_mean: f64 = effect_sizes.iter().zip(&weights).map(|(&y, &w)| y * w).sum::<f64>() / weights.iter().sum::<f64>();
-
-        let numerator: f64 = effect_sizes.iter().zip(&weights).map(|(&y, &w)| w * w * (y - weighted_mean).powi(2)).sum::<f64>() - weights.iter().sum::<f64>();
-        let denominator: f64 = weights.iter().sum::<f64>();
-
-        let new_tau_squared = (numerator / denominator).max(0.0);
-
-        if (new_tau_squared - tau_squared).abs() < tolerance || iteration >= max_iterations {
-            let final_weights: Vec<f64> = variances.iter().map(|&v| 1.0 / (v + new_tau_squared)).collect();
-            let final_mean: f64 = effect_sizes.iter().zip(&final_weights).map(|(&y, &w)| y * w).sum::<f64>() / final_weights.iter().sum::<f64>();
-
-            return (new_tau_squared, final_mean);
-        }
-
-        tau_squared = new_tau_squared;
-        iteration += 1;
-    }
-}
-
-pub fn combine_pvalues(p_values: &[f64]) -> f64 {
-    if p_values.is_empty() {
-        return 1.0;
-    }
-    
-    let mut sorted_pvalues = p_values.to_vec();
-    sorted_pvalues.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    
-    let n = sorted_pvalues.len() as f64;
-    
-    let min_adjusted: f64 = sorted_pvalues.iter()
-        .enumerate()
-        .map(|(i, &p)| p * n / ((i + 1) as f64))
-        .fold(1.0_f64, |min_so_far, adjusted_p| f64::min(min_so_far, adjusted_p));
-    
-    f64::min(1.0, f64::max(0.0, min_adjusted))
+    });
 }

@@ -3,8 +3,9 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Result};
 use std::path::Path;
 use crate::analysis::enrichment_analysis::*;
+use crate::parsers::background_parser::TaxonID;
 
-pub fn read_lineage<P: AsRef<Path>>(path: P) -> Result<FxHashMap<u32, Vec<String>>> {
+pub fn read_lineage<P: AsRef<Path>>(path: P) -> Result<FxHashMap<TaxonID, Vec<String>>> {
     let file = File::open(path)?;
     let reader = BufReader::with_capacity(32 * 1024, file);
     let mut taxonomy = FxHashMap::default();
@@ -22,7 +23,7 @@ pub fn read_lineage<P: AsRef<Path>>(path: P) -> Result<FxHashMap<u32, Vec<String
     }
     Ok(taxonomy)
 }
-pub fn taxid_to_species<P: AsRef<Path>>(path: P) -> Result<FxHashMap<u32, String>> {
+pub fn taxid_to_species<P: AsRef<Path>>(path: P) -> Result<FxHashMap<TaxonID, String>> {
     let file = File::open(path)?;
     let reader = BufReader::with_capacity(32 * 1024, file);
     let mut taxid_species_map = FxHashMap::default();
@@ -41,9 +42,9 @@ pub fn taxid_to_species<P: AsRef<Path>>(path: P) -> Result<FxHashMap<u32, String
 
 pub fn taxid_to_level(
     significant_results: &FxHashMap<u32, FxHashMap<u32, GOTermResults>>,
-    taxonomic_lineage: &FxHashMap<u32, Vec<String>>,
+    taxonomic_lineage: &FxHashMap<TaxonID, Vec<String>>,
     taxonomic_level: &str
-) -> FxHashMap<String, Vec<u32>> {
+) -> FxHashMap<String, Vec<TaxonID>> {
     let mut grouped_results: FxHashMap<String, Vec<u32>> = FxHashMap::default();
     
     let level_index = match taxonomic_level.to_lowercase().as_str() {

@@ -64,7 +64,8 @@ impl PValueAdjustable for GOTermResults {
         Self {
             log_odds_ratio: self.log_odds_ratio,
             p_value: new_p_value,
-            contingency_table: self.contingency_table.clone(),
+            contingency_table: self.contingency_table,
+            variance: self.variance
         }
     }
 }

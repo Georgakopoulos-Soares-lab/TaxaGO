@@ -615,12 +615,30 @@ def create_single_network_plot(
         
         edge_data.extend([(u, v, data.get('weight')) for u, v, data in subnetwork.edges(data=True)])
     
-    max_sizing_value = max(values_to_size.values())
-    min_sizing_value = min(values_to_size.values())
-    mid_sizing_value = sorted(values_to_size.values())[len(values_to_size.values()) // 2]
-    
-    for node in values_to_size.keys():
-        node_sizes[node] = 7 + (18 * (math.sqrt(values_to_size[node] / math.sqrt(max_sizing_value))))
+    min_node_size = 5
+    max_node_size = 30
+
+    sorted_values = sorted(values_to_size.values())
+    n = len(sorted_values)
+
+    min_sizing_value = sorted_values[0] if sorted_values else 0
+    mid_sizing_value = sorted_values[n//2] if sorted_values else 0
+    max_sizing_value = sorted_values[-1] if sorted_values else 0
+
+    percentile_lookup = {}
+    for i, value in enumerate(sorted_values):
+        percentile_lookup[value] = i / (n - 1) if n > 1 else 0.5
+
+    for node, value in values_to_size.items():
+        percentile = percentile_lookup[value]
+        adjusted_percentile = percentile ** 0.7
+        node_sizes[node] = min_node_size + (max_node_size - min_node_size) * adjusted_percentile
+
+    min_size = min_node_size
+    max_size = max_node_size
+    median_percentile = percentile_lookup[mid_sizing_value]
+    median_adjusted_percentile = median_percentile ** 0.7
+    mid_size = min_node_size + (max_node_size - min_node_size) * median_adjusted_percentile
 
     edge_weights = [weight for _, _, weight in edge_data]
     min_edge_weight = min(edge_weights)
@@ -725,10 +743,12 @@ def create_single_network_plot(
     
     fig.update_layout(
         showlegend=False,
-        margin=dict(l=0, r=0, t=40, b=0),
+        margin=dict(l=0, r=0, t=20, b=0),
         width=940, 
         height=460,
         plot_bgcolor='white',
+        yaxis=dict(automargin=True),
+        xaxis=dict(automargin=True)
         # title=f"Enrichment network: {taxon_name} - {namespace}"
     )
     
@@ -746,10 +766,6 @@ def create_single_network_plot(
         gridcolor='rgba(0,0,0,0.05)',
     )
 
-    min_size = min(node_sizes.values()) if node_sizes else 0
-    max_size = max(node_sizes.values()) if node_sizes else 0
-    mid_size = min_size + (max_size - min_size) * 0.5
-    
     size_to_study_count = {
         min_size: min_sizing_value,
         mid_size: mid_sizing_value,
@@ -811,7 +827,7 @@ def create_single_network_plot(
             itemclick=False,
             itemdoubleclick=False,
         ),
-        margin=dict(l=0, r=0, t=40, b=0)
+        margin=dict(l=0, r=0, t=20, b=0)
     )
     
     namespace_dir = output_dir / namespace
@@ -976,7 +992,7 @@ def create_single_barplot(
     fig.update_layout(
         width=460,
         height=920,
-        margin=dict(l=0, r=0, t=40, b=0),
+        margin=dict(l=0, r=0, t=20, b=0),
         showlegend=False,
         dragmode=False,
         plot_bgcolor='white',
@@ -985,13 +1001,15 @@ def create_single_barplot(
             title_font=dict(size=12),
             tickfont=dict(size=10),
             showgrid=True,
-            gridcolor='rgba(0,0,0,0.05)'
+            gridcolor='rgba(0,0,0,0.05)',
+            automargin=True
         ),
         yaxis=dict(
             title='',
             tickfont=dict(size=12),
             showgrid=True,
-            gridcolor='rgba(0,0,0,0.05)'
+            gridcolor='rgba(0,0,0,0.05)',
+            automargin=True
         ),
         bargap=0.4,
         # title=f"Bar chart: {taxon_name} - {namespace}"
@@ -1146,20 +1164,22 @@ def create_single_bubbleplot(
     fig.update_layout(
         width=940,
         height=460,
-        margin=dict(l=0, r=0, t=40, b=0),
+        margin=dict(l=0, r=0, t=20, b=0),
         xaxis=dict(
             title='log(Odds Ratio)',
             title_font=dict(size=12),
             tickfont=dict(size=10),
             showgrid=True,
-            gridcolor='rgba(0,0,0,0.05)'
+            gridcolor='rgba(0,0,0,0.05)',
+            automargin=True
         ),
         yaxis=dict(
             title='-log10(Statistical Significance)',
             title_font=dict(size=12),
             tickfont=dict(size=10),
             showgrid=True,
-            gridcolor='rgba(0,0,0,0.05)'
+            gridcolor='rgba(0,0,0,0.05)',
+            automargin=True
         ),
         plot_bgcolor='white',
         # title=f"Bubble plot: {taxon_name} - {namespace}"

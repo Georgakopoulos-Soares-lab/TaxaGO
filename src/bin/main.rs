@@ -5,16 +5,16 @@ use clap::Parser;
 use std::error::Error;
 use std::fs::create_dir_all;
 use std::env::var;
-use std::mem;
 use rustc_hash::{FxHashMap, FxHashSet};
 use daggy::NodeIndex;
-use TaxaGO::parsers::{
-    background_parser::*, obo_parser::*, study_parser::*
-};
+
 use lazy_static::lazy_static;
 use std::path::PathBuf;
 use dirs::home_dir;
 
+use TaxaGO::parsers::{
+    background_parser::*, obo_parser::*, study_parser::*
+};
 use TaxaGO::analysis::{
     enrichment_analysis::*, 
     multiple_testing_correction::*, 
@@ -22,10 +22,10 @@ use TaxaGO::analysis::{
     handle_lineage::*,
     result_combination::*,
     count_propagation::*,
-    taxonomic_weight::*
+    phylogenetic_meta_analysis::*
 
 };
-use std::process::Command;
+// use std::process::Command;
 
 lazy_static! {
     static ref DEFAULT_OBO_PATH: String = {
@@ -214,31 +214,18 @@ struct CliArgs {
     lineage_percentage: f64,
 
     #[arg(
-        short = 'i',
-        long = "pm-iterations",
-        value_name = "ITERATIONS_NUMBER",
-        help = "Number of maximum iterations the Paule-Mandel estimator can reach when calculating the τ² estimate.",
-        default_value = "1000",
-        required = false
+        long = "vcv-matrix",
+        value_name = "VCV_MATRIX",
+        help = "Path to the VCV matrix file.",
+        required = true,
     )]
-    pm_iterations: usize,
-
-    #[arg(
-        short = 'e',
-        long = "pm-tolerance",
-        value_name = "TOLERANCE",
-        help = "Minimum acceptable tolerance between two τ² estimates.",
-        default_value = "1e-6",
-        required = false
-    )]
-    pm_tolerance: f64,
-
+    vcv_matrix: String,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
 
     let cli_args: CliArgs = CliArgs::parse();  
-    println!("Cleaning previous results");
+    println!("\nCleaning previous results");
 
     clean_directory(&cli_args.output_dir)?;
 
@@ -255,7 +242,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let root_go_ids: Vec<u32> = vec![8150, 3674, 5575];
 
-    let (_, _level_to_go_term) = assign_levels_from_roots(
+    let (_, level_to_go_term) = assign_levels_from_roots(
         &ontology_graph,
         &go_id_to_node_index,
         &node_index_to_go_id,
@@ -341,21 +328,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         
         //elim algorithm seams to be losing a lot of GO terms !!!
 
-        // analysis.elim_analysis(
-        //     &taxon_ids,
-        //     cli_args.significance_threshold,
-        //     &study_population,
-        //     &background_population,
-        //     &level_to_go_term
-        // )
-
-        analysis.classic(
-            &taxon_ids,          
-            &background_population.go_term_count,
-            &study_population.go_term_count,
-            &background_population.taxon_protein_count,
-            &study_population.taxon_protein_count,
+        analysis.elim_analysis(
+            &taxon_ids,
+            cli_args.significance_threshold,
+            &study_population,
+            &background_population,
+            &level_to_go_term
         )
+
     } else {
         println!("Performing classic analysis without count propagation\n");
         analysis.classic(
@@ -367,9 +347,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
     };
     
-    mem::drop(study_population);
-    mem::drop(background_population);
-
     let significant_fishers_results = adjust_species_p_values(
         &enrichment_results, 
         &cli_args.correction_method, 
@@ -394,64 +371,70 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("Reading taxonomic lineage information from: {}\n", DEFAULT_LINEAGE.to_string());
         let lineage = read_lineage(DEFAULT_LINEAGE.to_string());
         
-        println!("{:?}", &lineage);
         let grouped_species = taxid_to_level(
             &enrichment_results,
             &lineage?,
             level_to_combine
         );
-        println!("{:?}", &grouped_species);
-        let lineage_organized_results = group_results_by_taxonomy(
+        let lineage_organized_results= group_results_by_taxonomy(
             &grouped_species, 
             &enrichment_results, 
             cli_args.lineage_percentage
         );
-        
-        println!("Applying Paule-Mandel estimator with {} tolerance and {} iterations \n", &cli_args.pm_tolerance, &cli_args.pm_iterations);
 
-        let complex_map = combine_taxonomic_results(
-            &lineage_organized_results, 
-            cli_args.pm_tolerance, 
-            cli_args.pm_iterations);
 
-        let significant_taxonomy_results = adjust_taxonomy_p_values(
-            &complex_map, 
-            &cli_args.correction_method, 
-            Some(cli_args.significance_threshold),
-            level_to_combine);
+        let results = phylogenetic_meta_analysis(
+            &taxon_ids,
+            lineage_organized_results, 
+            &cli_args.vcv_matrix, 
+        );
+        println!("{:?}", results);
+
+        // println!("Applying Paule-Mandel estimator with {} tolerance and {} iterations \n", &cli_args.pm_tolerance, &cli_args.pm_iterations);
+
+        // let complex_map = combine_taxonomic_results(
+        //     &lineage_organized_results, 
+        //     cli_args.pm_tolerance, 
+        //     cli_args.pm_iterations);
+
+        // let significant_taxonomy_results = adjust_taxonomy_p_values(
+        //     &complex_map, 
+        //     &cli_args.correction_method, 
+        //     Some(cli_args.significance_threshold),
+        //     level_to_combine);
         
-        write_taxonomy_results(
-            &significant_taxonomy_results,
-            &ontology,
-            cli_args.min_odds_ratio,
-            &cli_args.output_dir,
-            level_to_combine
-        )?;
+        // write_taxonomy_results(
+        //     &significant_taxonomy_results,
+        //     &ontology,
+        //     cli_args.min_odds_ratio,
+        //     &cli_args.output_dir,
+        //     level_to_combine
+        // )?;
     }
 
     println!("Finished analysis\n");
     
-    println!("Generating enrichment plots\n");
+    // println!("Generating enrichment plots\n");
     
-    let plots_result = Command::new("python") 
-        .arg(&*ENRICHMENT_PLOTS_SCRIPT)
-        .arg("-r")
-        .arg(&cli_args.output_dir)
-        .arg("-s")
-        .arg(&cli_args.study_pop)
-        .status();
+    // let plots_result = Command::new("python") 
+    //     .arg(&*ENRICHMENT_PLOTS_SCRIPT)
+    //     .arg("-r")
+    //     .arg(&cli_args.output_dir)
+    //     .arg("-s")
+    //     .arg(&cli_args.study_pop)
+    //     .status();
 
-    match plots_result {
-        Ok(status) => {
-            if status.success() {
-                println!("Enrichment plots created successfully\n");
-            } else {
-                eprintln!("Plot generation failed with exit code: {:?}\n", status.code().unwrap());
-            }
-        },
-        Err(e) => {
-            eprintln!("Failed to execute Python script: {}\n", e);
-        }
-    }
+    // match plots_result {
+    //     Ok(status) => {
+    //         if status.success() {
+    //             println!("Enrichment plots created successfully\n");
+    //         } else {
+    //             eprintln!("Plot generation failed with exit code: {:?}\n", status.code().unwrap());
+    //         }
+    //     },
+    //     Err(e) => {
+    //         eprintln!("Failed to execute Python script: {}\n", e);
+    //     }
+    // }
     Ok(())
 }

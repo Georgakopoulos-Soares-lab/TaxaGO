@@ -5,4 +5,4 @@ pub mod handle_lineage;
 pub mod result_combination;
 pub mod elim_algorithm;
 pub mod count_propagation;
-pub mod taxonomic_weight;
+pub mod phylogenetic_meta_analysis;

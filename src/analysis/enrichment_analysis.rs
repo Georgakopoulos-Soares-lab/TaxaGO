@@ -11,6 +11,7 @@ pub struct GOTermResults {
     pub log_odds_ratio: f64,
     pub p_value: f64,
     pub contingency_table: ContingencyTable,
+    pub variance: f64
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -39,6 +40,19 @@ pub fn calculate_log_odds_ratio(counts: &ContingencyTable) -> f64 {
     let [a, b, c, d] = *counts;
     ((f64::from(a as u32) * f64::from(d as u32)) / 
      (f64::from(b as u32) * f64::from(c as u32))).ln()
+}
+
+pub fn calculate_variance(contingency: &[usize; 4]) -> f64 {
+    let variance: f64 = if contingency.iter().all(|&x| x > 0) {
+        1.0 / contingency[0] as f64 +
+        1.0 / contingency[1] as f64 +
+        1.0 / contingency[2] as f64 +
+        1.0 / contingency[3] as f64
+    } else {
+        f64::INFINITY
+    };
+    
+    variance
 }
 
 pub fn calculate_p_value(counts: &ContingencyTable, test_type: StatisticalTest) -> f64 {
@@ -92,6 +106,7 @@ pub fn analyze_single_go_term(
         log_odds_ratio: calculate_log_odds_ratio(&contingency_table),
         p_value: calculate_p_value(&contingency_table, test_type),
         contingency_table,
+        variance: calculate_variance(&contingency_table),
     }
 }
 
@@ -202,6 +217,7 @@ impl EnrichmentAnalysis {
                             log_odds_ratio: calculate_log_odds_ratio(counts),
                             p_value: calculate_p_value(counts, self.test_type),
                             contingency_table: *counts,
+                            variance: calculate_variance(counts),
                         };
                         (go_id, stats)
                     })
