@@ -217,9 +217,19 @@ struct CliArgs {
         long = "vcv-matrix",
         value_name = "VCV_MATRIX",
         help = "Path to the VCV matrix file.",
-        required = true,
+        required = false,
     )]
     vcv_matrix: String,
+
+    #[arg(
+        short = 'p',
+        long = "permutations",
+        value_name = "NUM_PERMUTATIONS",
+        default_value = "1000",
+        help = "Number of permutations to perform for the phylogenetic meta-analysis.",
+        required = false,
+    )]
+    permutations: u32,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -376,20 +386,19 @@ fn main() -> Result<(), Box<dyn Error>> {
             &lineage?,
             level_to_combine
         );
+
         let lineage_organized_results= group_results_by_taxonomy(
             &grouped_species, 
             &enrichment_results, 
             cli_args.lineage_percentage
         );
-
+        println!("Performing phylogenetic meta-analysis with {} permutations \n", &cli_args.permutations);
         let results = phylogenetic_meta_analysis(
             &taxon_ids,
             lineage_organized_results, 
-            &cli_args.vcv_matrix, 
+            &cli_args.vcv_matrix,
+            cli_args.permutations
         );
-        println!("{:?}", results);
-
-        // println!("Applying Paule-Mandel estimator with {} tolerance and {} iterations \n", &cli_args.pm_tolerance, &cli_args.pm_iterations);
 
         // let complex_map = combine_taxonomic_results(
         //     &lineage_organized_results, 
