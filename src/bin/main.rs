@@ -1,13 +1,12 @@
 #[global_allocator]
 static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-use clap::Parser;
+use clap::{Parser, ValueEnum, ArgGroup};
 use std::error::Error;
 use std::fs::create_dir_all;
 use std::env::var;
 use rustc_hash::{FxHashMap, FxHashSet};
 use daggy::NodeIndex;
-
 use lazy_static::lazy_static;
 use std::path::PathBuf;
 use dirs::home_dir;
@@ -25,7 +24,6 @@ use TaxaGO::analysis::{
     phylogenetic_meta_analysis::*
 
 };
-// use std::process::Command;
 
 lazy_static! {
     static ref DEFAULT_OBO_PATH: String = {
@@ -99,108 +97,121 @@ lazy_static! {
     };
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum PropagationMethod {
+    None,
+    Classic,
+    Elim,
+    Weight,
+}
+
 #[derive(Parser, Debug)]
-#[command(name = "taxago")]
+#[command(name = "taxago", about, version, author)]
+#[command(group(
+    ArgGroup::new("meta_analysis")
+        .requires("vcv_matrix")
+        .requires("combine_results")
+))]
 struct CliArgs {
+    // Input Files
     #[arg(
-        short='o',
+        short = 'o',
         long = "obo",
-        value_name = "OBO_FILE",
+        value_name = "FILE",
         help = "Path to the Gene Ontology file in OBO format.",
         default_value_t = DEFAULT_OBO_PATH.to_string(),
-    
     )]
     obo_file: String,
     
     #[arg(
-        short='s',
+        short = 's',
         long = "study",
-        value_name = "STUDY_POP",
-        help = "Directory containing study popultion for each taxon in FASTA format or CSV file with the study population for each species.",
+        value_name = "FILE_OR_DIR",
+        help = "Directory containing study population for each taxon in FASTA format or CSV file with the study population for each species.",
         required = true
     )]
     study_pop: String,
     
     #[arg(
-        short='b',
+        short = 'b',
         long = "background",
-        value_name = "BACKGROUND_DIR",
+        value_name = "DIRECTORY",
         help = "Directory containing background populations.",
         default_value_t = DEFAULT_BACKGROUND.to_string(),
     )]
     background_dir: String,
     
+    // Output options
     #[arg(
-        short='d',
+        short = 'd',
         long = "dir",
-        value_name = "RESULTS_DIR",
-        help = "Directory to write results for each taxon and the combined results for the taxonomic level [if specified].",
+        value_name = "DIRECTORY",
+        help = "Directory to write results for each taxon and the combined results.",
         required = true
     )]
-    output_dir: String,
+    output_dir: PathBuf,
     
+    // Analysis parameters
     #[arg(
-        short='p',
+        short = 'p',
         long = "propagate-counts",
-        help = "Propagates GO term counts upwards the Ontology graph (from child to parent). [Must be specified to propagate the counts]",
-        default_value_t = false
+        value_enum,
+        help = "Method to propagate GO term counts up the Ontology graph.",
+        default_value_t = PropagationMethod::None
     )]
-    propagate_counts: bool,
+    propagate_counts: PropagationMethod,
 
     #[arg(
-        short='t',
+        short = 't',
         long = "test",
-        value_name = "TYPE",
-        help = "Statistical test to use. [available: fisher, hypergeometric]",
-        default_value = "fisher"
+        value_enum,
+        help = "Statistical test to use.",
+        default_value_t = StatisticalTest::Fishers
     )]
-    statistical_test: String,
+    statistical_test: StatisticalTest,
 
     #[arg(
-        short='m',
+        short = 'm',
         long = "min-prot",
-        value_name = "MIN_COUNT",
+        value_name = "COUNT",
         help = "Minimum protein count a GO Term must have to be processed.",
-        default_value = "5",
-        required = false
+        default_value_t = 5
     )]
     min_protein_count: usize,
     
     #[arg(
-        short='r',
+        short = 'r',
         long = "min-score",
-        value_name = "MIN_SCORE",
-        help = "Minimum score (log(odds ratio)) a GO Term must have to be written in the results. Keeps GO terms with score ≥ threshold.",
-        default_value = "0.2",
-        required = false
+        value_name = "SCORE",
+        help = "Minimum log(odds ratio) a GO Term must have to be included in results.",
+        default_value_t = 0.2
     )]
     min_odds_ratio: f64,
 
     #[arg(
-        short='a',
+        short = 'a',
         long = "alpha",
         value_name = "THRESHOLD",
-        help = "P-value / Adjusted P-value threshold to determine significant results.",
-        default_value = "0.05",
-        required = false
+        help = "P-value threshold to determine significant results.",
+        default_value_t = 0.05
     )]
     significance_threshold: f64,
 
     #[arg(
-        short='c',
+        short = 'c',
         long = "correction-method",
-        value_name = "METHOD",
-        help = "Method to adjust p-values for multiple test correction. [available: bonferroni, bh, by, none]",
-        default_value = "none",
-        required = false
+        value_enum,
+        help = "Method to adjust p-values for multiple test correction.",
+        default_value_t = AdjustmentMethod::Bonferroni
     )]
-    correction_method: String,
+    correction_method: AdjustmentMethod,
 
+    // Taxonomic grouping options
     #[arg(
-        short='g',
+        short = 'g',
         long = "group-results",
         value_name = "TAXONOMIC_LEVEL",
-        help = "Combine results from all taxa into a single output based on the taxonomic level specified. [Must be specified to group the results]",
+        help = "Combine results based on the specified taxonomic level.",
     )]
     combine_results: Option<String>,
     
@@ -208,26 +219,25 @@ struct CliArgs {
         short = 'l',
         long = "lineage-percentage",
         value_name = "PERCENTAGE",
-        help = "Percentage of species inside the desired taxonomic level in which the GO term must be found in. [From 0.0 to 1.0]",
-        default_value = "0.25"
+        help = "Percentage of species inside the taxonomic level where GO term must be found.",
+        default_value_t = 0.25
     )]
     lineage_percentage: f64,
 
+    // Meta-analysis options
     #[arg(
         long = "vcv-matrix",
-        value_name = "VCV_MATRIX",
-        help = "Path to the VCV matrix file.",
-        required = false,
+        value_name = "FILE",
+        help = "Path to the variance-covariance matrix file for phylogenetic meta-analysis.",
     )]
-    vcv_matrix: String,
+    vcv_matrix: Option<PathBuf>,
 
     #[arg(
-        short = 'p',
+        short = 'e',
         long = "permutations",
-        value_name = "NUM_PERMUTATIONS",
-        default_value = "1000",
-        help = "Number of permutations to perform for the phylogenetic meta-analysis.",
-        required = false,
+        value_name = "COUNT",
+        help = "Number of permutations for phylogenetic meta-analysis.",
+        default_value_t = 1000
     )]
     permutations: u32,
 }
@@ -294,7 +304,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    if cli_args.propagate_counts{
+    let propagation_method = cli_args.propagate_counts;
+    let should_propagate = match cli_args.propagate_counts {
+        PropagationMethod::None => false,
+        PropagationMethod::Classic | PropagationMethod::Elim | PropagationMethod::Weight => true,
+    };
+
+    if should_propagate{
         println!("Propagating counts up the Ontology graph\n");
         
         let ancestor_cache: GOAncestorCache = GOAncestorCache::new(
@@ -325,41 +341,58 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
     
     println!("Starting Gene Ontology (GO) term enrichment analysis\n");
-    let analysis = EnrichmentAnalysis::new(
-        match cli_args.statistical_test.to_lowercase().as_str() {
-            "fisher" => StatisticalTest::Fishers,
-            "hypergeometric" => StatisticalTest::Hypergeometric,
-            _ => return Err("Invalid statistical test type".into()),
+    
+    let analysis = EnrichmentAnalysis::new(cli_args.statistical_test);
+
+    let enrichment_results = match cli_args.propagate_counts {
+        PropagationMethod::Elim => {
+            println!("Performing elim algorithm on propagated counts\n");
+            
+            // elim algorithm seems to be losing a lot of GO terms !!!
+            analysis.elim_analysis(
+                &taxon_ids,
+                cli_args.significance_threshold,
+                &study_population,
+                &background_population,
+                &level_to_go_term
+            )
+        },
+        PropagationMethod::Classic => {
+            println!("Performing classic analysis with propagated counts\n");
+            analysis.classic(
+                &taxon_ids,          
+                &background_population.go_term_count,
+                &study_population.go_term_count,
+                &background_population.taxon_protein_count,
+                &study_population.taxon_protein_count,
+            )
+        },
+        PropagationMethod::Weight => {
+            println!("Performing weight algorithm with propagated counts\n");
+            // For now, falling back to classic with propagated counts
+            analysis.classic(
+                &taxon_ids,          
+                &background_population.go_term_count,
+                &study_population.go_term_count,
+                &background_population.taxon_protein_count,
+                &study_population.taxon_protein_count,
+            )
+        },
+        PropagationMethod::None => {
+            println!("Performing classic analysis without count propagation\n");
+            analysis.classic(
+                &taxon_ids,          
+                &background_population.go_term_count,
+                &study_population.go_term_count,
+                &background_population.taxon_protein_count,
+                &study_population.taxon_protein_count,
+            )
         }
-    );
-
-    let enrichment_results = if cli_args.propagate_counts {
-        println!("Performing elim algorithm on propagated counts\n");
-        
-        //elim algorithm seams to be losing a lot of GO terms !!!
-
-        analysis.elim_analysis(
-            &taxon_ids,
-            cli_args.significance_threshold,
-            &study_population,
-            &background_population,
-            &level_to_go_term
-        )
-
-    } else {
-        println!("Performing classic analysis without count propagation\n");
-        analysis.classic(
-            &taxon_ids,          
-            &background_population.go_term_count,
-            &study_population.go_term_count,
-            &background_population.taxon_protein_count,
-            &study_population.taxon_protein_count,
-        )
     };
     
     let significant_fishers_results = adjust_species_p_values(
         &enrichment_results, 
-        &cli_args.correction_method, 
+        cli_args.correction_method, 
         Some(cli_args.significance_threshold)
     );
         
@@ -393,10 +426,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             cli_args.lineage_percentage
         );
         println!("Performing phylogenetic meta-analysis with {} permutations \n", &cli_args.permutations);
+       
         let results = phylogenetic_meta_analysis(
             &taxon_ids,
             lineage_organized_results, 
-            &cli_args.vcv_matrix,
+            cli_args.vcv_matrix.unwrap(),
             cli_args.permutations
         );
 
@@ -423,26 +457,5 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Finished analysis\n");
     
     // println!("Generating enrichment plots\n");
-    
-    // let plots_result = Command::new("python") 
-    //     .arg(&*ENRICHMENT_PLOTS_SCRIPT)
-    //     .arg("-r")
-    //     .arg(&cli_args.output_dir)
-    //     .arg("-s")
-    //     .arg(&cli_args.study_pop)
-    //     .status();
-
-    // match plots_result {
-    //     Ok(status) => {
-    //         if status.success() {
-    //             println!("Enrichment plots created successfully\n");
-    //         } else {
-    //             eprintln!("Plot generation failed with exit code: {:?}\n", status.code().unwrap());
-    //         }
-    //     },
-    //     Err(e) => {
-    //         eprintln!("Failed to execute Python script: {}\n", e);
-    //     }
-    // }
     Ok(())
 }

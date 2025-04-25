@@ -3,6 +3,7 @@ use fishers_exact::fishers_exact;
 use crate::parsers::background_parser::{GOTermCount, GOTermID, TaxonID};
 use statrs::distribution::{Hypergeometric, DiscreteCDF};
 use rayon::prelude::*;
+use clap::ValueEnum;
 
 pub type ContingencyTable = [usize; 4];
 
@@ -14,7 +15,7 @@ pub struct GOTermResults {
     pub variance: f64
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum StatisticalTest {
     Fishers,
     Hypergeometric,

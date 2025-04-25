@@ -10,13 +10,13 @@ use rand::{
     rngs::StdRng
 };
 use rayon::prelude::*;
+use std::path::PathBuf;
 
 pub fn read_vcv_matrix(
-    matrix_path: &String,
+    matrix_path: PathBuf,
 ) -> Result<DataFrame, PolarsError> {
-
     let mut vcv_matrix = CsvReadOptions::default()
-        .try_into_reader_with_file_path(Some(matrix_path.into()))?
+        .try_into_reader_with_file_path(Some(matrix_path))?
         .finish()?;
 
     vcv_matrix = vcv_matrix
@@ -176,7 +176,7 @@ pub fn phylogenetic_meta_analysis_calculation(
 pub fn phylogenetic_meta_analysis(
     taxon_ids: &FxHashSet<TaxonID>,
     lineage_results: FxHashMap<String, FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>>>,
-    matrix_path: &String,
+    matrix_path: PathBuf,
     permutations: u32
 
 ) -> FxHashMap<String, FxHashMap<GOTermID, (f64, f64)>> {

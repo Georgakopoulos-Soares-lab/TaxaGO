@@ -2,7 +2,7 @@ use rustc_hash::FxHashMap;
 use std::fs::{self, File, create_dir_all};
 use std::io::{self, BufWriter, Write};
 use std::error::Error;
-use std::path::{PathBuf, Path};
+use std::path::PathBuf;
 use std::fmt::Write as FmtWrite;
 use lazy_static::lazy_static;
 
@@ -15,10 +15,9 @@ use crate::analysis::{
     multiple_testing_correction::*
 };
 
-pub fn clean_directory(dir_path: &str) -> io::Result<()> {
-    let path = Path::new(dir_path);
-    if path.exists() {
-        for entry in fs::read_dir(path)? {
+pub fn clean_directory(dir_path: &PathBuf) -> io::Result<()> {
+    if dir_path.exists() {
+        for entry in fs::read_dir(dir_path)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_file() {
@@ -76,7 +75,7 @@ pub fn write_single_taxon_results(
     ontology: &FxHashMap<u32, OboTerm>,
     min_log_odds_ratio: f64,
     taxid_species_map: &FxHashMap<TaxonID, String>,
-    output_dir: &str
+    output_dir: &PathBuf,
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("single_taxon_results");
     let plots_dir = PathBuf::from(&results_dir).join("plots"); 

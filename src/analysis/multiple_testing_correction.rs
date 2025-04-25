@@ -1,6 +1,7 @@
 use rustc_hash::FxHashMap;
 use adjustp::{adjust, Procedure};
 use crate::analysis::enrichment_analysis::GOTermResults;
+use clap::ValueEnum;
 
 #[derive(Debug, Clone)]
 pub struct TaxonomyGOResult {
@@ -15,24 +16,12 @@ pub struct TaxonomyGOResult {
 type SpeciesResults = FxHashMap<u32, FxHashMap<u32, GOTermResults>>;
 type TaxonomyResults = FxHashMap<String, FxHashMap<u32, TaxonomyGOResult>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum AdjustmentMethod {
     None,
     Bonferroni,
     BenjaminiHochberg,
     BenjaminiYekutieli,
-}
-
-impl From<&str> for AdjustmentMethod {
-    fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "none" => AdjustmentMethod::None,
-            "bonferroni" => AdjustmentMethod::Bonferroni,
-            "bh" => AdjustmentMethod::BenjaminiHochberg,
-            "by" => AdjustmentMethod::BenjaminiYekutieli,
-            _ => AdjustmentMethod::None,
-        }
-    }
 }
 
 impl AdjustmentMethod {
@@ -101,6 +90,7 @@ where
         println!("No p-value adjustment performed\n");
         return results.clone();
     }
+    
     let mut all_pvalues = Vec::new();
     let mut pvalue_mapping = Vec::new();
     
@@ -134,19 +124,19 @@ where
 
 pub fn adjust_species_p_values(
     results: &SpeciesResults,
-    adjustment_method: &str,
+    adjustment_method: AdjustmentMethod,
     significance_threshold: Option<f64>,
 ) -> SpeciesResults {
     println!("Adjusting single taxon p-values using method: {:?}\n", adjustment_method);
-    adjust_p_values(results, adjustment_method.into(), significance_threshold)
+    adjust_p_values(results, adjustment_method, significance_threshold)
 }
 
 pub fn adjust_taxonomy_p_values(
     results: &TaxonomyResults,
-    adjustment_method: &str,
+    adjustment_method: AdjustmentMethod,
     significance_threshold: Option<f64>,
     level: &String,
 ) -> TaxonomyResults {
     println!("Adjusting p-values at {} level using method: {:?}\n", level, adjustment_method);
-    adjust_p_values(results, adjustment_method.into(), significance_threshold)
+    adjust_p_values(results, adjustment_method, significance_threshold)
 }

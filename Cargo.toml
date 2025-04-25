@@ -17,12 +17,12 @@ name = "semantic-similarity"
 path = "src/bin/semantic_similarity.rs"
 
 [dependencies]
-thiserror = "2.0.11"
+thiserror = "2.0.12"
 memmap2 = "0.9.5"
 rayon = "1.10.0"
 fishers_exact = "1.0.1"
 adjustp = "0.1.6"
-clap = { version = "4.5.35", features = ["derive"] }
+clap = { version = "4.5.37", features = ["derive", "cargo"] }
 lazy_static = "1.5.0"
 daggy = "0.8.1"
 petgraph = "0.7.1"
