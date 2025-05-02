@@ -1,9 +1,8 @@
 import pandas as pd
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import os # To determine CPU count for workers
+import os 
 
-# --- Setup (runs once in the main process) ---
 background_pop = Path("/storage/group/izg5139/default/lefteris/background_pop")
 outdir = Path("final_background_pop")
 
@@ -38,7 +37,6 @@ index_df = cellular_organisms[['index', 'Tax_ID']]
 print("Creating Tax ID dictionary...")
 tax_id_dict = index_df.set_index('index')['Tax_ID'].to_dict()
 
-# --- Constants (shared across processes) ---
 column_names = [
     "DB", "DB_Object_ID", "DB_Object_Symbol", "Relation", "GO_ID",
     "DB:Reference_(|DB:Reference)", "Evidence_Code", "With_(or)_From",
@@ -57,7 +55,6 @@ dtypes = {
     "Gene_Product_Form_ID": "object",
 }
 
-# --- Function to process a single file (remains mostly the same) ---
 def create_background(file, outdir, taxon_id, column_names, dtypes):
     """
     Reads a GOA file, filters it, and saves the background population.
@@ -72,7 +69,7 @@ def create_background(file, outdir, taxon_id, column_names, dtypes):
             comment="!",
             names=column_names,
             dtype=dtypes,
-            low_memory=False # Can sometimes help with mixed types or large files
+            low_memory=False
         )
 
         filtered_gaf = gaf[
@@ -81,24 +78,18 @@ def create_background(file, outdir, taxon_id, column_names, dtypes):
             (gaf["DB_Object_Type"] == "protein")
         ]
 
-        # Ensure correct columns are selected before dropping duplicates
         filtered_gaf = filtered_gaf[['DB_Object_ID', 'GO_ID', 'Evidence_Code']].drop_duplicates()
 
         mod_gaf = outdir.joinpath(f"{taxon_id}_background.txt")
 
         filtered_gaf.to_csv(mod_gaf, sep='\t', index=False, header=False)
-
-        # Removed print statement from here, will print upon completion below
-        # print(f"Saved background population for {taxon_id} to {mod_gaf}")
-        return taxon_id # Return identifier on success
+        return taxon_id 
+        
     except Exception as e:
         print(f"!!! ERROR processing {taxon_id} from {file.name}: {e}")
-        # Re-raise the exception so it can be caught by the main process if needed
         raise Exception(f"Error in create_background for {taxon_id}") from e
 
-# --- Main execution block ---
 def main():
-    # 1. Identify all files to process
     tasks_to_submit = []
     print(f"Scanning directory {background_pop} for .goa files...")
     for file in background_pop.iterdir():
@@ -119,45 +110,36 @@ def main():
 
     print(f"Found {len(tasks_to_submit)} files to process.")
 
-    # 2. Determine number of workers (optional, defaults often work well)
-    # Use slightly fewer than total CPUs if the machine is shared or has other heavy processes
-    num_workers = max(1, os.cpu_count() - 2) if os.cpu_count() else 4 # Default to 4 if cpu_count fails
+    num_workers = max(1, os.cpu_count() - 2) if os.cpu_count() else 4
     print(f"Starting processing with up to {num_workers} parallel workers...")
 
-    # 3. Use ProcessPoolExecutor for parallel execution
     futures = []
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         for task in tasks_to_submit:
-            # Submit the function call with its arguments to the pool
+            
             future = executor.submit(
                 create_background,
                 task["file"],
                 outdir,
                 task["tax_id"],
-                column_names,  # Pass constants
-                dtypes         # Pass constants
+                column_names, 
+                dtypes        
             )
             futures.append(future)
 
-        # 4. Monitor completion and handle results/errors
         processed_count = 0
         total_tasks = len(futures)
         for future in as_completed(futures):
             try:
-                # result() will return the value from the worker function (taxon_id)
-                # or re-raise any exception that occurred in the worker
                 completed_tax_id = future.result()
                 processed_count += 1
                 print(f"({processed_count}/{total_tasks}) Successfully processed Taxon ID: {completed_tax_id}")
             except Exception as exc:
-                # Error was already printed inside the function,
-                # but we can log it again or take other actions here if needed.
-                 processed_count += 1 # Count it as processed (even if failed) for progress
+                 processed_count += 1
                  print(f"({processed_count}/{total_tasks}) A task failed: {exc}")
 
 
     print(f"\n--- All processing finished. Processed {processed_count} files. ---")
 
-# --- Guard for multiprocessing ---
 if __name__ == "__main__":
     main()
