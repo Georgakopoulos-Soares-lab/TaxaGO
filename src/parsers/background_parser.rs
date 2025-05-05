@@ -24,17 +24,101 @@ pub struct BackgroundPop {
     pub go_term_to_protein_set: FxHashMap<TaxonID, GOTermToProteinSet>
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EvidenceCategory {
+    Experimental,
+    Phylogenetic,
+    Computational,
+    Author,
+    Curator,
+    Automatic
+}
+
+pub fn map_code_to_category(
+    code: &CompactString
+) -> Result<EvidenceCategory> {
+    match code.as_str() {
+        "EXP" | "IDA" | "IPI" | "IMP" | "IGI" | "IEP" | "HTP" | "HDA" | "HMP" | "HGI" | "HEP" => Ok(EvidenceCategory::Experimental),
+        "IBA" | "IBD" | "IKR" | "IRD" => Ok(EvidenceCategory::Phylogenetic),
+        "ISS" | "ISO" | "ISA" | "ISM" | "IGC" | "RCA" => Ok(EvidenceCategory::Computational),
+        "TAS" | "NAS" => Ok(EvidenceCategory::Author),
+        "IC" | "ND" => Ok(EvidenceCategory::Curator),
+        "IEA" => Ok(EvidenceCategory::Automatic),
+        _ => Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("Unrecognized evidence code: {}", code)
+        ))
+    }
+}
+
+pub fn map_input_to_category(
+    cli_input: String
+) -> Result<Vec<EvidenceCategory>> {
+    let parts: Vec<String> = cli_input
+        .to_lowercase()
+        .split(',')
+        .map(|part| part.trim().to_string())
+        .filter(|part| !part.is_empty())
+        .collect();
+
+    let contains_all = parts.iter().any(|part| part == "all");
+
+    if contains_all {
+        Ok(vec![
+            EvidenceCategory::Experimental,
+            EvidenceCategory::Phylogenetic,
+            EvidenceCategory::Computational,
+            EvidenceCategory::Author,
+            EvidenceCategory::Curator,
+            EvidenceCategory::Automatic
+        ])
+    } else {
+        let mut categories = Vec::new();
+        
+        for trimmed_part in parts {
+            let category = match trimmed_part.as_str() {
+                "experimental" => EvidenceCategory::Experimental,
+                "phylogenetic" => EvidenceCategory::Phylogenetic,
+                "computational" => EvidenceCategory::Computational,
+                "author" => EvidenceCategory::Author,
+                "curator" => EvidenceCategory::Curator,
+                "automatic" => EvidenceCategory::Automatic,
+                _ => return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("Unrecognized evidence category: {}. Valid categories are: experimental, phylogenetic, computational, author, curator, automatic, or all.", trimmed_part)
+                ))
+            };
+            
+            categories.push(category);
+        }
+        
+        if categories.is_empty() {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "No valid evidence categories provided. Valid categories are: experimental, phylogenetic, computational, author, curator, automatic, or all."
+            ));
+        }
+        
+        Ok(categories)
+    }
+}
+
 impl BackgroundPop {
     pub fn read_background_pop(
         taxon_ids: &FxHashSet<TaxonID>, 
-        dir: &str) -> Result<Option<Self>> {
+        dir: &str,
+        categories: &Vec<EvidenceCategory>
+    ) -> Result<Option<Self>> {
         
         let (taxon_protein_count, protein_to_go, go_term_count, go_term_to_protein_set) = taxon_ids
             .par_iter()
             .map(|&taxon_id| {
                 let taxon_background_file_path = format!("{}/{}_background.txt", dir, taxon_id);
                 
-                match process_single_taxon(&taxon_background_file_path) {
+                match process_single_taxon(
+                    &taxon_background_file_path,
+                    categories
+                ) {
                     Ok(Some(data)) => (taxon_id, Some(data)),
                     Ok(None) => {
                         eprintln!("No data found for taxon {}", taxon_id);
@@ -119,7 +203,9 @@ impl BackgroundPop {
 }
 
 fn process_single_taxon(
-    taxon_background_path: impl AsRef<Path>) -> Result<Option<(usize, ProteinToGO, GOTermCount, GOTermToProteinSet)>> {
+    taxon_background_path: impl AsRef<Path>,
+    categories: &Vec<EvidenceCategory>
+) -> Result<Option<(usize, ProteinToGO, GOTermCount, GOTermToProteinSet)>> {
     
     if !taxon_background_path.as_ref().is_file() {
         return Ok(None);
@@ -149,28 +235,33 @@ fn process_single_taxon(
         };
         let parts: Vec<&str> = line.split('\t').collect();
 
-        if parts.len() < 2 {
+        if parts.len() < 3 {
             continue;
         }
 
-        let protein_str = CompactString::new(parts[0]);
-        let protein_id = Arc::new(protein_str.clone());
-        if let Some(go_str) = parts[1].strip_prefix("GO:") {
-            if let Ok(go_id) = go_str.parse::<u32>() {
-                protein_to_go_map
-                    .entry(protein_str)
-                    .or_insert_with(FxHashSet::default)
-                    .insert(go_id);
+        let code = CompactString::new(parts[2]);
+        let category = map_code_to_category(&code)?;
 
-                let is_new_association = go_term_to_protein_set
-                    .entry(go_id)
-                    .or_insert_with(FxHashSet::default)
-                    .insert(Arc::clone(&protein_id));
-                
-                if is_new_association {
-                    *go_term_counts.entry(go_id).or_insert(0) += 1;
+        if categories.contains(&category){
+            let protein_str = CompactString::new(parts[0]);
+            let protein_id = Arc::new(protein_str.clone());
+            if let Some(go_str) = parts[1].strip_prefix("GO:") {
+                if let Ok(go_id) = go_str.parse::<u32>() {
+                    protein_to_go_map
+                        .entry(protein_str)
+                        .or_insert_with(FxHashSet::default)
+                        .insert(go_id);
+    
+                    let is_new_association = go_term_to_protein_set
+                        .entry(go_id)
+                        .or_insert_with(FxHashSet::default)
+                        .insert(Arc::clone(&protein_id));
+                    
+                    if is_new_association {
+                        *go_term_counts.entry(go_id).or_insert(0) += 1;
+                    }
+    
                 }
-
             }
         }
     }

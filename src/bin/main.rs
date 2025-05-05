@@ -140,6 +140,15 @@ struct CliArgs {
         default_value_t = DEFAULT_BACKGROUND.to_string(),
     )]
     background_dir: String,
+
+    #[arg(
+        short = 'e',
+        long = "evidence",
+        value_name = "CATEGORY",
+        help = "Evidence code categories to parse in background associations. [possible values: all, experimental, phylogenetic, computational, author, curator, automatic]",
+        default_value = "all"
+    )]
+    evidence_categories: String,   
     
     // Output options
     #[arg(
@@ -233,7 +242,6 @@ struct CliArgs {
     vcv_matrix: Option<PathBuf>,
 
     #[arg(
-        short = 'e',
         long = "permutations",
         value_name = "COUNT",
         help = "Number of permutations for phylogenetic meta-analysis.",
@@ -272,8 +280,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Reading background populations from: {}\n", &cli_args.background_dir);
 
     let taxon_ids: FxHashSet<TaxonID> = collect_taxon_ids(&cli_args.study_pop)?;
+    let categories: Vec<EvidenceCategory> = map_input_to_category(cli_args.evidence_categories)?;
     
-    let mut background_population = match BackgroundPop::read_background_pop(&taxon_ids, &cli_args.background_dir)? {
+    let mut background_population = match BackgroundPop::read_background_pop(
+        &taxon_ids, 
+        &cli_args.background_dir,
+        &categories
+    )? {
         Some(background_pop) => {
             println!("Successfully loaded background population for {} taxa\n", &taxon_ids.len());
             background_pop
