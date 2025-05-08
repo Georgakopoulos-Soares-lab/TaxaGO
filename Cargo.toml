@@ -39,6 +39,7 @@ nalgebra = "0.33.2"
 ndarray = "0.16.1"
 ndarray-linalg = { version = "0.17.0", features = ["openblas-static"] }
 rand = "0.9.1"
+num_cpus = "1.13.0"
 
 [build-dependencies]
 flate2 = "1.1.1"

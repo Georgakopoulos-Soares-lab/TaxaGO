@@ -78,24 +78,6 @@ lazy_static! {
             .into_owned()
     };
 }
-// MUST ADD IT TO TAXAGO ASSETS TAR!!!!!!
-lazy_static! {
-    static ref ENRICHMENT_PLOTS_SCRIPT: String = {
-        let cargo_home = var("CARGO_HOME")
-            .unwrap_or_else(|_| {
-                home_dir()
-                    .expect("Could not determine home directory")
-                    .join(".cargo")
-                    .to_string_lossy()
-                    .into_owned()
-            });
-        PathBuf::from(cargo_home)
-            .join("taxago_assets")
-            .join("enrichment_plots.py")
-            .to_string_lossy()
-            .into_owned()
-    };
-}
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum PropagationMethod {
@@ -113,7 +95,6 @@ enum PropagationMethod {
         .requires("combine_results")
 ))]
 struct CliArgs {
-    // Input Files
     #[arg(
         short = 'o',
         long = "obo",
@@ -150,7 +131,6 @@ struct CliArgs {
     )]
     evidence_categories: String,   
     
-    // Output options
     #[arg(
         short = 'd',
         long = "dir",
@@ -160,7 +140,6 @@ struct CliArgs {
     )]
     output_dir: PathBuf,
     
-    // Analysis parameters
     #[arg(
         short = 'p',
         long = "propagate-counts",
@@ -215,7 +194,6 @@ struct CliArgs {
     )]
     correction_method: AdjustmentMethod,
 
-    // Taxonomic grouping options
     #[arg(
         short = 'g',
         long = "group-results",
@@ -233,7 +211,6 @@ struct CliArgs {
     )]
     lineage_percentage: f64,
 
-    // Meta-analysis options
     #[arg(
         long = "vcv-matrix",
         value_name = "FILE",
@@ -248,11 +225,24 @@ struct CliArgs {
         default_value_t = 1000
     )]
     permutations: u32,
+    
+    #[arg(
+        long = "cores",
+        value_name = "NUMBER",
+        help = "Number of cores to use for the analysis. Uses all available by default.",
+        default_value_t = num_cpus::get()
+    )]
+    num_cores: usize,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
 
-    let cli_args: CliArgs = CliArgs::parse();  
+    let cli_args: CliArgs = CliArgs::parse();
+
+    if let Err(e) = rayon::ThreadPoolBuilder::new().num_threads(cli_args.num_cores).build_global() {
+        eprintln!("Failed to initialize Rayon global thread pool: {:?}", e);
+
+    }; 
     println!("\nCleaning previous results");
 
     clean_directory(&cli_args.output_dir)?;
