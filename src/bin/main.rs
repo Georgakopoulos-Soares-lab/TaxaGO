@@ -225,7 +225,7 @@ struct CliArgs {
         default_value_t = 1000
     )]
     permutations: u32,
-    
+
     #[arg(
         long = "cores",
         value_name = "NUMBER",
@@ -236,12 +236,14 @@ struct CliArgs {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-
     let cli_args: CliArgs = CliArgs::parse();
+    
+    println!("\nAnalysis will be performed with {} core(s)", &cli_args.num_cores);
 
-    if let Err(e) = rayon::ThreadPoolBuilder::new().num_threads(cli_args.num_cores).build_global() {
+    if let Err(e) = rayon::ThreadPoolBuilder::new()
+        .num_threads(cli_args.num_cores)
+        .build_global() {
         eprintln!("Failed to initialize Rayon global thread pool: {:?}", e);
-
     }; 
     println!("\nCleaning previous results");
 

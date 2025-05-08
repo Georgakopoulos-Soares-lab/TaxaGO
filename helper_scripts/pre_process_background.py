@@ -3,7 +3,7 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os 
 
-background_pop = Path("/storage/group/izg5139/default/lefteris/background_pop")
+background_pop = Path("background_pop")
 outdir = Path("final_background_pop")
 
 print("Creating output directory...")
