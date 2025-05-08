@@ -12,7 +12,7 @@ use crate::parsers::{
 };
 use crate::analysis::{
     enrichment_analysis::*,
-    multiple_testing_correction::*
+    phylogenetic_meta_analysis::*
 };
 
 pub fn clean_directory(dir_path: &PathBuf) -> io::Result<()> {
@@ -97,8 +97,8 @@ pub fn write_single_taxon_results(
         let file = File::create(&filename)?;
         let mut writer = BufWriter::with_capacity(BUFFER_SIZE, file);
         
-        writer.write_all(b"GO Term ID\tName\tNamespace\tlog(Odds Ratio)\tStatistical significance\tN Study with term\tN Study without term\tN Background with term\tN Background without term\n")?;
-        
+        writer.write_all(b"GO Term ID\tName\tNamespace\tlog(Odds Ratio)\tStatistical significance\n")?;
+        // \tN Study with term\tN Study without term\tN Background with term\tN Background without term
         for (go_term, results) in go_terms {
             if results.log_odds_ratio >= min_log_odds_ratio {
                 if let Some(term) = ontology.get(go_term) {
@@ -115,16 +115,12 @@ pub fn write_single_taxon_results(
                         
                         write!(
                             &mut line_buffer,
-                            "{}\t{}\t{}\t{:.3}\t{:.5e}\t{}\t{}\t{}\t{}\n",
+                            "{}\t{}\t{}\t{:.3}\t{:.5e}\n",
                             formatted_go_term,
                             term.name,
                             formatted_namespace,
                             results.log_odds_ratio,
                             results.p_value,
-                            results.contingency_table[0],
-                            results.contingency_table[1],
-                            results.contingency_table[2],
-                            results.contingency_table[3]
                         )?;
                         
                         writer.write_all(line_buffer.as_bytes())?;
@@ -142,7 +138,7 @@ pub fn write_taxonomy_results(
     data: &FxHashMap<String, FxHashMap<u32, TaxonomyGOResult>>,
     ontology: &FxHashMap<u32, OboTerm>,
     min_log_odds_ratio: f64,
-    output_dir: &str,
+    output_dir: &PathBuf,
     level: &String,
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("combined_taxonomy_results");
@@ -160,8 +156,8 @@ pub fn write_taxonomy_results(
         let file = File::create(&filename)?;
         let mut writer = BufWriter::with_capacity(BUFFER_SIZE, file);
         
-        writer.write_all(b"GO Term ID\tName\tNamespace\tlog(Odds Ratio)\tStatistical significance\tHeterogeneity\tSpecies Percentage\tN with GO term\tN in taxonomy\n")?;
-        
+        writer.write_all(b"GO Term ID\tName\tNamespace\tlog(Odds Ratio)\tStatistical significance\n")?;
+        // \tHeterogeneity\tSpecies Percentage\tN with GO term\tN in taxonomy
         for (go_term, result) in go_terms {
             if result.log_odds_ratio >= min_log_odds_ratio {
                 if let Some(term) = ontology.get(go_term) {
@@ -177,16 +173,12 @@ pub fn write_taxonomy_results(
                         line_buffer.clear();
                         write!(
                             &mut line_buffer,
-                            "{}\t{}\t{}\t{:.3}\t{:.5e}\t{:.5e}\t{:.3}\t{}\t{}\n",
+                            "{}\t{}\t{}\t{:.3}\t{:.5e}\n",
                             formatted_go_term,
                             term.name,
                             formatted_namespace,
                             result.log_odds_ratio,
-                            result.p_value,
-                            result.tau_squared,
-                            result.species_percentage,
-                            result.species_count,
-                            result.total_species
+                            result.p_value
                         )?;
                         
                         writer.write_all(line_buffer.as_bytes())?;

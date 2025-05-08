@@ -448,13 +448,17 @@ fn main() -> Result<(), Box<dyn Error>> {
             cli_args.lineage_percentage
         );
 
-        let matrix_filename = format!("{}.dmat", &superkingdom);
-
-        let matrix_path: PathBuf = PathBuf::from(&cargo_home)
-            .join("taxago_assets")
-            .join(matrix_filename);
-
-        println!("Reading {} VCV matrix from: {:?} \n", &superkingdom, matrix_path);
+        let matrix_path = if let Some(custom_path) = &cli_args.vcv_matrix {
+            println!("Using custom VCV matrix from: {:?} \n", custom_path);
+            custom_path.clone()
+        } else {
+            let matrix_filename = format!("{}.dmat", &superkingdom);
+            let default_path = PathBuf::from(&cargo_home)
+                .join("taxago_assets")
+                .join(matrix_filename);
+            println!("Reading {} VCV matrix from: {:?} \n", &superkingdom, default_path);
+            default_path
+        };
 
         let vcv_matrix = read_vcv_matrix(
             matrix_path
@@ -469,24 +473,21 @@ fn main() -> Result<(), Box<dyn Error>> {
             cli_args.permutations
         );
 
-        // let complex_map = combine_taxonomic_results(
-        //     &lineage_organized_results, 
-        //     cli_args.pm_tolerance, 
-        //     cli_args.pm_iterations);
-
-        // let significant_taxonomy_results = adjust_taxonomy_p_values(
-        //     &complex_map, 
-        //     &cli_args.correction_method, 
-        //     Some(cli_args.significance_threshold),
-        //     level_to_combine);
+        let significant_taxonomy_results = adjust_taxonomy_p_values(
+            &phylogenetic_results, 
+            cli_args.correction_method, 
+            Some(cli_args.significance_threshold),
+            level_to_combine);
         
-        // write_taxonomy_results(
-        //     &significant_taxonomy_results,
-        //     &ontology,
-        //     cli_args.min_odds_ratio,
-        //     &cli_args.output_dir,
-        //     level_to_combine
-        // )?;
+        println!{"{:?}", significant_taxonomy_results};
+        
+        write_taxonomy_results(
+            &significant_taxonomy_results,
+            &ontology,
+            cli_args.min_odds_ratio,
+            &cli_args.output_dir,
+            level_to_combine
+        )?;
     }
 
     println!("Finished analysis\n");

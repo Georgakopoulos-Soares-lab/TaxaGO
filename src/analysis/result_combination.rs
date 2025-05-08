@@ -1,5 +1,7 @@
 use rustc_hash::FxHashMap;
-use crate::{analysis::enrichment_analysis::*, parsers::background_parser::{GOTermID, TaxonID}};
+use crate::{
+    analysis::enrichment_analysis::*, 
+    parsers::background_parser::*};
 
 pub fn group_results_by_taxonomy(
     family_taxa: &FxHashMap<String, Vec<TaxonID>>,

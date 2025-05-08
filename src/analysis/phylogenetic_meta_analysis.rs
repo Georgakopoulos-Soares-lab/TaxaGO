@@ -11,6 +11,11 @@ use rand::{
 };
 use rayon::prelude::*;
 use std::path::PathBuf;
+#[derive(Debug, Clone)]
+pub struct TaxonomyGOResult {
+    pub log_odds_ratio: f64,
+    pub p_value: f64
+}
 
 pub fn read_vcv_matrix(
     matrix_path: PathBuf,
@@ -181,7 +186,7 @@ pub fn phylogenetic_meta_analysis(
     superkingdom_vcv_matrix: DataFrame,
     permutations: u32
 
-) -> FxHashMap<String, FxHashMap<GOTermID, (f64, f64)>> {
+) -> FxHashMap<String, FxHashMap<GOTermID, TaxonomyGOResult>> {
     
     let vcv_matrix = filter_vcv_matrix(superkingdom_vcv_matrix, taxon_ids).unwrap();
 
@@ -248,8 +253,13 @@ pub fn phylogenetic_meta_analysis(
                 b_pma = b_pma_result;
                 p_value = p_value_result;
             }
-            
-            level_results.insert(go_term, (b_pma, p_value));
+            let go_result = TaxonomyGOResult {
+                log_odds_ratio: b_pma,
+                p_value: p_value,
+            };
+
+            level_results.insert(go_term, go_result);
+
         }
         
         if !level_results.is_empty() {

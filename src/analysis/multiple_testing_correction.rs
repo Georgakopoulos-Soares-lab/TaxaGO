@@ -1,20 +1,14 @@
 use rustc_hash::FxHashMap;
 use adjustp::{adjust, Procedure};
-use crate::analysis::enrichment_analysis::GOTermResults;
+use crate::{
+    parsers::background_parser::*,
+    analysis::enrichment_analysis::*,
+    analysis::phylogenetic_meta_analysis::*
+};
 use clap::ValueEnum;
 
-#[derive(Debug, Clone)]
-pub struct TaxonomyGOResult {
-    pub log_odds_ratio: f64,
-    pub p_value: f64,
-    pub tau_squared: f64,
-    pub species_percentage: f64,
-    pub species_count: usize,
-    pub total_species: usize,
-}
-
-type SpeciesResults = FxHashMap<u32, FxHashMap<u32, GOTermResults>>;
-type TaxonomyResults = FxHashMap<String, FxHashMap<u32, TaxonomyGOResult>>;
+type SpeciesResults = FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>>;
+type TaxonomyResults = FxHashMap<String, FxHashMap<GOTermID, TaxonomyGOResult>>;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum AdjustmentMethod {
@@ -70,10 +64,6 @@ impl PValueAdjustable for TaxonomyGOResult {
         Self {
             log_odds_ratio: self.log_odds_ratio,
             p_value: new_p_value,
-            tau_squared: self.tau_squared,
-            species_percentage: self.species_percentage,
-            species_count: self.species_count,
-            total_species: self.total_species,
         }
     }
 }
