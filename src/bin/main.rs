@@ -233,6 +233,12 @@ struct CliArgs {
         default_value_t = num_cpus::get()
     )]
     num_cores: usize,
+
+    #[arg(
+        long = "save-plots",
+        help = "If specified, TaxaGO will save the enrichment plots."
+    )]
+    save_plots: bool,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -490,6 +496,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Finished analysis\n");
     
-    // println!("Generating enrichment plots\n");
+    if cli_args.save_plots {
+        println!("Generating enrichment plots\n");
+
+        
+    }
+    
     Ok(())
 }
