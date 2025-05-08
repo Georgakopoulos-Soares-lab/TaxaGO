@@ -479,8 +479,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             Some(cli_args.significance_threshold),
             level_to_combine);
         
-        println!{"{:?}", significant_taxonomy_results};
-        
         write_taxonomy_results(
             &significant_taxonomy_results,
             &ontology,

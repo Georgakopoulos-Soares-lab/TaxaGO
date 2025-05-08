@@ -77,8 +77,19 @@ where
     T::Key: Clone + std::hash::Hash + Eq,
 {
     if matches!(method, AdjustmentMethod::None) {
-        println!("No p-value adjustment performed\n");
-        return results.clone();
+        println!("No p-value adjustment performed. Applying p-value filter to original p-values.\n");
+        let mut filtered_results = FxHashMap::default();
+        for (key, go_terms) in results {
+            for (&go_id, result_item) in go_terms {
+                if significance_threshold.map_or(true, |thresh| result_item.extract_p_value() <= thresh) {
+                    filtered_results
+                        .entry(key.clone())
+                        .or_insert_with(FxHashMap::default)
+                        .insert(go_id, result_item.clone());
+                }
+            }
+        }
+        return filtered_results;
     }
     
     let mut all_pvalues = Vec::new();
