@@ -73,7 +73,7 @@ lazy_static! {
             });
         PathBuf::from(cargo_home)
             .join("taxago_assets")
-            .join("full_lineage.txt")
+            .join("lineage.txt")
             .to_string_lossy()
             .into_owned()
     };
@@ -214,7 +214,7 @@ struct CliArgs {
     #[arg(
         long = "vcv-matrix",
         value_name = "FILE",
-        help = "Path to the variance-covariance matrix file for phylogenetic meta-analysis.",
+        help = "Path to a custom variance-covariance matrix file for phylogenetic meta-analysis.",
     )]
     vcv_matrix: Option<PathBuf>,
 
@@ -238,6 +238,15 @@ struct CliArgs {
 fn main() -> Result<(), Box<dyn Error>> {
     let cli_args: CliArgs = CliArgs::parse();
     
+    let cargo_home = var("CARGO_HOME")
+            .unwrap_or_else(|_| {
+                home_dir()
+                    .expect("Could not determine home directory")
+                    .join(".cargo")
+                    .to_string_lossy()
+                    .into_owned()
+            });
+
     println!("\nAnalysis will be performed with {} core(s)", &cli_args.num_cores);
 
     if let Err(e) = rayon::ThreadPoolBuilder::new()
@@ -414,14 +423,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     if let Some(level_to_combine) = &cli_args.combine_results {
 
-        println!("Grouping species based on {}\n", level_to_combine);
-
         println!("Reading taxonomic lineage information from: {}\n", DEFAULT_LINEAGE.to_string());
-        let lineage = read_lineage(DEFAULT_LINEAGE.to_string());
+        
+        let lineage = read_lineage(
+            DEFAULT_LINEAGE.to_string()
+        )?;
+
+        let superkingdom = get_superkingdom(
+            &taxon_ids,
+            &lineage
+        )?;
+        
+        println!("Grouping species based on {}\n", level_to_combine);
         
         let grouped_species = taxid_to_level(
             &enrichment_results,
-            &lineage?,
+            &lineage,
             level_to_combine
         );
 
@@ -430,12 +447,25 @@ fn main() -> Result<(), Box<dyn Error>> {
             &enrichment_results, 
             cli_args.lineage_percentage
         );
-        println!("Performing phylogenetic meta-analysis with {} permutations \n", &cli_args.permutations);
-       
-        let results = phylogenetic_meta_analysis(
+
+        let matrix_filename = format!("{}.dmat", &superkingdom);
+
+        let matrix_path: PathBuf = PathBuf::from(&cargo_home)
+            .join("taxago_assets")
+            .join(matrix_filename);
+
+        println!("Reading {} VCV matrix from: {:?} \n", &superkingdom, matrix_path);
+
+        let vcv_matrix = read_vcv_matrix(
+            matrix_path
+        ).unwrap();
+
+        println!("Performing phylogenetic meta-analysis with {} permutations", &cli_args.permutations);
+
+        let phylogenetic_results = phylogenetic_meta_analysis(
             &taxon_ids,
             lineage_organized_results, 
-            cli_args.vcv_matrix.unwrap(),
+            vcv_matrix,
             cli_args.permutations
         );
 

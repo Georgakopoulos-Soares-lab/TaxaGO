@@ -16,6 +16,8 @@ pub fn read_vcv_matrix(
     matrix_path: PathBuf,
 ) -> Result<DataFrame, PolarsError> {
     let mut vcv_matrix = CsvReadOptions::default()
+        .with_has_header(true)
+        .with_infer_schema_length(Some(15000))
         .try_into_reader_with_file_path(Some(matrix_path))?
         .finish()?;
 
@@ -176,13 +178,12 @@ pub fn phylogenetic_meta_analysis_calculation(
 pub fn phylogenetic_meta_analysis(
     taxon_ids: &FxHashSet<TaxonID>,
     lineage_results: FxHashMap<String, FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>>>,
-    matrix_path: PathBuf,
+    superkingdom_vcv_matrix: DataFrame,
     permutations: u32
 
 ) -> FxHashMap<String, FxHashMap<GOTermID, (f64, f64)>> {
     
-    let mut vcv_matrix = read_vcv_matrix(matrix_path).unwrap();
-    vcv_matrix = filter_vcv_matrix(vcv_matrix, taxon_ids).unwrap();
+    let vcv_matrix = filter_vcv_matrix(superkingdom_vcv_matrix, taxon_ids).unwrap();
 
     let taxon_order: Vec<TaxonID> = vcv_matrix
         .column("taxa")

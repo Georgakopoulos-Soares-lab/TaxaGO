@@ -1,4 +1,4 @@
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Result};
 use std::path::Path;
@@ -93,4 +93,21 @@ pub fn read_taxon_organism_count <P: AsRef<Path>>(path: P) -> Result<FxHashMap<S
     }
     
     Ok(species_counts)
+}
+
+pub fn get_superkingdom(
+    taxon_ids: &FxHashSet<TaxonID>,
+    lineage: &FxHashMap<TaxonID, Vec<String>>,
+) -> Result<String> { 
+
+    let mut present_superkingdoms: FxHashSet<String> = FxHashSet::default();
+
+    for taxon_id in taxon_ids {
+        if let Some(lineage_vector) = lineage.get(taxon_id) {
+            let superkingdom = lineage_vector[6].clone();
+            present_superkingdoms.insert(superkingdom);
+            }
+        } 
+    
+    Ok(present_superkingdoms.into_iter().next().unwrap().to_lowercase())
 }
