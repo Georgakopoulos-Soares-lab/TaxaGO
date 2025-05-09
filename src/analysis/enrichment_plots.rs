@@ -47,6 +47,31 @@ pub struct PlotData {
     stat_sig_vec: Vec<f64>
 }
 
+pub trait EnrichmentResult {
+    fn log_odds_ratio(&self) -> f64;
+    fn p_value(&self) -> f64;
+}
+
+impl EnrichmentResult for GOTermResults {
+    fn log_odds_ratio(&self) -> f64 {
+        self.log_odds_ratio
+    }
+
+    fn p_value(&self) -> f64 {
+        self.p_value
+    }
+}
+
+impl EnrichmentResult for TaxonomyGOResult {
+    fn log_odds_ratio(&self) -> f64 {
+        self.log_odds_ratio
+    }
+
+    fn p_value(&self) -> f64 {
+        self.p_value
+    }
+}
+
 fn wrap_text(
     text: &str, 
     width: usize
@@ -54,11 +79,14 @@ fn wrap_text(
     wrap(text, width).join("<br>")
 }
 
-pub fn prepare_plot_data(
-    significant_results: &FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>>,
+pub fn prepare_plot_data<R>(
+    significant_results: &FxHashMap<TaxonID, FxHashMap<GOTermID, R>>,
     ontology: &OboMap,
     taxid_species_map: &FxHashMap<TaxonID, String>,
-) -> FxHashMap<String, FxHashMap<NameSpace, PlotData>> {
+) -> FxHashMap<String, FxHashMap<NameSpace, PlotData>> 
+where
+    R: EnrichmentResult + Clone + Send + Sync
+{
     significant_results
         .par_iter()
         .filter_map(|(taxon_id, go_term_results_map)| {
@@ -73,8 +101,8 @@ pub fn prepare_plot_data(
                     let term_data = TermToPlot {
                         go_id: *go_id,
                         name: obo_term.name.clone(),
-                        lor: results.log_odds_ratio,
-                        stat_sig: results.p_value,
+                        lor: results.log_odds_ratio(),
+                        stat_sig: results.p_value(),
                         namespace: namespace_clone.clone(),
                     };
 
