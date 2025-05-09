@@ -17,7 +17,7 @@ pub type AncestryPath = Vec<(NodeIndex, Option<Relationship>)>;
 pub type TermToLevel = FxHashMap<GOTermID, usize>;
 pub type LevelToTerms = FxHashMap<usize, Vec<GOTermID>>;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Eq, Hash, PartialEq)]
 pub enum NameSpace {
     #[default]
     BiologicalProcess,

@@ -40,6 +40,8 @@ ndarray = "0.16.1"
 ndarray-linalg = { version = "0.17.0", features = ["openblas-static"] }
 rand = "0.9.1"
 num_cpus = "1.13.0"
+textwrap = "0.16"
+plotly = { version = "0.12", features = ["kaleido", "kaleido_download"] }
 
 [build-dependencies]
 flate2 = "1.1.1"

@@ -3,7 +3,7 @@ static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 use clap::{Parser, ValueEnum, ArgGroup};
 use std::error::Error;
-use std::fs::create_dir_all;
+use std::fs;
 use std::env::var;
 use rustc_hash::{FxHashMap, FxHashSet};
 use daggy::NodeIndex;
@@ -21,7 +21,8 @@ use TaxaGO::analysis::{
     handle_lineage::*,
     result_combination::*,
     count_propagation::*,
-    phylogenetic_meta_analysis::*
+    phylogenetic_meta_analysis::*,
+    enrichment_plots::*
 
 };
 
@@ -264,7 +265,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     clean_directory(&cli_args.output_dir)?;
 
-    create_dir_all(&cli_args.output_dir)?;
+    fs::create_dir_all(&cli_args.output_dir)?;
 
     println!("\nReading ontology information from: {}\n\nBuilding ontology graph\n", &cli_args.obo_file);
 
@@ -493,14 +494,25 @@ fn main() -> Result<(), Box<dyn Error>> {
             level_to_combine
         )?;
     }
-
-    println!("Finished analysis\n");
-    
+   
     if cli_args.save_plots {
         println!("Generating enrichment plots\n");
+        let plots_subdir = cli_args.output_dir.join("single_taxon_results").join("plots");
+        fs::create_dir_all(&plots_subdir)?;
 
-        
+        let test = prepare_plot_data(&significant_fishers_results,&ontology,&taxid_species_map);
+        let _ = barplot(
+            test.clone(),
+            &plots_subdir
+        );
+
+        let _ = bubble_plot(
+            test.clone(),
+            &plots_subdir
+        );
+
     }
     
+    println!("Finished analysis\n");
     Ok(())
 }
