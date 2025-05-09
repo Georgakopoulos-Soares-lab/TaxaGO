@@ -300,7 +300,7 @@ pub fn bubble_plot(
                 .width(940)
                 .height(460)
                 .margin(Margin::new()
-                    .left(30)
+                    .left(60)
                     .right(0)
                     .top(30)
                     .bottom(0))
@@ -317,7 +317,7 @@ pub fn bubble_plot(
                 )
                 .y_axis(
                     Axis::new() 
-                        .title(Title::with_text("-log10(Stat. Sig."))
+                        .title(Title::with_text("-log10(Stat. Sig.").font(Font::new().size(12)))
                         .tick_font(Font::new().size(12))
                         .show_line(true)
                         .line_color(NamedColor::Black)
