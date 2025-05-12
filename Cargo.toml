@@ -42,6 +42,9 @@ rand = "0.9.1"
 num_cpus = "1.13.0"
 textwrap = "0.16"
 plotly = { version = "0.12", features = ["kaleido", "kaleido_download"] }
+itertools = "0.14.0"
+strum = "0.27.1"
+strum_macros = "0.27.1"
 
 [build-dependencies]
 flate2 = "1.1.1"

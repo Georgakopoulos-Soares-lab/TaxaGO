@@ -31,7 +31,7 @@ pub enum EvidenceCategory {
     Computational,
     Author,
     Curator,
-    Automatic
+    Electronic
 }
 
 pub fn map_code_to_category(
@@ -43,7 +43,7 @@ pub fn map_code_to_category(
         "ISS" | "ISO" | "ISA" | "ISM" | "IGC" | "RCA" => Ok(EvidenceCategory::Computational),
         "TAS" | "NAS" => Ok(EvidenceCategory::Author),
         "IC" | "ND" => Ok(EvidenceCategory::Curator),
-        "IEA" => Ok(EvidenceCategory::Automatic),
+        "IEA" => Ok(EvidenceCategory::Electronic),
         _ => Err(Error::new(
             ErrorKind::InvalidData,
             format!("Unrecognized evidence code: {}", code)
@@ -70,7 +70,7 @@ pub fn map_input_to_category(
             EvidenceCategory::Computational,
             EvidenceCategory::Author,
             EvidenceCategory::Curator,
-            EvidenceCategory::Automatic
+            EvidenceCategory::Electronic
         ])
     } else {
         let mut categories = Vec::new();
@@ -82,7 +82,7 @@ pub fn map_input_to_category(
                 "computational" => EvidenceCategory::Computational,
                 "author" => EvidenceCategory::Author,
                 "curator" => EvidenceCategory::Curator,
-                "automatic" => EvidenceCategory::Automatic,
+                "electronic" => EvidenceCategory::Electronic,
                 _ => return Err(Error::new(
                     ErrorKind::InvalidInput,
                     format!("Unrecognized evidence category: {}. Valid categories are: experimental, phylogenetic, computational, author, curator, automatic, or all.", trimmed_part)

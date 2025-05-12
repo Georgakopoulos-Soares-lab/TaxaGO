@@ -414,7 +414,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let significant_fishers_results = adjust_species_p_values(
         &enrichment_results, 
         cli_args.correction_method, 
-        Some(cli_args.significance_threshold)
+        Some(cli_args.significance_threshold),
+        cli_args.min_odds_ratio
     );
         
     let taxid_species_map = taxid_to_species(
@@ -424,9 +425,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     write_single_taxon_results(
         &significant_fishers_results, 
         &ontology,
-         cli_args.min_odds_ratio,
-         &taxid_species_map,
-         &cli_args.output_dir)?;
+        &taxid_species_map,
+        &cli_args.output_dir)?;
     
     if let Some(level_to_combine) = &cli_args.combine_results {
 
@@ -484,12 +484,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             &phylogenetic_results, 
             cli_args.correction_method, 
             Some(cli_args.significance_threshold),
+            cli_args.min_odds_ratio,
             level_to_combine);
         
         write_taxonomy_results(
             &significant_taxonomy_results,
             &ontology,
-            cli_args.min_odds_ratio,
             &cli_args.output_dir,
             level_to_combine
         )?;
@@ -497,19 +497,32 @@ fn main() -> Result<(), Box<dyn Error>> {
    
     if cli_args.save_plots {
         println!("Generating enrichment plots\n");
-        let plots_subdir = cli_args.output_dir.join("single_taxon_results").join("plots");
-        fs::create_dir_all(&plots_subdir)?;
+        let species_plots_subdir = cli_args.output_dir.join("single_taxon_results").join("plots");
+        fs::create_dir_all(&species_plots_subdir)?;
+        
 
         let test = prepare_plot_data(&significant_fishers_results,&ontology,&taxid_species_map);
         let _ = barplot(
             test.clone(),
-            &plots_subdir
+            &species_plots_subdir
         );
 
         let _ = bubble_plot(
             test.clone(),
-            &plots_subdir
+            &species_plots_subdir
         );
+
+        let graph_data = prepare_network_data(
+            &significant_fishers_results,
+            &study_population,
+            &ontology,
+            &taxid_species_map
+        );
+
+        if let Some(level_to_combine) = &cli_args.combine_results {
+            let taxonomy_plots_subdir = cli_args.output_dir.join("combined_taxonomy_results").join("plots");
+            fs::create_dir_all(&taxonomy_plots_subdir)?;
+        }
 
     }
     

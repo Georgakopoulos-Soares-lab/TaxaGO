@@ -6,6 +6,7 @@ use crate::{
     analysis::phylogenetic_meta_analysis::*
 };
 use clap::ValueEnum;
+use std::hash::Hash;
 
 type SpeciesResults = FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>>;
 type TaxonomyResults = FxHashMap<String, FxHashMap<GOTermID, TaxonomyGOResult>>;
@@ -33,6 +34,7 @@ trait PValueAdjustable {
     type Key;
     
     fn extract_p_value(&self) -> f64;
+    fn extract_log_odds_ratio(&self) -> f64;
     fn with_adjusted_p_value(&self, new_p_value: f64) -> Self;
 }
 
@@ -41,6 +43,10 @@ impl PValueAdjustable for GOTermResults {
     
     fn extract_p_value(&self) -> f64 {
         self.p_value
+    }
+
+    fn extract_log_odds_ratio(&self) -> f64 {
+        self.log_odds_ratio
     }
     
     fn with_adjusted_p_value(&self, new_p_value: f64) -> Self {
@@ -59,6 +65,11 @@ impl PValueAdjustable for TaxonomyGOResult {
     fn extract_p_value(&self) -> f64 {
         self.p_value
     }
+
+    fn extract_log_odds_ratio(&self) -> f64 {
+        self.log_odds_ratio
+    }
+
     
     fn with_adjusted_p_value(&self, new_p_value: f64) -> Self {
         Self {
@@ -72,16 +83,20 @@ fn adjust_p_values<T: PValueAdjustable + Clone>(
     results: &FxHashMap<T::Key, FxHashMap<u32, T>>,
     method: AdjustmentMethod,
     significance_threshold: Option<f64>,
+    log_odds_ratio_threshold: f64
 ) -> FxHashMap<T::Key, FxHashMap<u32, T>>
 where
-    T::Key: Clone + std::hash::Hash + Eq,
+    T::Key: Clone + Hash + Eq,
 {
     if matches!(method, AdjustmentMethod::None) {
-        println!("No p-value adjustment performed. Applying p-value filter to original p-values.\n");
+        println!("No p-value adjustment performed. Applying p-value and log odds ratio filter to original values.\n");
         let mut filtered_results = FxHashMap::default();
         for (key, go_terms) in results {
             for (&go_id, result_item) in go_terms {
-                if significance_threshold.map_or(true, |thresh| result_item.extract_p_value() <= thresh) {
+                let p_value_passes = significance_threshold.map_or(true, |thresh| result_item.extract_p_value() <= thresh);
+                let log_odds_passes = result_item.extract_log_odds_ratio().abs() >= log_odds_ratio_threshold.abs(); // Compare absolute values or adjust as needed
+
+                if p_value_passes && log_odds_passes {
                     filtered_results
                         .entry(key.clone())
                         .or_insert_with(FxHashMap::default)
@@ -111,8 +126,10 @@ where
     let mut adjusted_results = FxHashMap::default();
     for (index, (key, go_id, result)) in pvalue_mapping.into_iter().enumerate() {
         let adjusted_p = adjusted_pvalues[index];
-        
-        if significance_threshold.map_or(true, |threshold| adjusted_p <= threshold) {
+        let p_value_passes = significance_threshold.map_or(true, |threshold| adjusted_p <= threshold);
+        let log_odds_passes = result.extract_log_odds_ratio().abs() >= log_odds_ratio_threshold.abs();
+
+        if p_value_passes && log_odds_passes {
             adjusted_results
                 .entry(key)
                 .or_insert_with(FxHashMap::default)
@@ -127,17 +144,29 @@ pub fn adjust_species_p_values(
     results: &SpeciesResults,
     adjustment_method: AdjustmentMethod,
     significance_threshold: Option<f64>,
+    log_odds_ratio_threshold: f64,
 ) -> SpeciesResults {
     println!("Adjusting single taxon p-values using method: {:?}\n", adjustment_method);
-    adjust_p_values(results, adjustment_method, significance_threshold)
+    adjust_p_values(
+        results, 
+        adjustment_method, 
+        significance_threshold,
+        log_odds_ratio_threshold
+    )
 }
 
 pub fn adjust_taxonomy_p_values(
     results: &TaxonomyResults,
     adjustment_method: AdjustmentMethod,
     significance_threshold: Option<f64>,
+    log_odds_ratio_threshold: f64,
     level: &String,
 ) -> TaxonomyResults {
     println!("Adjusting p-values at {} level using method: {:?}\n", level, adjustment_method);
-    adjust_p_values(results, adjustment_method, significance_threshold)
+    adjust_p_values(
+        results, 
+        adjustment_method, 
+        significance_threshold,
+        log_odds_ratio_threshold
+    )
 }

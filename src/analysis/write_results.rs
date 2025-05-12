@@ -73,14 +73,11 @@ fn format_namespace(namespace: &str) -> &str {
 pub fn write_single_taxon_results(
     data: &FxHashMap<u32, FxHashMap<GOTermID, GOTermResults>>,
     ontology: &FxHashMap<u32, OboTerm>,
-    min_log_odds_ratio: f64,
     taxid_species_map: &FxHashMap<TaxonID, String>,
     output_dir: &PathBuf,
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("single_taxon_results");
-    let plots_dir = PathBuf::from(&results_dir).join("plots"); 
     create_dir_all(&results_dir)?;
-    create_dir_all(&plots_dir)?;
 
     println!("Writing single taxon results to: {}\n", results_dir.to_str().unwrap());
     
@@ -98,33 +95,31 @@ pub fn write_single_taxon_results(
         let mut writer = BufWriter::with_capacity(BUFFER_SIZE, file);
         
         writer.write_all(b"GO Term ID\tName\tNamespace\tlog(Odds Ratio)\tStatistical significance\n")?;
-        // \tN Study with term\tN Study without term\tN Background with term\tN Background without term
         for (go_term, results) in go_terms {
-            if results.log_odds_ratio >= min_log_odds_ratio {
-                if let Some(term) = ontology.get(go_term) {
-                    if !term.is_obsolete {
-                        let formatted_go_term = term_cache.get_go_term(*go_term);
-                        let namespace_str = match term.namespace {
-                            NameSpace::BiologicalProcess => "biological_process",
-                            NameSpace::MolecularFunction => "molecular_function",
-                            NameSpace::CellularComponent => "cellular_component",
-                        };
-                        let formatted_namespace = format_namespace(namespace_str);
-                        
-                        line_buffer.clear();
-                        
-                        write!(
-                            &mut line_buffer,
-                            "{}\t{}\t{}\t{:.3}\t{:.5e}\n",
-                            formatted_go_term,
-                            term.name,
-                            formatted_namespace,
-                            results.log_odds_ratio,
-                            results.p_value,
-                        )?;
-                        
-                        writer.write_all(line_buffer.as_bytes())?;
-                    }
+        
+            if let Some(term) = ontology.get(go_term) {
+                if !term.is_obsolete {
+                    let formatted_go_term = term_cache.get_go_term(*go_term);
+                    let namespace_str = match term.namespace {
+                        NameSpace::BiologicalProcess => "biological_process",
+                        NameSpace::MolecularFunction => "molecular_function",
+                        NameSpace::CellularComponent => "cellular_component",
+                    };
+                    let formatted_namespace = format_namespace(namespace_str);
+                    
+                    line_buffer.clear();
+                    
+                    write!(
+                        &mut line_buffer,
+                        "{}\t{}\t{}\t{:.3}\t{:.5e}\n",
+                        formatted_go_term,
+                        term.name,
+                        formatted_namespace,
+                        results.log_odds_ratio,
+                        results.p_value,
+                    )?;
+                    
+                    writer.write_all(line_buffer.as_bytes())?;
                 }
             }
         }
@@ -137,14 +132,11 @@ pub fn write_single_taxon_results(
 pub fn write_taxonomy_results(
     data: &FxHashMap<String, FxHashMap<u32, TaxonomyGOResult>>,
     ontology: &FxHashMap<u32, OboTerm>,
-    min_log_odds_ratio: f64,
     output_dir: &PathBuf,
     level: &String,
 ) -> Result<(), Box<dyn Error>> {
     let results_dir = PathBuf::from(output_dir).join("combined_taxonomy_results");
-    let plots_dir = PathBuf::from(&results_dir).join("plots");
     create_dir_all(&results_dir)?;
-    create_dir_all(&plots_dir)?;
 
     println!("Writing {} results to: {}\n", level, results_dir.to_str().unwrap());
     
@@ -157,32 +149,29 @@ pub fn write_taxonomy_results(
         let mut writer = BufWriter::with_capacity(BUFFER_SIZE, file);
         
         writer.write_all(b"GO Term ID\tName\tNamespace\tlog(Odds Ratio)\tStatistical significance\n")?;
-        // \tHeterogeneity\tSpecies Percentage\tN with GO term\tN in taxonomy
         for (go_term, result) in go_terms {
-            if result.log_odds_ratio >= min_log_odds_ratio {
-                if let Some(term) = ontology.get(go_term) {
-                    if !term.is_obsolete {
-                        let formatted_go_term = term_cache.get_go_term(*go_term);
-                        let namespace_str = match term.namespace {
-                            NameSpace::BiologicalProcess => "biological_process",
-                            NameSpace::MolecularFunction => "molecular_function",
-                            NameSpace::CellularComponent => "cellular_component",
-                        };
-                        let formatted_namespace = format_namespace(namespace_str);
-                        
-                        line_buffer.clear();
-                        write!(
-                            &mut line_buffer,
-                            "{}\t{}\t{}\t{:.3}\t{:.5e}\n",
-                            formatted_go_term,
-                            term.name,
-                            formatted_namespace,
-                            result.log_odds_ratio,
-                            result.p_value
-                        )?;
-                        
-                        writer.write_all(line_buffer.as_bytes())?;
-                    }
+            if let Some(term) = ontology.get(go_term) {
+                if !term.is_obsolete {
+                    let formatted_go_term = term_cache.get_go_term(*go_term);
+                    let namespace_str = match term.namespace {
+                        NameSpace::BiologicalProcess => "biological_process",
+                        NameSpace::MolecularFunction => "molecular_function",
+                        NameSpace::CellularComponent => "cellular_component",
+                    };
+                    let formatted_namespace = format_namespace(namespace_str);
+                    
+                    line_buffer.clear();
+                    write!(
+                        &mut line_buffer,
+                        "{}\t{}\t{}\t{:.3}\t{:.5e}\n",
+                        formatted_go_term,
+                        term.name,
+                        formatted_namespace,
+                        result.log_odds_ratio,
+                        result.p_value
+                    )?;
+                    
+                    writer.write_all(line_buffer.as_bytes())?;
                 }
             }
         }

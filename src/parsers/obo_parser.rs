@@ -7,6 +7,7 @@ use ucfirst::ucfirst;
 use daggy::{Dag, NodeIndex, Walker};
 use regex::Regex;
 use lazy_static::lazy_static;
+use strum_macros::EnumIter; 
 
 use super::background_parser::GOTermID;
 
@@ -17,7 +18,7 @@ pub type AncestryPath = Vec<(NodeIndex, Option<Relationship>)>;
 pub type TermToLevel = FxHashMap<GOTermID, usize>;
 pub type LevelToTerms = FxHashMap<usize, Vec<GOTermID>>;
 
-#[derive(Default, Debug, Clone, Eq, Hash, PartialEq)]
+#[derive(Default, Debug, Copy, Clone, Eq, Hash, PartialEq, EnumIter)]
 pub enum NameSpace {
     #[default]
     BiologicalProcess,
