@@ -14,9 +14,7 @@ use plotly::{
         Axis, Margin,
         DragMode
     },
-    color::{
-        NamedColor
-    }
+    color::NamedColor
 };
 use textwrap::wrap;
 use std::cmp::Ordering::Equal;
@@ -31,13 +29,25 @@ use crate::{
         phylogenetic_meta_analysis::*
     }
 };
-use petgraph::graphmap::UnGraphMap;
+use petgraph::{
+    Undirected,
+    graph::NodeIndex,
+    stable_graph::StableGraph
+}; 
 use rayon::prelude::*;
 use itertools::Itertools;
 use strum::IntoEnumIterator;
 
+
+#[derive(Debug, Clone)]
+pub struct NetworkNode {
+    pub go_id: GOTermID,
+    pub lor: f64,
+    pub stat_sig: f64,
+    // pub size_statistic: u32
+}
 pub type JaccardIndex = f64;
-pub type GoTermNetworkGraph = UnGraphMap<GOTermID, JaccardIndex>; 
+pub type GoTermNetworkGraph = StableGraph<NetworkNode, JaccardIndex, Undirected>;
 
 #[derive(Debug, Clone)]
 pub struct TermToPlot {
@@ -162,45 +172,6 @@ where
             
             Some((species_name, data_for_plotting))
             
-        })
-        .collect()
-}
-
-pub fn prepare_network_data<R>(
-    significant_results: &FxHashMap<TaxonID, FxHashMap<GOTermID, R>>,
-    study_pop: &StudyPop,
-    ontology: &OboMap,
-    taxid_species_map: &FxHashMap<TaxonID, String>,
-) -> FxHashMap<String, FxHashMap<NameSpace, GOTermToProteinSet>>
-where
-    R: EnrichmentResult + Clone + Send + Sync,
-{
-    significant_results
-        .par_iter()
-        .map(|(taxon_id, enriched_go_terms_map)| {
-            let name = taxid_species_map.get(taxon_id).cloned().unwrap();
-            let taxon_go_to_proteins = study_pop.go_term_to_protein_set.get(taxon_id).unwrap();
-
-            let network_data_by_namespace = enriched_go_terms_map
-                .iter()
-                .filter_map(|(go_id, _result)| {
-                    let obo_term = ontology.get(go_id).unwrap();
-                    let namespace = obo_term.namespace.clone();
-
-                    taxon_go_to_proteins.get(go_id).map(|protein_set_for_go_term| {
-                        (*go_id, namespace, protein_set_for_go_term.clone())
-                    })
-                })
-                .fold(
-                    FxHashMap::<NameSpace, GOTermToProteinSet>::default(),
-                    |mut acc, (go_id, namespace, protein_set)| {
-                        acc.entry(namespace)
-                           .or_insert_with(FxHashMap::default)
-                           .insert(go_id, protein_set);
-                        acc
-                    },
-                );
-            (name, network_data_by_namespace)
         })
         .collect()
 }
@@ -381,121 +352,206 @@ pub fn bubble_plot(
     Ok(())
 }
 
-pub fn build_go_term_networks(
-    network_data: &FxHashMap<String, FxHashMap<NameSpace, GOTermToProteinSet>>,
-    enrichment_results: &FxHashMap<String, FxHashMap<GOTermID, GOTermResults>>
-) -> FxHashMap<String, FxHashMap<NameSpace, GoTermNetworkGraph>> {
-    
-    network_data
+pub fn process_species_data(
+    mut significant_species_results: FxHashMap<TaxonID, FxHashMap<GOTermID, GOTermResults>>,
+    study_pop: &StudyPop,
+    taxon_id_to_name: &FxHashMap<TaxonID, String>,
+) -> (
+    FxHashMap<String, FxHashMap<GOTermID, GOTermResults>>,
+    FxHashMap<String, FxHashMap<GOTermID, FxHashSet<Protein>>>,
+) {
+
+    let capacity = significant_species_results.len();
+    let mut significant_results_by_name: FxHashMap<String, FxHashMap<GOTermID, GOTermResults>> =
+        FxHashMap::with_capacity_and_hasher(capacity, Default::default());
+
+    let original_go_term_to_protein_set = &study_pop.go_term_to_protein_set;
+    let mut new_go_term_to_protein_set: FxHashMap<String, FxHashMap<GOTermID, FxHashSet<Protein>>> =
+        FxHashMap::with_capacity_and_hasher(original_go_term_to_protein_set.len(), Default::default());
+
+    for (taxon_u32_id, go_term_map_value) in significant_species_results.drain() {
+        let taxon_name = taxon_id_to_name.get(&taxon_u32_id).unwrap();
+        significant_results_by_name.insert(taxon_name.clone(), go_term_map_value);
+    }
+
+    for (taxon_u32_id, go_term_data_for_taxon) in original_go_term_to_protein_set.iter() {
+        let taxon_name = taxon_id_to_name.get(taxon_u32_id).unwrap();
+        new_go_term_to_protein_set.insert(taxon_name.clone(), go_term_data_for_taxon.clone());
+    }
+
+    (significant_results_by_name, new_go_term_to_protein_set)
+}
+
+pub fn prepare_network_data<R>(
+    significant_results: &FxHashMap<String, FxHashMap<GOTermID, R>>,
+    go_term_to_protein_set: &FxHashMap<String, FxHashMap<GOTermID, FxHashSet<Protein>>>,
+    ontology: &OboMap,
+) -> FxHashMap<String, FxHashMap<NameSpace, GOTermToProteinSet>>
+where
+    R: EnrichmentResult + Clone + Send + Sync,
+{
+    significant_results
         .par_iter()
-        .filter_map(|(taxon_name, taxon_specific_network_data)| {
-            enrichment_results.get(taxon_name).map(|taxon_specific_enrichment_results| {
-                match process_taxon_network(
-                    taxon_name,
-                    taxon_specific_network_data,
-                    taxon_specific_enrichment_results
-                ) {
-                    Ok((processed_taxon_name, taxon_namespace_graphs)) => {
-                        Some((processed_taxon_name, taxon_namespace_graphs))
-                    }
-                    Err(e) => {
-                        eprintln!(
-                            "Error processing taxon {}: {:?}",
-                            taxon_name, e
-                        );
-                        None
-                    }
-                }
-            })
+        .map(|(taxon_name, enriched_go_terms_map)| {
+            let taxon_go_to_proteins = go_term_to_protein_set.get(taxon_name).unwrap();
+
+            let network_data_by_namespace = enriched_go_terms_map
+                .iter()
+                .filter_map(|(go_id, _result)| {
+                    let obo_term = ontology.get(go_id).unwrap();
+                    let namespace = obo_term.namespace.clone();
+
+                    taxon_go_to_proteins.get(go_id).map(|protein_set_for_go_term| {
+                        (*go_id, namespace, protein_set_for_go_term.clone())
+                    })
+                })
+                .fold(
+                    FxHashMap::<NameSpace, GOTermToProteinSet>::default(),
+                    |mut acc, (go_id, namespace, protein_set)| {
+                        acc.entry(namespace)
+                           .or_insert_with(FxHashMap::default)
+                           .insert(go_id, protein_set);
+                        acc
+                    },
+                );
+            (taxon_name.clone(), network_data_by_namespace)
         })
-        .flatten()
         .collect()
 }
 
-fn process_taxon_network(
-    name: &String,
-    network_data_for_taxon: &FxHashMap<NameSpace, GOTermToProteinSet>,
-    taxon_enrichment_results: &FxHashMap<GOTermID, GOTermResults>,
-) -> Result<(String, FxHashMap<NameSpace, GoTermNetworkGraph>), String> {
-    
-    let mut taxon_networks_graphs: FxHashMap<NameSpace, GoTermNetworkGraph> = FxHashMap::default();
+pub fn build_networks(
+    network_data: &FxHashMap<String, FxHashMap<NameSpace, GOTermToProteinSet>>,
+    enrichment_results: &FxHashMap<String, FxHashMap<GOTermID, GOTermResults>>,
+) -> FxHashMap<String, FxHashMap<NameSpace, GoTermNetworkGraph>> {
+    network_data
+        .par_iter()
+        .filter_map(|(taxon_name, taxon_specific_network_data)| {
+            enrichment_results
+                .get(taxon_name)
+                .map(|taxon_specific_enrichment_results| {
+                    let mut taxon_networks_graphs: FxHashMap<NameSpace, GoTermNetworkGraph> =
+                        FxHashMap::default();
 
-    for current_namespace in NameSpace::iter() {
-        let go_term_proteins_in_namespace =
-            network_data_for_taxon.get(&current_namespace).unwrap();
-            
-            let mut current_term_network: GoTermNetworkGraph = UnGraphMap::new();
-            let mut term_to_proteins_map_for_nodes: FxHashMap<GOTermID, &FxHashSet<Protein>> = FxHashMap::default();
-            let mut term_node_attributes: FxHashMap<GOTermID, f64> = FxHashMap::default();
+                    for current_namespace in NameSpace::iter() {
+                        let go_term_proteins_in_namespace = match taxon_specific_network_data
+                            .get(&current_namespace)
+                        {
+                            Some(data) => data,
+                            None => {
+                                taxon_networks_graphs
+                                    .insert(current_namespace.clone(), StableGraph::default());
+                                continue;
+                            }
+                        };
 
-            for (go_term_id, protein_set) in go_term_proteins_in_namespace {
-                let enrichment_detail = taxon_enrichment_results.get(go_term_id).unwrap();
-                current_term_network.add_node(*go_term_id); 
-                term_node_attributes.insert(*go_term_id, enrichment_detail.log_odds_ratio); 
-                term_to_proteins_map_for_nodes.insert(*go_term_id, protein_set);
-            }
-            
-            if term_to_proteins_map_for_nodes.is_empty() {
-                taxon_networks_graphs.insert(current_namespace.clone(), current_term_network);
-                continue; 
-            }
+                        let mut current_term_network: GoTermNetworkGraph = StableGraph::default();
+                        let mut term_to_node_index_map: FxHashMap<GOTermID, NodeIndex> =
+                            FxHashMap::default();
+                        let mut term_to_proteins_map_for_nodes: FxHashMap<
+                            GOTermID,
+                            &FxHashSet<Protein>,
+                        > = FxHashMap::default();
 
-            let mut protein_to_terms_map: FxHashMap<&Protein, FxHashSet<GOTermID>> = FxHashMap::default();
-            let mut term_node_sizes: FxHashMap<GOTermID, usize> = FxHashMap::default();
+                        for (go_term_id, protein_set) in go_term_proteins_in_namespace {
+                            if let Some(enrichment_detail) =
+                                taxon_specific_enrichment_results.get(go_term_id)
+                            {
+                                let node_data = NetworkNode {
+                                    go_id: *go_term_id,
+                                    lor: enrichment_detail.log_odds_ratio,
+                                    stat_sig: enrichment_detail.p_value,
+                                };
 
-            for (term_id, protein_set) in &term_to_proteins_map_for_nodes {
-                term_node_sizes.insert(*term_id, protein_set.len());
-                for protein in protein_set.iter() {
-                    protein_to_terms_map
-                        .entry(protein)
-                        .or_insert_with(FxHashSet::default)
-                        .insert(*term_id);
-                }
-            }
+                                let node_idx = current_term_network.add_node(node_data);
+                                term_to_node_index_map.insert(*go_term_id, node_idx);
+                                term_to_proteins_map_for_nodes.insert(*go_term_id, protein_set);
+                            }
+                        }
 
-            let mut candidate_go_pairs: FxHashSet<(GOTermID, GOTermID)> = FxHashSet::default();
-            for go_terms_sharing_protein in protein_to_terms_map.values() {
-                if go_terms_sharing_protein.len() >= 2 {
-                    for combo in go_terms_sharing_protein.iter().combinations(2) {
-                        let term1 = *combo[0];
-                        let term2 = *combo[1];
-                        let pair = if term1 < term2 { (term1, term2) } else { (term2, term1) };
-                        candidate_go_pairs.insert(pair);
+                        if term_to_proteins_map_for_nodes.is_empty() {
+                            taxon_networks_graphs
+                                .insert(current_namespace.clone(), current_term_network);
+                            continue;
+                        }
+
+                        let mut protein_to_terms_map: FxHashMap<&Protein, FxHashSet<GOTermID>> =
+                            FxHashMap::default();
+                        let mut term_node_sizes: FxHashMap<GOTermID, usize> = FxHashMap::default();
+
+                        for (term_id, protein_set) in &term_to_proteins_map_for_nodes {
+                            term_node_sizes.insert(*term_id, protein_set.len());
+                            for protein in protein_set.iter() {
+                                protein_to_terms_map
+                                    .entry(protein)
+                                    .or_insert_with(FxHashSet::default)
+                                    .insert(*term_id);
+                            }
+                        }
+
+                        let mut candidate_go_pairs: FxHashSet<(GOTermID, GOTermID)> =
+                            FxHashSet::default();
+                        for go_terms_sharing_protein in protein_to_terms_map.values() {
+                            if go_terms_sharing_protein.len() >= 2 {
+                                for combo in go_terms_sharing_protein.iter().combinations(2) {
+                                    let term1 = *combo[0];
+                                    let term2 = *combo[1];
+                                    let pair = if term1 < term2 {
+                                        (term1, term2)
+                                    } else {
+                                        (term2, term1)
+                                    };
+                                    candidate_go_pairs.insert(pair);
+                                }
+                            }
+                        }
+
+                        for (term1_id, term2_id) in candidate_go_pairs {
+                            let size1 = *term_node_sizes.get(&term1_id).unwrap_or(&0);
+                            let size2 = *term_node_sizes.get(&term2_id).unwrap_or(&0);
+
+                            if size1 == 0 || size2 == 0 {
+                                continue;
+                            }
+                            
+                            if (size1.min(size2) as f64) / (size1.max(size2) as f64) <= 0.5 {
+                                continue;
+                            }
+
+                            let proteins1 = match term_to_proteins_map_for_nodes.get(&term1_id) {
+                                Some(p_set) => p_set,
+                                None => continue, 
+                            };
+                            let proteins2 = match term_to_proteins_map_for_nodes.get(&term2_id) {
+                                Some(p_set) => p_set,
+                                None => continue,
+                            };
+
+                            let intersection_size = proteins1.intersection(proteins2).count();
+                            if intersection_size == 0 {
+                                continue;
+                            }
+
+                            let union_size = size1 + size2 - intersection_size;
+                            if union_size == 0 {
+                                continue;
+                            } 
+
+                            let jaccard_similarity: JaccardIndex =
+                                (intersection_size as f64) / (union_size as f64);
+
+                            if jaccard_similarity >= 0.5 {
+                                if let (Some(&node_idx1), Some(&node_idx2)) = (
+                                    term_to_node_index_map.get(&term1_id),
+                                    term_to_node_index_map.get(&term2_id),
+                                ) {
+                                    current_term_network.add_edge(node_idx1, node_idx2, jaccard_similarity);
+                                }
+                            }
+                        }
+                        taxon_networks_graphs.insert(current_namespace.clone(), current_term_network);
                     }
-                }
-            }
-            
-            for (term1_id, term2_id) in candidate_go_pairs {
-                let size1 = *term_node_sizes.get(&term1_id).unwrap_or(&0); 
-                let size2 = *term_node_sizes.get(&term2_id).unwrap_or(&0);
-
-                if size1 == 0 || size2 == 0 { continue; }
-
-                let max_possible_similarity = (size1.min(size2) as f64) / (size1.max(size2) as f64);
-                if max_possible_similarity <= 0.5 {
-                    continue;
-                }
-
-                let proteins1 = term_to_proteins_map_for_nodes.get(&term1_id).unwrap();
-                let proteins2 = term_to_proteins_map_for_nodes.get(&term2_id).unwrap();
-
-                let intersection_size = proteins1.intersection(proteins2).count();
-                if intersection_size == 0 {
-                    continue;
-                }
-
-                let union_size = size1 + size2 - intersection_size;
-                if union_size == 0 { continue; }
-
-                let jaccard_similarity = (intersection_size as f64) / (union_size as f64);
-
-                if jaccard_similarity >= 0.5 {
-                    current_term_network.add_edge(term1_id, term2_id, jaccard_similarity);
-                }
-            }
-            
-            taxon_networks_graphs.insert(current_namespace.clone(), current_term_network);
-    }
-
-    Ok((name.clone(), taxon_networks_graphs))
+                    (taxon_name.clone(), taxon_networks_graphs)
+                })
+        })
+        .collect()
 }

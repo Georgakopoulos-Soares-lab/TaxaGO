@@ -369,7 +369,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         PropagationMethod::Elim => {
             println!("Performing elim algorithm on propagated counts\n");
             
-            // elim algorithm seems to be losing a lot of GO terms !!!
             analysis.elim_analysis(
                 &taxon_ids,
                 cli_args.significance_threshold,
@@ -411,7 +410,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
     
-    let significant_fishers_results = adjust_species_p_values(
+    let significant_species_results = adjust_species_p_values(
         &enrichment_results, 
         cli_args.correction_method, 
         Some(cli_args.significance_threshold),
@@ -423,7 +422,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
 
     write_single_taxon_results(
-        &significant_fishers_results, 
+        &significant_species_results, 
         &ontology,
         &taxid_species_map,
         &cli_args.output_dir)?;
@@ -495,36 +494,36 @@ fn main() -> Result<(), Box<dyn Error>> {
         )?;
     }
    
-    if cli_args.save_plots {
-        println!("Generating enrichment plots\n");
-        let species_plots_subdir = cli_args.output_dir.join("single_taxon_results").join("plots");
-        fs::create_dir_all(&species_plots_subdir)?;
+    // if cli_args.save_plots {
+    //     println!("Generating enrichment plots\n");
+    //     let species_plots_subdir = cli_args.output_dir.join("single_taxon_results").join("plots");
+    //     fs::create_dir_all(&species_plots_subdir)?;
         
 
-        let test = prepare_plot_data(&significant_fishers_results,&ontology,&taxid_species_map);
-        let _ = barplot(
-            test.clone(),
-            &species_plots_subdir
-        );
+    //     let test = prepare_plot_data(&significant_species_results,&ontology,&taxid_species_map);
+    //     let _ = barplot(
+    //         test.clone(),
+    //         &species_plots_subdir
+    //     );
 
-        let _ = bubble_plot(
-            test.clone(),
-            &species_plots_subdir
-        );
+    //     let _ = bubble_plot(
+    //         test.clone(),
+    //         &species_plots_subdir
+    //     );
 
-        let graph_data = prepare_network_data(
-            &significant_fishers_results,
-            &study_population,
-            &ontology,
-            &taxid_species_map
-        );
+    //     let graph_data = prepare_network_data(
+    //         &significant_species_results,
+    //         &study_population,
+    //         &ontology,
+    //         &taxid_species_map
+    //     );
 
-        if let Some(level_to_combine) = &cli_args.combine_results {
-            let taxonomy_plots_subdir = cli_args.output_dir.join("combined_taxonomy_results").join("plots");
-            fs::create_dir_all(&taxonomy_plots_subdir)?;
-        }
+    //     if let Some(level_to_combine) = &cli_args.combine_results {
+    //         let taxonomy_plots_subdir = cli_args.output_dir.join("combined_taxonomy_results").join("plots");
+    //         fs::create_dir_all(&taxonomy_plots_subdir)?;
+    //     }
 
-    }
+    // }
     
     println!("Finished analysis\n");
     Ok(())
