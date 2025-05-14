@@ -325,7 +325,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let propagation_method = cli_args.propagate_counts;
     let should_propagate = match cli_args.propagate_counts {
         PropagationMethod::None => false,
         PropagationMethod::Classic | PropagationMethod::Elim | PropagationMethod::Weight => true,
@@ -426,6 +425,36 @@ fn main() -> Result<(), Box<dyn Error>> {
         &ontology,
         &taxid_species_map,
         &cli_args.output_dir)?;
+
+    if cli_args.save_plots {
+        println!("Generating enrichment plots\n");
+        let species_plots_subdir = cli_args.output_dir.join("single_taxon_results").join("plots");
+        fs::create_dir_all(&species_plots_subdir)?;
+
+        let (processed_species_data, go_term_to_protein_set) = process_species_data(
+            significant_species_results,
+            &study_population,
+            &taxid_species_map
+        );
+
+        let species_plot_data = prepare_plot_data(
+            &processed_species_data, 
+            &ontology);
+        
+        let _species_barplots = bar_plot(species_plot_data, &species_plots_subdir);
+        let species_network_data = prepare_network_data(
+            &processed_species_data,
+            &go_term_to_protein_set,
+            &ontology,
+        );
+        
+        let _species_networks = build_networks(
+            &species_network_data,
+            &processed_species_data,
+            4
+        );
+        
+    }
     
     if let Some(level_to_combine) = &cli_args.combine_results {
 
@@ -492,38 +521,22 @@ fn main() -> Result<(), Box<dyn Error>> {
             &cli_args.output_dir,
             level_to_combine
         )?;
-    }
-   
-    // if cli_args.save_plots {
-    //     println!("Generating enrichment plots\n");
-    //     let species_plots_subdir = cli_args.output_dir.join("single_taxon_results").join("plots");
-    //     fs::create_dir_all(&species_plots_subdir)?;
-        
 
-    //     let test = prepare_plot_data(&significant_species_results,&ontology,&taxid_species_map);
-    //     let _ = barplot(
-    //         test.clone(),
-    //         &species_plots_subdir
-    //     );
+        if cli_args.save_plots{
+            let taxonomy_plots_subdir = cli_args.output_dir.join("combined_taxonomy_results").join("plots");
+            fs::create_dir_all(&taxonomy_plots_subdir)?;
+            
+            let taxonomy_plot_data = prepare_plot_data(
+                &significant_taxonomy_results, 
+                &ontology);
 
-    //     let _ = bubble_plot(
-    //         test.clone(),
-    //         &species_plots_subdir
-    //     );
+            let _taxonomy_barplots = bar_plot(
+                taxonomy_plot_data, 
+                &taxonomy_plots_subdir);
 
-    //     let graph_data = prepare_network_data(
-    //         &significant_species_results,
-    //         &study_population,
-    //         &ontology,
-    //         &taxid_species_map
-    //     );
+            }
 
-    //     if let Some(level_to_combine) = &cli_args.combine_results {
-    //         let taxonomy_plots_subdir = cli_args.output_dir.join("combined_taxonomy_results").join("plots");
-    //         fs::create_dir_all(&taxonomy_plots_subdir)?;
-    //     }
-
-    // }
+        }
     
     println!("Finished analysis\n");
     Ok(())
