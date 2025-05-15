@@ -9,10 +9,12 @@ use plotly::{
         ColorScale, ColorScalePalette,
         Marker, ColorBar, Anchor, Side,
         ThicknessMode, Orientation, Mode,
+        Line
     },
     layout::{
         Axis, Margin,
         DragMode, RangeMode,
+        ShapeLine
     },
     color::NamedColor
 };
@@ -30,16 +32,27 @@ use crate::{
     }
 };
 use petgraph::{
-    Undirected,
+    Directed,
     graph::NodeIndex,
     stable_graph::StableGraph,
-    visit::EdgeRef
+    visit::{EdgeRef, IntoEdgeReferences}
 }; 
 use rayon::prelude::*;
 use itertools::Itertools;
 use strum::IntoEnumIterator;
 use std::collections::VecDeque;
-
+use fdg::{
+    init_force_graph_uniform,
+    ForceGraph,
+    fruchterman_reingold::{
+        FruchtermanReingold, 
+        FruchtermanReingoldConfiguration
+    },
+    Force,
+    simple::Center,
+    nalgebra::Point2
+    
+};
 
 #[derive(Debug, Copy, Clone)]
 pub struct NetworkNode {
@@ -48,8 +61,32 @@ pub struct NetworkNode {
     pub stat_sig: f64,
     // pub size_statistic: u32
 }
-pub type JaccardIndex = f64;
-pub type GoTermNetworkGraph = StableGraph<NetworkNode, JaccardIndex, Undirected>;
+pub type JaccardIndex = f32;
+pub type GoTermNetworkGraph = StableGraph<NetworkNode, JaccardIndex, Directed>;
+
+#[derive(Debug, Clone)]
+pub struct PlotableNode {
+    pub go_id: GOTermID,
+    pub original_data: NetworkNode, 
+    pub x: f32,
+    pub y: f32,
+    pub name: String, 
+}
+
+#[derive(Debug, Clone)]
+pub struct PlotableEdge {
+    pub source_x: f32,
+    pub source_y: f32,
+    pub target_x: f32,
+    pub target_y: f32,
+    pub weight: JaccardIndex,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlotableSubnetwork {
+    pub nodes: Vec<PlotableNode>,
+    pub edges: Vec<PlotableEdge>,
+}
 
 #[derive(Debug, Clone)]
 pub struct TermPlotData {
@@ -138,7 +175,6 @@ impl<'a> ProteinDataProvider<'a> {
         }
     }
 }
-
 
 fn wrap_text(
     text: &str, 
@@ -586,7 +622,7 @@ where
                             let union_size = size1 + size2 - intersection_size;
 
                             let jaccard_similarity: JaccardIndex =
-                                (intersection_size as f64) / (union_size as f64);
+                                (intersection_size as f32) / (union_size as f32);
 
                             if jaccard_similarity >= 0.25 {
                                 if let (Some(&node_idx1), Some(&node_idx2)) = (
@@ -687,3 +723,250 @@ fn extract_top_k_communities(
     top_k_graphs
 }
 
+fn apply_fruchterman_reingold_layout(
+    original_graph: &GoTermNetworkGraph,
+    iterations: usize,
+) -> ForceGraph<f32, 2, NetworkNode, JaccardIndex, Directed> {
+
+    let mut force_layout_graph=
+        init_force_graph_uniform(
+            original_graph.clone(),
+            10.0,
+    );
+
+    let mut fr_force = FruchtermanReingold {
+        conf: FruchtermanReingoldConfiguration {
+            dt: 0.035,
+            cooloff_factor: 0.975,
+            scale: 50.0,
+        },
+        ..Default::default()
+    };
+
+    fr_force.apply_many(&mut force_layout_graph, iterations);
+    Center::default().apply(&mut force_layout_graph);
+
+    force_layout_graph
+}
+
+pub fn network_plot(
+    taxon_networks: &FxHashMap<String, FxHashMap<NameSpace, Vec<GoTermNetworkGraph>>>,
+    ontology: &OboMap,
+    plots_dir: &PathBuf,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let world_min_coord = -1.05_f32;
+    let world_max_coord = 1.05_f32;
+    let world_padding = 0.05_f32;
+    let quadrant_dim_world = ( (world_max_coord - world_padding) - (world_min_coord + world_padding) - world_padding) / 2.0_f32;
+
+
+    for (taxon_name, namespace_map) in taxon_networks {
+        for (namespace, sub_network_list) in namespace_map {
+            if sub_network_list.is_empty() {
+                continue;
+            }
+
+            let namespace_str: String = match namespace {
+                NameSpace::BiologicalProcess => "Biological_Process".to_string(),
+                NameSpace::MolecularFunction => "Molecular_Function".to_string(),
+                NameSpace::CellularComponent => "Cellular_Component".to_string(),
+            };
+            let namespace_subdir = plots_dir.join(&namespace_str);
+            fs::create_dir_all(&namespace_subdir)?;
+
+            let mut plot = Plot::new();
+            let mut master_plotable_nodes: Vec<PlotableNode> = Vec::new();
+            let mut master_plotable_edges: Vec<PlotableEdge> = Vec::new();
+
+            for (sub_network_index, original_sub_network) in sub_network_list.iter().take(4).enumerate() {
+                if original_sub_network.node_count() == 0 {
+                    println!("Sub-network {} for Taxon: {}, Namespace: {:?} is empty, skipping.",
+                             sub_network_index, taxon_name, namespace);
+                    continue;
+                }
+
+                let iterations = 100;
+                let num_nodes = original_sub_network.node_count();
+                let fdg_internal_scale = (30.0 + (num_nodes as f32 * 2.0)).min(200.0);
+
+                println!(
+                    "Layout for Taxon: {}, Namespace: {:?}, Subnetwork: {}, Nodes: {}, FDG Scale: {}",
+                    taxon_name, namespace, sub_network_index, num_nodes, fdg_internal_scale
+                );
+
+                let laid_out_graph: StableGraph<(NetworkNode, Point2<f32>), JaccardIndex, Directed> =
+                    apply_fruchterman_reingold_layout(
+                        original_sub_network,
+                        iterations,
+                    );
+
+                if laid_out_graph.node_count() == 0 { continue; }
+
+                let mut min_x_fdg = f32::MAX; let mut max_x_fdg = f32::MIN;
+                let mut min_y_fdg = f32::MAX; let mut max_y_fdg = f32::MIN;
+                let mut fdg_nodes_with_pos: Vec<(petgraph::graph::NodeIndex, NetworkNode, Point2<f32>)> = Vec::new();
+
+                for node_idx_in_laid_out in laid_out_graph.node_indices() {
+                    let (node_data, pos) = laid_out_graph.node_weight(node_idx_in_laid_out).unwrap().clone();
+                    fdg_nodes_with_pos.push((node_idx_in_laid_out, node_data, pos));
+                    min_x_fdg = min_x_fdg.min(pos.x); max_x_fdg = max_x_fdg.max(pos.x);
+                    min_y_fdg = min_y_fdg.min(pos.y); max_y_fdg = max_y_fdg.max(pos.y);
+                }
+
+                let fdg_graph_width = if max_x_fdg > min_x_fdg { max_x_fdg - min_x_fdg } else { 1.0 };
+                let fdg_graph_height = if max_y_fdg > min_y_fdg { max_y_fdg - min_y_fdg } else { 1.0 };
+
+                let (quadrant_center_x_world, quadrant_center_y_world) = match sub_network_index {
+                    0 => (world_min_coord + world_padding + quadrant_dim_world / 2.0, world_max_coord - world_padding - quadrant_dim_world / 2.0), 
+                    1 => (world_max_coord - world_padding - quadrant_dim_world / 2.0, world_max_coord - world_padding - quadrant_dim_world / 2.0),
+                    2 => (world_min_coord + world_padding + quadrant_dim_world / 2.0, world_min_coord + world_padding + quadrant_dim_world / 2.0),
+                    _ => (world_max_coord - world_padding - quadrant_dim_world / 2.0, world_min_coord + world_padding + quadrant_dim_world / 2.0),
+                };
+
+                let scale_to_fit_x = if fdg_graph_width > 1e-6 { (quadrant_dim_world * 0.9) / fdg_graph_width } else { 1.0 };
+                let scale_to_fit_y = if fdg_graph_height > 1e-6 { (quadrant_dim_world * 0.9) / fdg_graph_height } else { 1.0 };
+                let final_scale_to_world = scale_to_fit_x.min(scale_to_fit_y); 
+
+                let mut temp_idx_to_world_point: FxHashMap<petgraph::graph::NodeIndex, Point2<f32>> = FxHashMap::default();
+
+                for (idx_in_laid_out, node_data, fdg_pos) in &fdg_nodes_with_pos {
+                    let world_x = fdg_pos.x * final_scale_to_world + quadrant_center_x_world;
+                    let world_y = fdg_pos.y * final_scale_to_world + quadrant_center_y_world;
+
+                    let go_name = ontology.get(&node_data.go_id)
+                        .map_or_else(|| format!("GO:{:07}", node_data.go_id), |term| term.name.clone());
+
+                    master_plotable_nodes.push(PlotableNode {
+                        go_id: node_data.go_id,
+                        original_data: *node_data,
+                        x: world_x,
+                        y: world_y,
+                        name: go_name,
+                    });
+                    temp_idx_to_world_point.insert(*idx_in_laid_out, Point2::new(world_x, world_y));
+                }
+
+                for edge_ref in laid_out_graph.edge_references() {
+                    if let (Some(p1_world), Some(p2_world)) = (
+                        temp_idx_to_world_point.get(&edge_ref.source()),
+                        temp_idx_to_world_point.get(&edge_ref.target())
+                    ) {
+                        master_plotable_edges.push(PlotableEdge {
+                            source_x: p1_world.x, source_y: p1_world.y,
+                            target_x: p2_world.x, target_y: p2_world.y,
+                            weight: *edge_ref.weight(),
+                        });
+                    }
+                }
+            } 
+
+            let mut node_x_coords = Vec::new();
+            let mut node_y_coords = Vec::new();
+            let mut node_hover_texts = Vec::new();
+            let mut node_display_texts = Vec::new();
+            let mut node_colors_val = Vec::new(); 
+            let mut node_sizes_val = Vec::new();
+
+            for p_node in &master_plotable_nodes {
+                node_x_coords.push(p_node.x as f64);
+                node_y_coords.push(p_node.y as f64);
+                let minus_log_p = -p_node.original_data.stat_sig.log10();
+                node_hover_texts.push(format!(
+                    "<b>{}</b><br>GO:{:07}<br>LOR: {:.2}<br>-log10(p): {:.2}",
+                    wrap_text(&p_node.name, 20), p_node.original_data.go_id,
+                    p_node.original_data.lor, minus_log_p
+                ));
+                node_display_texts.push(p_node.name.chars().take(10).collect::<String>() + if p_node.name.len() > 10 { "..." } else { "" });
+                node_colors_val.push(minus_log_p);
+                node_sizes_val.push(8.0 + (p_node.original_data.lor.abs() * 4.0).min(12.0)); 
+            }
+
+            if !node_x_coords.is_empty() {
+                let nodes_scatter = Scatter::new(node_x_coords, node_y_coords)
+                    // .mode(Mode::MarkersPlusText) // Or Mode::Markers
+                    .text_array(node_display_texts)
+                    .text_font(Font::new().size(8))
+                    // .text_position(plotly::common::TextPosition::TopCenter)
+                    .marker(Marker::new()
+                        // .colors_array(node_colors_val)
+                        .color_scale(ColorScale::Palette(ColorScalePalette::Viridis))
+                        // .size_array(node_sizes_val)
+                        .show_scale(true)
+                        .color_bar(ColorBar::new().title(Title::from("-log10(p)"))
+                            .x(1.05) 
+                            // .len(0.75)
+                        )
+                        .opacity(0.8)
+                    )
+                    .hover_info(HoverInfo::Text)
+                    .hover_text_array(node_hover_texts)
+                    .name("GO Terms");
+                plot.add_trace(nodes_scatter);
+            }
+
+            for p_edge in &master_plotable_edges {
+                let edge_trace = Scatter::new(vec![p_edge.source_x as f64, p_edge.target_x as f64],
+                                              vec![p_edge.source_y as f64, p_edge.target_y as f64])
+                    .mode(Mode::Lines)
+                    .line(Line::new()
+                        // .color_rgba(150, 150, 150, 0.6) // Light grey lines
+                        .width((p_edge.weight * 4.0).max(0.5) as f64)
+                    )
+                    .hover_info(HoverInfo::Skip)
+                    .show_legend(false);
+                plot.add_trace(edge_trace);
+            }
+
+            // let plot_title = format!("GO Term Networks for {} - {}", taxon_name, namespace_str);
+            let mut main_layout = Layout::new()
+                // .title(Title::new(&plot_title))
+                .width(940)
+                .height(500)
+                .show_legend(false)
+                .hover_mode(plotly::layout::HoverMode::Closest)
+                .paper_background_color("white")
+                .plot_background_color("rgba(240,240,240,0.95)") 
+                .x_axis(Axis::new()
+                    .range(vec![world_min_coord as f64, world_max_coord as f64])
+                    .show_tick_labels(false)
+                    .show_grid(false)
+                    .zero_line(false)
+                    .line_color(NamedColor::LightGrey)
+                )
+                .y_axis(Axis::new()
+                    .range(vec![world_min_coord as f64, world_max_coord as f64])
+                    .show_tick_labels(false)
+                    .show_grid(false)
+                    .zero_line(false)
+                    .line_color(NamedColor::LightGrey)
+                );
+            
+            let center_line_color = NamedColor::DarkGrey;
+            let center_line_width = 1.0;
+            main_layout.add_shape(
+                plotly::layout::Shape::new()
+                    .shape_type(plotly::layout::ShapeType::Line)
+                    .x0(0.0).y0(world_min_coord as f64)
+                    .x1(0.0).y1(world_max_coord as f64)
+                    .line(ShapeLine::new().color(center_line_color).width(center_line_width))
+            );
+            main_layout.add_shape(
+                plotly::layout::Shape::new()
+                    .shape_type(plotly::layout::ShapeType::Line)
+                    .x0(world_min_coord as f64).y0(0.0)
+                    .x1(world_max_coord as f64).y1(0.0)
+                    .line(ShapeLine::new().color(center_line_color).width(center_line_width))
+            );
+
+
+            plot.set_layout(main_layout);
+
+            let plot_filename = namespace_subdir.join(format!("{}_{}_network_regions.html", taxon_name, namespace_str));
+            plot.write_html(&plot_filename);
+
+            println!("Generated network plot: {:?}", plot_filename);
+
+        }
+    }
+    Ok(())
+}

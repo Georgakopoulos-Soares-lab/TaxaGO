@@ -456,12 +456,17 @@ fn main() -> Result<(), Box<dyn Error>> {
             &ontology,
         );
 
-        let _species_networks = build_networks(
+        let species_networks = build_networks(
             &species_network_data,
             &processed_species_data,
             4
         );
 
+        let _species_network_plot = network_plot(
+            &species_networks,
+            &ontology,
+            &species_plots_subdir
+        );
         
     }
     

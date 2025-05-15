@@ -45,6 +45,8 @@ plotly = { version = "0.12", features = ["kaleido", "kaleido_download"] }
 itertools = "0.14.0"
 strum = "0.27.1"
 strum_macros = "0.27.1"
+fdg = { git = "https://github.com/grantshandy/fdg.git" }
+
 
 [build-dependencies]
 flate2 = "1.1.1"
