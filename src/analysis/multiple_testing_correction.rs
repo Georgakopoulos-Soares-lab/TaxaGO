@@ -75,6 +75,7 @@ impl PValueAdjustable for TaxonomyGOResult {
         Self {
             log_odds_ratio: self.log_odds_ratio,
             p_value: new_p_value,
+            species_number: self.species_number
         }
     }
 }

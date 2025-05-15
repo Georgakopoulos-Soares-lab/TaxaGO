@@ -9,14 +9,14 @@ use plotly::{
         ColorScale, ColorScalePalette,
         Marker, ColorBar, Anchor, Side,
         ThicknessMode, Orientation, Mode,
-        Line
+        Line, Position
     },
     layout::{
         Axis, Margin,
         DragMode, RangeMode,
         ShapeLine
     },
-    color::NamedColor
+    color::{Rgb, NamedColor, Rgba},
 };
 use textwrap::wrap;
 use std::cmp::Ordering::Equal;
@@ -96,6 +96,7 @@ pub struct TermPlotData {
     pub lor: f64,
     pub stat_sig: f64,
     pub minus_log10_p_value: f64,
+    pub size_statistic: usize,
     pub namespace: NameSpace,
     pub hover_text: String,
 }
@@ -108,6 +109,7 @@ pub struct PlotData {
 pub trait EnrichmentResult {
     fn log_odds_ratio(&self) -> f64;
     fn p_value(&self) -> f64;
+    fn size(&self) -> usize;
 }
 
 impl EnrichmentResult for GOTermResults {
@@ -118,6 +120,9 @@ impl EnrichmentResult for GOTermResults {
     fn p_value(&self) -> f64 {
         self.p_value
     }
+    fn size(&self) -> usize {
+        self.contingency_table[0]
+    }
 }
 
 impl EnrichmentResult for TaxonomyGOResult {
@@ -127,6 +132,10 @@ impl EnrichmentResult for TaxonomyGOResult {
 
     fn p_value(&self) -> f64 {
         self.p_value
+    }
+
+    fn size(&self) -> usize {
+        self.species_number
     }
 }
 
@@ -234,6 +243,8 @@ where
                     let go_id_string = format!("GO:{:07}", go_id);
                     let original_name = obo_term.name.clone();
                     let wrapped_display_name = wrap_text(&original_name, 30);
+                    let size_stat = results.size();
+
 
                     let hover_html_content = format!(
                         "<b>Term Name:</b> {}<br><b>Term ID:</b> {}<br><b>log(Odds Ratio):</b> {:.3}<br><b>-log10(Stat. Sig.):</b> {:.3}",
@@ -250,6 +261,7 @@ where
                         lor: current_lor,
                         stat_sig: current_p_value,
                         minus_log10_p_value: minus_log_10_p,
+                        size_statistic: size_stat,
                         namespace: obo_term.namespace.clone(),
                         hover_text: hover_html_content,
                     };
@@ -375,23 +387,23 @@ pub fn bar_plot(
                     .bottom(0))
                 .x_axis(
                     Axis::new()
-                        .title(Title::with_text("log(Odds Ratio)").font(Font::new().size(12)))
-                        .tick_font(Font::new().size(10))
+                        .title(Title::with_text("log(Odds Ratio)").font(Font::new().size(14)))
+                        .tick_font(Font::new().size(12))
                         .show_line(true)
                         .line_color(NamedColor::Black)
                         .show_grid(true)
-                        .grid_color("rgba(0,0,0,0.05)")
+                        .grid_color(Rgba::new(0, 0, 0, 0.05))
                         .show_tick_labels(true)
                         .auto_margin(true),
                 )
                 .y_axis(
                     Axis::new() 
                         .title(Title::with_text(""))
-                        .tick_font(Font::new().size(12))
+                        .tick_font(Font::new().size(14))
                         .show_line(true)
                         .line_color(NamedColor::Black)
                         .show_grid(true)
-                        .grid_color("rgba(0,0,0,0.05)")
+                        .grid_color(Rgba::new(0, 0, 0, 0.05))
                         .show_tick_labels(true)
                         .auto_margin(true),
                 )
@@ -399,7 +411,7 @@ pub fn bar_plot(
                 .bar_gap(0.4);
             plot.set_layout(layout);
 
-            let plot_name_path = namespace_subdir.join(format!("{}_barplot.html", taxon_name));
+            let plot_name_path = namespace_subdir.join(format!("{}_bar_plot.html", taxon_name));
             plot.write_html(plot_name_path); 
                                              
             Ok(())
@@ -436,16 +448,77 @@ pub fn bubble_plot(
             let enrichment_values: Vec<f64> = namespace_plot_data.terms.iter().map(|t| t.lor).collect();
             let stat_sig_values: Vec<f64> = namespace_plot_data.terms.iter().map(|t| t.minus_log10_p_value).collect();
             let hover_texts: Vec<String> = namespace_plot_data.terms.iter().map(|t| t.hover_text.clone()).collect();
-        
+            let size_statistics: Vec<usize> = namespace_plot_data.terms.iter().map(|t| t.size_statistic).collect();
+            
+            let min_bubble_size: f64 = 10.0;
+            let max_bubble_size: f64 = 25.0;
+
+            let min_stat: f64 = *size_statistics.iter().min().unwrap() as f64;
+            let max_stat: f64 = *size_statistics.iter().max().unwrap() as f64;
+
+            let bubble_sizes: Vec<usize> = size_statistics
+                .iter()
+                .map(|&stat| {
+                    let scaled_size_f64 = if max_stat == min_stat {
+                        min_bubble_size + (max_bubble_size - min_bubble_size) / 2.0
+                    } else {
+                        let normalized_size = (stat as f64 - min_stat) / (max_stat - min_stat);
+                        min_bubble_size + (normalized_size * (max_bubble_size - min_bubble_size))
+                    };
+                    scaled_size_f64.round() as usize
+                })
+                
+                .collect();
+
             let scatter_trace = Scatter::new(enrichment_values, stat_sig_values)
                 .mode(Mode::Markers)
-                .marker(Marker::new().color(NamedColor::DimGray))
+                .marker(
+                    Marker::new()
+                        .color(Rgb::new(156, 148, 120))
+                        .size_array(bubble_sizes)
+                        .opacity(0.9)
+                    )
                 .hover_text_array(hover_texts) 
                 .hover_info(HoverInfo::Text) 
                 .show_legend(false);
 
+            let mut terms_for_sorting = namespace_plot_data.terms.clone();
+            terms_for_sorting.sort_by(|a, b| {
+                b.minus_log10_p_value
+                    .partial_cmp(&a.minus_log10_p_value)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            let top_10_terms: Vec<&TermPlotData> = terms_for_sorting.iter().take(10).collect();
+
+            let top_10_x_coords: Vec<f64> = top_10_terms.iter().map(|t| t.lor).collect();
+            let top_10_y_coords: Vec<f64> = top_10_terms.iter().map(|t| t.minus_log10_p_value).collect();
+            let top_10_texts: Vec<String> = top_10_terms
+                .iter()
+                .map(|t| format!("GO:{:07}", t.go_id))
+                .collect();
+
+            let text_positions_cycle = vec![
+                Position::TopLeft,
+                Position::BottomRight,                
+            ];
+
+            let top_10_text_positions: Vec<Position> = top_10_terms
+                .iter()
+                .enumerate()
+                .map(|(i, _)| text_positions_cycle[i % text_positions_cycle.len()].clone())
+                .collect();
+
             let mut plot = Plot::new();
             plot.add_trace(scatter_trace);
+
+            let scatter_trace_text = Scatter::new(top_10_x_coords, top_10_y_coords)
+                .mode(Mode::Text)
+                .text_array(top_10_texts)
+                .text_font(Font::new().size(10).color(NamedColor::Black))
+                .text_position_array(top_10_text_positions)
+                .show_legend(false);
+            plot.add_trace(scatter_trace_text);
 
             let layout = Layout::new()
                 .width(940)
@@ -457,30 +530,31 @@ pub fn bubble_plot(
                     .bottom(40))
                 .x_axis(
                     Axis::new()
-                        .title(Title::with_text("log(Odds Ratio)").font(Font::new().size(12)))
-                        .tick_font(Font::new().size(10))
+                        .title(Title::with_text("log(Odds Ratio)").font(Font::new().size(14)))
+                        .tick_font(Font::new().size(12))
                         .show_line(true)
                         .line_color(NamedColor::Black)
                         .show_grid(true)
-                        .grid_color("rgba(0,0,0,0.05)")
+                        .grid_color(Rgba::new(0, 0, 0, 0.05))
                         .show_tick_labels(true)
                         .auto_margin(true)
+                        .range_mode(RangeMode::ToZero)
                 )
                 .y_axis(
                     Axis::new() 
-                        .title(Title::with_text("-log10(Stat. Sig.)").font(Font::new().size(12)))
-                        .tick_font(Font::new().size(10))
+                        .title(Title::with_text("-log10(Stat. Sig.)").font(Font::new().size(14)))
+                        .tick_font(Font::new().size(12))
                         .show_line(true)
                         .line_color(NamedColor::Black)
                         .show_grid(true)
-                        .grid_color("rgba(0,0,0,0.05)")
+                        .grid_color(Rgba::new(0, 0, 0, 0.05))
                         .show_tick_labels(true)
                         .auto_margin(true)
                         .range_mode(RangeMode::ToZero)
                 );
             plot.set_layout(layout);
 
-            let plot_name_path = namespace_subdir.join(format!("{}_bubble.html", taxon_name));
+            let plot_name_path = namespace_subdir.join(format!("{}_bubble_plot.html", taxon_name));
             plot.write_html(plot_name_path); 
                                              
             Ok(())
@@ -779,20 +853,8 @@ pub fn network_plot(
             let mut master_plotable_edges: Vec<PlotableEdge> = Vec::new();
 
             for (sub_network_index, original_sub_network) in sub_network_list.iter().take(4).enumerate() {
-                if original_sub_network.node_count() == 0 {
-                    println!("Sub-network {} for Taxon: {}, Namespace: {:?} is empty, skipping.",
-                             sub_network_index, taxon_name, namespace);
-                    continue;
-                }
 
                 let iterations = 100;
-                let num_nodes = original_sub_network.node_count();
-                let fdg_internal_scale = (30.0 + (num_nodes as f32 * 2.0)).min(200.0);
-
-                println!(
-                    "Layout for Taxon: {}, Namespace: {:?}, Subnetwork: {}, Nodes: {}, FDG Scale: {}",
-                    taxon_name, namespace, sub_network_index, num_nodes, fdg_internal_scale
-                );
 
                 let laid_out_graph: StableGraph<(NetworkNode, Point2<f32>), JaccardIndex, Directed> =
                     apply_fruchterman_reingold_layout(
@@ -917,9 +979,7 @@ pub fn network_plot(
                 plot.add_trace(edge_trace);
             }
 
-            // let plot_title = format!("GO Term Networks for {} - {}", taxon_name, namespace_str);
             let mut main_layout = Layout::new()
-                // .title(Title::new(&plot_title))
                 .width(940)
                 .height(500)
                 .show_legend(false)
@@ -961,10 +1021,8 @@ pub fn network_plot(
 
             plot.set_layout(main_layout);
 
-            let plot_filename = namespace_subdir.join(format!("{}_{}_network_regions.html", taxon_name, namespace_str));
+            let plot_filename = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
             plot.write_html(&plot_filename);
-
-            println!("Generated network plot: {:?}", plot_filename);
 
         }
     }

@@ -14,7 +14,8 @@ use std::path::PathBuf;
 #[derive(Debug, Clone)]
 pub struct TaxonomyGOResult {
     pub log_odds_ratio: f64,
-    pub p_value: f64
+    pub p_value: f64,
+    pub species_number: usize
 }
 
 pub fn read_vcv_matrix(
@@ -253,9 +254,11 @@ pub fn phylogenetic_meta_analysis(
                 b_pma = b_pma_result;
                 p_value = p_value_result;
             }
+            let num_species_with_go_term = relevant_taxon_ids.len() as u32;
             let go_result = TaxonomyGOResult {
                 log_odds_ratio: b_pma,
                 p_value: p_value,
+                species_number: (num_species_with_go_term as usize),
             };
 
             level_results.insert(go_term, go_result);
