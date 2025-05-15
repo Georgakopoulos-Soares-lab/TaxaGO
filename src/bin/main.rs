@@ -448,18 +448,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         let _species_bubble_plots = bubble_plot(
             species_plot_data, 
             &species_plots_subdir);
-
+        
+        let species_protein_provider = ProteinDataProvider::Species(&go_term_to_protein_set);
         let species_network_data = prepare_network_data(
             &processed_species_data,
-            &go_term_to_protein_set,
+            &species_protein_provider, 
             &ontology,
         );
-        
+
         let _species_networks = build_networks(
             &species_network_data,
             &processed_species_data,
             4
         );
+
         
     }
     
@@ -545,6 +547,21 @@ fn main() -> Result<(), Box<dyn Error>> {
                 taxonomy_plot_data, 
                 &taxonomy_plots_subdir);
 
+            let taxonomy_protein_provider = ProteinDataProvider::Taxonomy {
+                species_data_by_id: &study_population.go_term_to_protein_set,
+                taxonomy_to_species_ids: &grouped_species,
+            };
+            let taxon_network_data = prepare_network_data(
+                &significant_taxonomy_results,
+                &taxonomy_protein_provider,
+                &ontology,
+            );
+            
+            let _taxon_networks = build_networks(
+                &taxon_network_data,
+                &significant_taxonomy_results,
+                4
+            );
             }
 
         }

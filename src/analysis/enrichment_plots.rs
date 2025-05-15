@@ -93,6 +93,53 @@ impl EnrichmentResult for TaxonomyGOResult {
     }
 }
 
+#[derive(Clone)]
+pub enum ProteinDataProvider<'a> {
+    Species(
+        &'a FxHashMap<String, GOTermToProteinSet>
+    ), 
+    Taxonomy {
+        species_data_by_id: &'a FxHashMap<TaxonID, GOTermToProteinSet>,
+        taxonomy_to_species_ids: &'a FxHashMap<String, Vec<TaxonID>>,
+    },
+}
+
+impl<'a> ProteinDataProvider<'a> {
+    fn get_proteins_for_taxon(
+        &self,
+        taxon_name: &str,
+        relevant_go_ids: &FxHashSet<GOTermID>,
+    ) -> GOTermToProteinSet {
+        match self {
+            ProteinDataProvider::Species(species_map) => {
+                species_map.get(taxon_name).cloned().unwrap_or_default()
+            }
+            ProteinDataProvider::Taxonomy {
+                species_data_by_id,
+                taxonomy_to_species_ids,
+            } => {
+                let species_ids = taxonomy_to_species_ids.get(taxon_name).unwrap();
+                let mut aggregated_go_to_proteins: GOTermToProteinSet = FxHashMap::default();
+                for go_id in relevant_go_ids {
+                    let mut proteins_for_go: FxHashSet<Protein> = FxHashSet::default();
+                    for species_id in species_ids {
+                        if let Some(species_go_map) = species_data_by_id.get(species_id) {
+                            if let Some(proteins) = species_go_map.get(go_id) {
+                                proteins_for_go.extend(proteins.iter().cloned());
+                            }
+                        }
+                    }
+                    if !proteins_for_go.is_empty() {
+                        aggregated_go_to_proteins.insert(*go_id, proteins_for_go);
+                    }
+                }
+                aggregated_go_to_proteins
+            }
+        }
+    }
+}
+
+
 fn wrap_text(
     text: &str, 
     width: usize
@@ -408,25 +455,28 @@ pub fn bubble_plot(
 
 pub fn prepare_network_data<R>(
     significant_results: &FxHashMap<String, FxHashMap<GOTermID, R>>,
-    go_term_to_protein_set: &FxHashMap<String, FxHashMap<GOTermID, FxHashSet<Protein>>>,
+    protein_provider: &ProteinDataProvider,
     ontology: &OboMap,
 ) -> FxHashMap<String, FxHashMap<NameSpace, GOTermToProteinSet>>
 where
-    R: EnrichmentResult + Clone + Send + Sync,
+    R: EnrichmentResult + Clone + Send + Sync, 
 {
     significant_results
-        .par_iter()
+        .par_iter() 
         .map(|(taxon_name, enriched_go_terms_map)| {
-            let taxon_go_to_proteins = go_term_to_protein_set.get(taxon_name).unwrap();
+
+            let relevant_go_ids_for_taxon: FxHashSet<GOTermID> = enriched_go_terms_map.keys().cloned().collect();
+            let current_taxon_go_to_proteins = protein_provider
+                .get_proteins_for_taxon(taxon_name, &relevant_go_ids_for_taxon);
 
             let network_data_by_namespace = enriched_go_terms_map
                 .iter()
-                .filter_map(|(go_id, _result)| {
-                    let obo_term = ontology.get(go_id).unwrap();
-                    let namespace = obo_term.namespace.clone();
-
-                    taxon_go_to_proteins.get(go_id).map(|protein_set_for_go_term| {
-                        (*go_id, namespace, protein_set_for_go_term.clone())
+                .filter_map(|(go_id, _result)| { 
+                    ontology.get(go_id).and_then(|obo_term| { 
+                        let namespace = obo_term.namespace.clone();
+                        current_taxon_go_to_proteins.get(go_id).map(|protein_set_for_go_term| {
+                            (*go_id, namespace, protein_set_for_go_term.clone())
+                        })
                     })
                 })
                 .fold(
@@ -444,11 +494,14 @@ where
 }
 
 
-pub fn build_networks(
+pub fn build_networks<R>(
     network_data: &FxHashMap<String, FxHashMap<NameSpace, GOTermToProteinSet>>,
-    enrichment_results: &FxHashMap<String, FxHashMap<GOTermID, GOTermResults>>,
+    enrichment_results: &FxHashMap<String, FxHashMap<GOTermID, R>>,
     k_communities: usize,
-) -> FxHashMap<String, FxHashMap<NameSpace, Vec<GoTermNetworkGraph>>> {
+) -> FxHashMap<String, FxHashMap<NameSpace, Vec<GoTermNetworkGraph>>> 
+where 
+    R: EnrichmentResult + Clone + Send + Sync
+{
     network_data
         .par_iter()
         .filter_map(|(taxon_name, taxon_specific_network_data)| {
@@ -478,8 +531,8 @@ pub fn build_networks(
                             let enrichment_detail = taxon_specific_enrichment_results.get(go_term_id).unwrap();
                             let node_data = NetworkNode {
                                 go_id: *go_term_id,
-                                lor: enrichment_detail.log_odds_ratio,
-                                stat_sig: enrichment_detail.p_value,
+                                lor: enrichment_detail.log_odds_ratio(),
+                                stat_sig: enrichment_detail.p_value(),
                             };
 
                             let node_idx = current_term_network.add_node(node_data);
@@ -519,10 +572,6 @@ pub fn build_networks(
                         for (term1_id, term2_id) in candidate_go_pairs {
                             let size1 = *term_node_sizes.get(&term1_id).unwrap_or(&0);
                             let size2 = *term_node_sizes.get(&term2_id).unwrap_or(&0);
-                            
-                            if (size1.min(size2) as f64) / (size1.max(size2) as f64) <= 0.5 {
-                                continue;
-                            }
 
                             let proteins1 = match term_to_proteins_map_for_nodes.get(&term1_id) {
                                 Some(p_set) => p_set,
@@ -539,7 +588,7 @@ pub fn build_networks(
                             let jaccard_similarity: JaccardIndex =
                                 (intersection_size as f64) / (union_size as f64);
 
-                            if jaccard_similarity >= 0.5 {
+                            if jaccard_similarity >= 0.25 {
                                 if let (Some(&node_idx1), Some(&node_idx2)) = (
                                     term_to_node_index_map.get(&term1_id),
                                     term_to_node_index_map.get(&term2_id),
