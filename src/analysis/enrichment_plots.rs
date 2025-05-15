@@ -12,7 +12,7 @@ use plotly::{
     },
     layout::{
         Axis, Margin,
-        DragMode
+        DragMode, RangeMode,
     },
     color::NamedColor
 };
@@ -52,22 +52,21 @@ pub type JaccardIndex = f64;
 pub type GoTermNetworkGraph = StableGraph<NetworkNode, JaccardIndex, Undirected>;
 
 #[derive(Debug, Clone)]
-pub struct TermToPlot {
+pub struct TermPlotData {
     pub go_id: GOTermID,
     pub name: String,
+    pub wrapped_name: String,
     pub lor: f64,
     pub stat_sig: f64,
-    pub namespace: NameSpace
+    pub minus_log10_p_value: f64,
+    pub namespace: NameSpace,
+    pub hover_text: String,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct PlotData {
-    term_names: Vec<String>,
-    lor_vec: Vec<f64>,
-    stat_sig_vec: Vec<f64>,
-    hover_data: Vec<String>
+    pub terms: Vec<TermPlotData>, 
 }
-
 
 pub trait EnrichmentResult {
     fn log_odds_ratio(&self) -> f64;
@@ -134,100 +133,83 @@ pub fn process_species_data(
 pub fn prepare_plot_data<R>(
     significant_results: &FxHashMap<String, FxHashMap<GOTermID, R>>,
     ontology: &OboMap
-) -> FxHashMap<String, FxHashMap<NameSpace, PlotData>> 
+) -> FxHashMap<String, FxHashMap<NameSpace, PlotData>>
 where
     R: EnrichmentResult + Clone + Send + Sync
 {
     significant_results
         .par_iter()
         .filter_map(|(species_name, go_term_results_map)| {
-
-            let mut species_terms_by_namespace: FxHashMap<NameSpace, Vec<TermToPlot>> =
+            let mut species_terms_by_namespace: FxHashMap<NameSpace, Vec<TermPlotData>> =
                 FxHashMap::default();
 
             for (go_id, results) in go_term_results_map {
                 if let Some(obo_term) = ontology.get(go_id) {
-                    let namespace_clone = obo_term.namespace.clone();
-                    let term_data = TermToPlot {
+                    let current_p_value = results.p_value();
+                    let current_lor = results.log_odds_ratio();
+                    let minus_log_10_p = -current_p_value.log10();
+                    let go_id_string = format!("GO:{:07}", go_id);
+                    let original_name = obo_term.name.clone();
+                    let wrapped_display_name = wrap_text(&original_name, 30);
+
+                    let hover_html_content = format!(
+                        "<b>Term Name:</b> {}<br><b>Term ID:</b> {}<br><b>log(Odds Ratio):</b> {:.3}<br><b>-log10(Stat. Sig.):</b> {:.3}",
+                        original_name,
+                        go_id_string,
+                        current_lor,
+                        minus_log_10_p,
+                    );
+
+                    let rich_term = TermPlotData {
                         go_id: *go_id,
-                        name: obo_term.name.clone(),
-                        lor: results.log_odds_ratio(),
-                        stat_sig: results.p_value(),
-                        namespace: namespace_clone.clone(),
+                        name: original_name,
+                        wrapped_name: wrapped_display_name,
+                        lor: current_lor,
+                        stat_sig: current_p_value,
+                        minus_log10_p_value: minus_log_10_p,
+                        namespace: obo_term.namespace.clone(),
+                        hover_text: hover_html_content,
                     };
 
                     species_terms_by_namespace
-                        .entry(namespace_clone)
+                        .entry(obo_term.namespace.clone())
                         .or_default()
-                        .push(term_data);
+                        .push(rich_term);
                 }
             }
 
             let data_for_plotting: FxHashMap<NameSpace, PlotData> =
                 species_terms_by_namespace
                     .into_iter()
-                    .map(|(ns_enum, mut terms_in_ns_group)| {
+                    .map(|(ns_enum, mut terms_in_ns_group)| { 
                         terms_in_ns_group.sort_by(|a, b| {
                             a.stat_sig.partial_cmp(&b.stat_sig).unwrap_or(Equal)
                         });
-                        
-                        let mut top_terms: Vec<TermToPlot> =
-                            terms_in_ns_group.into_iter().take(20).collect();
-                        
-                        top_terms.sort_by(|a, b| {
-                            a.lor.partial_cmp(&b.lor).unwrap_or(Equal)
-                        });
-
-                        let capacity = top_terms.len();
-                        let mut term_names_display: Vec<String> = Vec::with_capacity(capacity);
-                        let mut log_odds_ratios_values: Vec<f64> = Vec::with_capacity(capacity);
-                        let mut minus_log_10_stat_sigs: Vec<f64> = Vec::with_capacity(capacity);
-                        let mut html_hover_texts_vec: Vec<String> = Vec::with_capacity(capacity); // New
-
-
-                        for term_data in top_terms { 
-                            term_names_display.push(
-                                wrap_text(&term_data.name, 30)
-                            );
-                            log_odds_ratios_values.push(term_data.lor);
-                            let minus_log_10_p = -term_data.stat_sig.log10();
-                            minus_log_10_stat_sigs.push(minus_log_10_p);
-                            let go_id_string = format!("GO:{:07}", term_data.go_id);
-
-                            let hover_html_content = format!(
-                                "<b>Term Name:</b> {}<br><b>Term ID:</b> {}<br><b>log(Odds Ratio):</b> {:.3}<br><b>-log10(Stat. Sig.):</b> {:.3}",
-                                term_data.name,
-                                go_id_string,
-                                term_data.lor,
-                                minus_log_10_p,
-                            );
-                            html_hover_texts_vec.push(hover_html_content);
-                        }
 
                         (
                             ns_enum,
                             PlotData {
-                                term_names: term_names_display,
-                                lor_vec: log_odds_ratios_values,
-                                stat_sig_vec: minus_log_10_stat_sigs,
-                                hover_data: html_hover_texts_vec,
+                                terms: terms_in_ns_group,
                             },
                         )
                     })
                     .collect();
             
-            Some((species_name.clone(), data_for_plotting))
-            
+            if data_for_plotting.is_empty() {
+                None
+            } else {
+                Some((species_name.clone(), data_for_plotting))
+            }
         })
         .collect()
 }
 
 pub fn bar_plot(
-    plot_data: FxHashMap<String, FxHashMap<NameSpace, PlotData>>,
+    plot_data_map: &FxHashMap<String, FxHashMap<NameSpace, PlotData>>,
     plots_dir: &PathBuf,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
 
-    plot_data
+    plot_data_map
         .into_iter()
         .flat_map(|(taxon_name, namespace_map)| {
             namespace_map
@@ -246,9 +228,29 @@ pub fn bar_plot(
             };
             let namespace_subdir = plots_dir.join(&namespace_str);
             fs::create_dir_all(&namespace_subdir)?;
+            
+            let mut top_20_terms: Vec<TermPlotData> = namespace_plot_data.terms
+                .iter()
+                .take(20)
+                .cloned()
+                .collect();
+            
+            top_20_terms.sort_by(|a, b| {
+                a.lor.partial_cmp(&b.lor).unwrap_or(Equal)
+            });
+            
+            let capacity = top_20_terms.len();
+            let mut term_names_display: Vec<String> = Vec::with_capacity(capacity);
+            let mut log_odds_ratios_values: Vec<f64> = Vec::with_capacity(capacity);
+            let mut minus_log_10_stat_sigs_for_color: Vec<f64> = Vec::with_capacity(capacity);
+            let mut html_hover_texts_vec: Vec<String> = Vec::with_capacity(capacity);
 
-            let enrichment_values = namespace_plot_data.lor_vec;
-            let go_term_names = namespace_plot_data.term_names;
+            for term_data in top_20_terms {
+                term_names_display.push(term_data.wrapped_name.clone());
+                log_odds_ratios_values.push(term_data.lor);
+                minus_log_10_stat_sigs_for_color.push(term_data.minus_log10_p_value);
+                html_hover_texts_vec.push(term_data.hover_text.clone());
+            }
 
             let color_bar = ColorBar::new()
                 .title(
@@ -265,15 +267,15 @@ pub fn bar_plot(
                 .y_anchor(Anchor::Middle);
 
             let marker = Marker::new()
-                .color_array(namespace_plot_data.stat_sig_vec)
+                .color_array(minus_log_10_stat_sigs_for_color)
                 .color_scale(ColorScale::Palette(ColorScalePalette::Cividis))
                 .color_bar(color_bar)
                 .show_scale(true);
 
-            let bar_trace = Bar::new(enrichment_values, go_term_names)
+            let bar_trace = Bar::new(log_odds_ratios_values, term_names_display)
                 .orientation(Orientation::Horizontal)
                 .marker(marker)
-                .hover_text_array(namespace_plot_data.hover_data.clone())
+                .hover_text_array(html_hover_texts_vec)
                 .hover_info(HoverInfo::Text)
                 .show_legend(false);
 
@@ -324,11 +326,11 @@ pub fn bar_plot(
 }
 
 pub fn bubble_plot(
-    plot_data: FxHashMap<String, FxHashMap<NameSpace, PlotData>>,
+    plot_data_map: FxHashMap<String, FxHashMap<NameSpace, PlotData>>,
     plots_dir: &PathBuf,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
 
-    plot_data
+    plot_data_map
         .into_iter()
         .flat_map(|(taxon_name, namespace_map)| {
             namespace_map
@@ -348,12 +350,15 @@ pub fn bubble_plot(
             let namespace_subdir = plots_dir.join(&namespace_str);
             fs::create_dir_all(&namespace_subdir)?;
 
-            let stat_sig = namespace_plot_data.stat_sig_vec;
-            let enrichment_values = namespace_plot_data.lor_vec;
+            let enrichment_values: Vec<f64> = namespace_plot_data.terms.iter().map(|t| t.lor).collect();
+            let stat_sig_values: Vec<f64> = namespace_plot_data.terms.iter().map(|t| t.minus_log10_p_value).collect();
+            let hover_texts: Vec<String> = namespace_plot_data.terms.iter().map(|t| t.hover_text.clone()).collect();
         
-            let scatter_trace = Scatter::new(enrichment_values, stat_sig)
+            let scatter_trace = Scatter::new(enrichment_values, stat_sig_values)
                 .mode(Mode::Markers)
                 .marker(Marker::new().color(NamedColor::DimGray))
+                .hover_text_array(hover_texts) 
+                .hover_info(HoverInfo::Text) 
                 .show_legend(false);
 
             let mut plot = Plot::new();
@@ -376,18 +381,19 @@ pub fn bubble_plot(
                         .show_grid(true)
                         .grid_color("rgba(0,0,0,0.05)")
                         .show_tick_labels(true)
-                        .auto_margin(true),
+                        .auto_margin(true)
                 )
                 .y_axis(
                     Axis::new() 
-                        .title(Title::with_text("-log10(Stat. Sig.").font(Font::new().size(12)))
+                        .title(Title::with_text("-log10(Stat. Sig.)").font(Font::new().size(12)))
                         .tick_font(Font::new().size(10))
                         .show_line(true)
                         .line_color(NamedColor::Black)
                         .show_grid(true)
                         .grid_color("rgba(0,0,0,0.05)")
                         .show_tick_labels(true)
-                        .auto_margin(true),
+                        .auto_margin(true)
+                        .range_mode(RangeMode::ToZero)
                 );
             plot.set_layout(layout);
 

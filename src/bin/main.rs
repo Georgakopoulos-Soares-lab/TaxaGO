@@ -441,7 +441,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             &processed_species_data, 
             &ontology);
         
-        let _species_barplots = bar_plot(species_plot_data, &species_plots_subdir);
+        let _species_barp_lots = bar_plot(
+            &species_plot_data, 
+            &species_plots_subdir);
+        
+        let _species_bubble_plots = bubble_plot(
+            species_plot_data, 
+            &species_plots_subdir);
+
         let species_network_data = prepare_network_data(
             &processed_species_data,
             &go_term_to_protein_set,
@@ -530,7 +537,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &significant_taxonomy_results, 
                 &ontology);
 
-            let _taxonomy_barplots = bar_plot(
+            let _taxonomy_bar_plots = bar_plot(
+                &taxonomy_plot_data, 
+                &taxonomy_plots_subdir);
+
+            let _taxonomy_bubble_plots = bubble_plot(
                 taxonomy_plot_data, 
                 &taxonomy_plots_subdir);
 
