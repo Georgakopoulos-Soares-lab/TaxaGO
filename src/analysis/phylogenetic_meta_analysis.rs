@@ -3,7 +3,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use crate::parsers::background_parser::*;
 use crate::analysis::enrichment_analysis::*;
 use ndarray::{Array1, Array2, ArrayBase, OwnedRepr, Dim, Axis};
-use ndarray_linalg::{Inverse, SVD};
+// use ndarray_linalg::{Inverse, SVD};
+use nalgebra::{DMatrix, DVector};
 use rand::{
     seq::SliceRandom,
     SeedableRng,
@@ -17,6 +18,19 @@ pub struct TaxonomyGOResult {
     pub p_value: f64,
     pub species_number: usize
 }
+fn ndarray2_to_nalgebra(arr: &Array2<f64>) -> DMatrix<f64> {
+    let (nrows, ncols) = arr.dim();
+    // DMatrix::from_row_slice is efficient if arr is C-contiguous (row-major)
+    // ndarray from Polars with IndexOrder::C is C-contiguous.
+    DMatrix::from_row_slice(nrows, ncols, arr.as_slice().expect("Input ndarray was not contiguous"))
+}
+fn nalgebra_to_ndarray2(mat: &DMatrix<f64>) -> Array2<f64> {
+    let (nrows, ncols) = mat.shape();
+    // Array2::from_shape_fn is a straightforward way to fill a new ndarray.
+    Array2::from_shape_fn((nrows, ncols), |(r, c)| mat[(r, c)])
+}
+
+
 
 pub fn read_vcv_matrix(
     matrix_path: PathBuf,
@@ -74,32 +88,74 @@ pub fn filter_vcv_matrix(
     
     Ok(result_matrix)
 }
-
 pub fn svd_transform(
-    vcv_matrix: &DataFrame
-) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>{
+    vcv_matrix_df: &DataFrame // Renamed from vcv_matrix to avoid conflict if helpers are in same scope
+) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> { // Return type is still ndarray::Array2<f64>
     
-    let array= vcv_matrix.to_ndarray::<Float64Type>(IndexOrder::C).unwrap();
-    
-    let svdcomp = array.svd(true, true).unwrap();
-    let u = &svdcomp.0;
-    let d = &svdcomp.1;
+    // 1. Convert DataFrame to ndarray::Array2<f64>
+    let nd_array_original = vcv_matrix_df.to_ndarray::<Float64Type>(IndexOrder::C).unwrap();
+    let (nrows, ncols) = nd_array_original.dim();
 
-    let n = d.len();
-    let mut sqrt_d_diag: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> = Array2::zeros((n, n));
-    for i in 0..n {
-        sqrt_d_diag[[i, i]] = d[i].sqrt();
-    }
-    
-    let binding = u.clone().unwrap();
-    let ut = &binding.t();
-    let tnew = u.clone().unwrap().dot(&sqrt_d_diag).dot(ut);
-    
-    let mDnew: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> = tnew.inv().unwrap();
+    // VCV matrices are typically square. The original logic implies this.
+    // U D U^T type constructions usually apply to square (often symmetric) matrices.
+    assert_eq!(nrows, ncols, "VCV matrix is expected to be square for svd_transform.");
 
-    mDnew
+    // 2. Convert ndarray::Array2<f64> to nalgebra::DMatrix<f64>
+    let na_matrix = ndarray2_to_nalgebra(&nd_array_original);
+    
+    // 3. Perform SVD using nalgebra
+    // svd(true, true) computes U and V^T.
+    // For a square NxN matrix, U is NxN, singular_values has N elements.
+    let svd_result = na_matrix.svd(true, true);
+    let u_nalgebra = svd_result.u.expect("SVD U matrix not computed by nalgebra"); // This is U
+    let s_nalgebra_vec = svd_result.singular_values; // This is a DVector of singular values
 
+    // 4. Construct sqrt_d_diag: a diagonal matrix from sqrt of singular values
+    // Original ndarray code built an NxN diagonal matrix.
+    let dim = s_nalgebra_vec.len();
+    let sqrt_s_nalgebra_diag = DMatrix::from_fn(dim, dim, |r, c| {
+        if r == c {
+            s_nalgebra_vec[r].sqrt()
+        } else {
+            0.0
+        }
+    });
+    
+    // 5. Calculate tnew = U * sqrt(D) * U^T using nalgebra matrices
+    let tnew_nalgebra = &u_nalgebra * sqrt_s_nalgebra_diag * u_nalgebra.transpose();
+    
+    // 6. Calculate mDnew = tnew.inv() using nalgebra
+    // Use try_inverse().expect() to mimic original .inv().unwrap() behavior (panic on singular)
+    let mDnew_nalgebra = tnew_nalgebra.try_inverse().expect("Matrix t_new (U*sqrt(D)*U^T) is not invertible.");
+
+    // 7. Convert the result back to ndarray::Array2<f64>
+    nalgebra_to_ndarray2(&mDnew_nalgebra)
 }
+// pub fn svd_transform(
+//     vcv_matrix: &DataFrame
+// ) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>{
+    
+//     let array= vcv_matrix.to_ndarray::<Float64Type>(IndexOrder::C).unwrap();
+    
+//     let svdcomp = array.svd(true, true).unwrap();
+//     let u = &svdcomp.0;
+//     let d = &svdcomp.1;
+
+//     let n = d.len();
+//     let mut sqrt_d_diag: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> = Array2::zeros((n, n));
+//     for i in 0..n {
+//         sqrt_d_diag[[i, i]] = d[i].sqrt();
+//     }
+    
+//     let binding = u.clone().unwrap();
+//     let ut = &binding.t();
+//     let tnew = u.clone().unwrap().dot(&sqrt_d_diag).dot(ut);
+    
+//     let mDnew: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> = tnew.inv().unwrap();
+
+//     mDnew
+
+// }
 
 pub fn phylogenetic_meta_analysis_calculation(
     log_odds_array: &Array1<f64>,
