@@ -8,12 +8,11 @@ use plotly::{
         Title, Font, HoverInfo,
         ColorScale, ColorScalePalette,
         Marker, ColorBar, Anchor, Side,
-        ThicknessMode, Orientation, Mode, 
-        Position
+        ThicknessMode, Orientation, Mode,
     },
     layout::{
         Axis, Margin,
-        DragMode, RangeMode,
+        DragMode, RangeMode, Annotation
     },
     color::{Rgb, NamedColor, Rgba},
     // ImageFormat
@@ -394,7 +393,6 @@ pub fn bubble_plot(
     plot_data_map: FxHashMap<String, FxHashMap<NameSpace, Vec<GOTermPlotData>>>,
     plots_dir: &PathBuf,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
     plot_data_map
         .into_iter()
         .flat_map(|(taxon_name, namespace_map)| {
@@ -406,19 +404,21 @@ pub fn bubble_plot(
         })
         .par_bridge()
         .try_for_each(|(taxon_name, namespace, namespace_plot_data)| -> Result<(), Box<dyn Error + Send + Sync>> {
-
-            let namespace_subdir=  get_namespace_subdir(&namespace, plots_dir)?;
+            let namespace_subdir = get_namespace_subdir(&namespace, plots_dir)?;
 
             let enrichment_values: Vec<f64> = namespace_plot_data.iter().map(|t| t.lor).collect();
             let stat_sig_values: Vec<f64> = namespace_plot_data.iter().map(|t| t.minus_log10_p_value).collect();
             let hover_texts: Vec<String> = namespace_plot_data.iter().map(|t| t.hover_text.clone()).collect();
             let size_statistics: Vec<usize> = namespace_plot_data.iter().map(|t| t.size_statistic).collect();
-            
+
             let min_bubble_size: f64 = 10.0;
             let max_bubble_size: f64 = 25.0;
 
-            let min_stat: f64 = *size_statistics.iter().min().unwrap() as f64;
-            let max_stat: f64 = *size_statistics.iter().max().unwrap() as f64;
+            let min_stat_opt = size_statistics.iter().min();
+            let max_stat_opt = size_statistics.iter().max();
+
+            let min_stat: f64 = *min_stat_opt.unwrap() as f64;
+            let max_stat: f64 = *max_stat_opt.unwrap() as f64;
 
             let bubble_sizes: Vec<usize> = size_statistics
                 .iter()
@@ -431,19 +431,18 @@ pub fn bubble_plot(
                     };
                     scaled_size_f64.round() as usize
                 })
-                
                 .collect();
 
             let scatter_trace = Scatter::new(enrichment_values, stat_sig_values)
                 .mode(Mode::Markers)
                 .marker(
-                    Marker::new()
+                    plotly::common::Marker::new()
                         .color(Rgb::new(156, 148, 120))
                         .size_array(bubble_sizes)
-                        .opacity(0.9)
-                    )
-                .hover_text_array(hover_texts) 
-                .hover_info(HoverInfo::Text) 
+                        .opacity(0.9),
+                )
+                .hover_text_array(hover_texts)
+                .hover_info(HoverInfo::Text)
                 .show_legend(false);
 
             let mut terms_for_sorting = namespace_plot_data.clone();
@@ -455,41 +454,46 @@ pub fn bubble_plot(
 
             let top_10_terms: Vec<&GOTermPlotData> = terms_for_sorting.iter().take(10).collect();
 
-            let top_10_x_coords: Vec<f64> = top_10_terms.iter().map(|t| t.lor).collect();
-            let top_10_y_coords: Vec<f64> = top_10_terms.iter().map(|t| t.minus_log10_p_value).collect();
-            let top_10_texts: Vec<String> = top_10_terms
-                .iter()
-                .map(|t| format!("GO:{:07}", t.go_id))
-                .collect();
-
+            let mut annotations: Vec<Annotation> = Vec::new();
             let text_positions_cycle = vec![
-                Position::TopLeft,
-                Position::BottomRight,                
+                (30, -30),
+                (-30, 30),
+                (30, 30),
+                (-30, -30)
             ];
 
-            let top_10_text_positions: Vec<Position> = top_10_terms
-                .iter()
-                .enumerate()
-                .map(|(i, _)| text_positions_cycle[i % text_positions_cycle.len()].clone())
-                .collect();
+            for (i, term) in top_10_terms.iter().enumerate() {
+                let (ax_offset, ay_offset) = text_positions_cycle[i % text_positions_cycle.len()];
+                annotations.push(
+                    Annotation::new()
+                        .x(term.lor)
+                        .y(term.minus_log10_p_value)
+                        .text(format!("GO:{:07}", term.go_id))
+                        .show_arrow(true)
+                        .font(
+                            Font::new()
+                                .size(8)
+                                .color(NamedColor::Black
+                            ))
+                        .arrow_head(2)
+                        .arrow_size(1.0)
+                        .arrow_width(1.1)
+                        .arrow_color(NamedColor::DimGray)
+                        .ax(ax_offset)
+                        .ay(ay_offset)
+                        .opacity(0.8)
+                );
+            }
 
             let mut plot = Plot::new();
             plot.add_trace(scatter_trace);
-
-            let scatter_trace_text = Scatter::new(top_10_x_coords, top_10_y_coords)
-                .mode(Mode::Text)
-                .text_array(top_10_texts)
-                .text_font(Font::new().size(10).color(NamedColor::Black))
-                .text_position_array(top_10_text_positions)
-                .show_legend(false);
-            plot.add_trace(scatter_trace_text);
 
             let layout = Layout::new()
                 .width(940)
                 .height(460)
                 .margin(Margin::new()
                     .left(60)
-                    .right(0)
+                    .right(30)
                     .top(30)
                     .bottom(40))
                 .x_axis(
@@ -502,10 +506,10 @@ pub fn bubble_plot(
                         .grid_color(Rgba::new(0, 0, 0, 0.05))
                         .show_tick_labels(true)
                         .auto_margin(true)
-                        .range_mode(RangeMode::ToZero)
+                        .range_mode(RangeMode::ToZero),
                 )
                 .y_axis(
-                    Axis::new() 
+                    Axis::new()
                         .title(Title::with_text("-log10(Stat. Sig.)").font(Font::new().size(14)))
                         .tick_font(Font::new().size(12))
                         .show_line(true)
@@ -514,17 +518,17 @@ pub fn bubble_plot(
                         .grid_color(Rgba::new(0, 0, 0, 0.05))
                         .show_tick_labels(true)
                         .auto_margin(true)
-                        .range_mode(RangeMode::ToZero)
+                        .range_mode(RangeMode::ToZero),
                 );
+
             plot.set_layout(layout);
 
             let html_file = namespace_subdir.join(format!("{}_bubble_plot.html", taxon_name));
-            // let svg_file = namespace_subdir.join(format!("{}_bubble_plot.svg", taxon_name));
-            plot.write_html(html_file); 
-            // plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
-                                             
+            plot.write_html(&html_file);
+            // plot.write_image(&svg_file, ImageFormat::SVG, 940, 460, 1.0); // Pass path by reference
+
             Ok(())
-        })?; 
+        })?;
 
     Ok(())
 }
@@ -679,6 +683,7 @@ where
                                 
                                 current_namespace_network.add_edge(node_idx1, node_idx2, jaccard_similarity);
                             }
+
                         }
                         
                         let top_k_subgraphs = extract_top_k_communities(&current_namespace_network, 4);
@@ -964,7 +969,7 @@ pub fn network_plot(
                         .marker(
                             Marker::new()
                                 .color_array(all_nodes_color_values)
-                                .color_scale(ColorScale::Palette(ColorScalePalette::Cividis))
+                                .color_scale(ColorScale::Palette(ColorScalePalette::Viridis))
                                 .color_bar(color_bar)
                                 .size_array(node_sizes)
                                 .show_scale(true)
