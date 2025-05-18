@@ -95,7 +95,7 @@ where
         for (key, go_terms) in results {
             for (&go_id, result_item) in go_terms {
                 let p_value_passes = significance_threshold.map_or(true, |thresh| result_item.extract_p_value() <= thresh);
-                let log_odds_passes = result_item.extract_log_odds_ratio().abs() >= log_odds_ratio_threshold.abs(); // Compare absolute values or adjust as needed
+                let log_odds_passes = result_item.extract_log_odds_ratio() >= log_odds_ratio_threshold;
 
                 if p_value_passes && log_odds_passes {
                     filtered_results
@@ -128,7 +128,7 @@ where
     for (index, (key, go_id, result)) in pvalue_mapping.into_iter().enumerate() {
         let adjusted_p = adjusted_pvalues[index];
         let p_value_passes = significance_threshold.map_or(true, |threshold| adjusted_p <= threshold);
-        let log_odds_passes = result.extract_log_odds_ratio().abs() >= log_odds_ratio_threshold.abs();
+        let log_odds_passes = result.extract_log_odds_ratio() >= log_odds_ratio_threshold;
 
         if p_value_passes && log_odds_passes {
             adjusted_results

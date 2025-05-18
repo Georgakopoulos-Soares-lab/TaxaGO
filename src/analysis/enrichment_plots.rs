@@ -16,6 +16,7 @@ use plotly::{
         DragMode, RangeMode,
     },
     color::{Rgb, NamedColor, Rgba},
+    // ImageFormat
 };
 use textwrap::wrap;
 use std::cmp::Ordering::Equal;
@@ -34,7 +35,7 @@ use petgraph::{
     Directed,
     graph::NodeIndex,
     stable_graph::StableGraph,
-    visit::EdgeRef
+    visit::{EdgeRef, IntoEdgeReferences}
 }; 
 use rayon::prelude::*;
 use itertools::Itertools;
@@ -378,8 +379,10 @@ pub fn bar_plot(
                 .bar_gap(0.4);
             plot.set_layout(layout);
 
-            let plot_name_path = namespace_subdir.join(format!("{}_bar_plot.html", taxon_name));
-            plot.write_html(plot_name_path); 
+            let html_file = namespace_subdir.join(format!("{}_bar_plot.html", taxon_name));
+            // let svg_file = namespace_subdir.join(format!("{}_bar_plot.svg", taxon_name));
+            plot.write_html(html_file); 
+            // plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
                                              
             Ok(())
         })?; 
@@ -515,8 +518,10 @@ pub fn bubble_plot(
                 );
             plot.set_layout(layout);
 
-            let plot_name_path = namespace_subdir.join(format!("{}_bubble_plot.html", taxon_name));
-            plot.write_html(plot_name_path); 
+            let html_file = namespace_subdir.join(format!("{}_bubble_plot.html", taxon_name));
+            // let svg_file = namespace_subdir.join(format!("{}_bubble_plot.svg", taxon_name));
+            plot.write_html(html_file); 
+            // plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
                                              
             Ok(())
         })?; 
@@ -886,18 +891,33 @@ pub fn network_plot(
                     let mut all_nodes_color_values: Vec<f64> = Vec::new(); 
                     let mut all_nodes_sizes: Vec<f64> = Vec::new();
 
+                    let mut all_edges_coordinates: Vec<((f64, f64), (f64, f64))> = Vec::new();
+
                     for graph in layouts_vec.iter() {
-                        for (node_plot_data, location) in graph.node_weights() { 
+                        for (node_plot_data, location) in graph.node_weights() {
                             all_nodes_x.push(location.x);
                             all_nodes_y.push(location.y);
                             all_nodes_hover_text.push(node_plot_data.hover_text.clone());
-                            all_nodes_color_values.push(node_plot_data.lor);
+                            all_nodes_color_values.push(node_plot_data.minus_log10_p_value);
                             all_nodes_sizes.push(node_plot_data.size_statistic as f64);
+                        }
+
+                        for edge_ref in graph.edge_references() {
+                            let source_idx = edge_ref.source();
+                            let target_idx = edge_ref.target();
+
+                            if let (Some(source_node_info), Some(target_node_info)) =
+                                (graph.node_weight(source_idx), graph.node_weight(target_idx))
+                            {
+                                let source_coords = (source_node_info.1.x as f64, source_node_info.1.y as f64);
+                                let target_coords = (target_node_info.1.x as f64, target_node_info.1.y as f64);
+                                all_edges_coordinates.push((source_coords, target_coords));
+                            }
                         }
                     }
                     
-                    let min_size: f64 = 10.0;
-                    let max_size: f64 = 25.0;
+                    let min_size: f64 = 15.0;
+                    let max_size: f64 = 35.0;
 
                     let min_stat: f64 = all_nodes_sizes
                         .iter()
@@ -948,12 +968,39 @@ pub fn network_plot(
                                 .color_bar(color_bar)
                                 .size_array(node_sizes)
                                 .show_scale(true)
-                                .opacity(0.9)
+                                .opacity(1.0)
                             )
                         .hover_text_array(all_nodes_hover_text) 
                         .hover_info(HoverInfo::Text) 
                         .show_legend(false);
-                
+
+                    let mut edge_x_coords: Vec<Option<f64>> = Vec::new();
+                    let mut edge_y_coords: Vec<Option<f64>> = Vec::new();
+
+                    for (i, edge) in all_edges_coordinates.iter().enumerate() {
+                        let ((x_start, y_start), (x_end, y_end)) = edge;
+
+                        edge_x_coords.push(Some(*x_start));
+                        edge_y_coords.push(Some(*y_start));
+                        edge_x_coords.push(Some(*x_end));
+                        edge_y_coords.push(Some(*y_end));
+
+                        if i < all_edges_coordinates.len() - 1 {
+                            edge_x_coords.push(None);
+                            edge_y_coords.push(None);
+                        }
+                    }
+
+                    let edge_trace = Scatter::new(edge_x_coords, edge_y_coords)
+                            .mode(Mode::Lines)
+                            .marker(
+                                Marker::new()
+                                    .color(NamedColor::Black)
+                                    .opacity(0.3)
+                            )
+                            .show_legend(false);
+                    
+                    plot.add_trace(edge_trace);
                     plot.add_trace(node_trace);
 
                     let layout = Layout::new()
@@ -983,8 +1030,10 @@ pub fn network_plot(
                     plot.set_layout(layout);
 
                     let namespace_subdir = get_namespace_subdir(namespace, plots_dir)?;
-                    let plot_name_path = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
-                    plot.write_html(plot_name_path); 
+                    let html_file = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
+                    // let svg_file = namespace_subdir.join(format!("{}_network_plot.svg", taxon_name));
+                    plot.write_html(html_file); 
+                    // plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
 
                     Ok::<(), Box<dyn Error + Send + Sync>>(())
                 })
