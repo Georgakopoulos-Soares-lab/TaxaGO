@@ -8,13 +8,12 @@ use plotly::{
         Title, Font, HoverInfo,
         ColorScale, ColorScalePalette,
         Marker, ColorBar, Anchor, Side,
-        ThicknessMode, Orientation, Mode,
-        Line, Position
+        ThicknessMode, Orientation, Mode, 
+        Position
     },
     layout::{
         Axis, Margin,
         DragMode, RangeMode,
-        ShapeLine
     },
     color::{Rgb, NamedColor, Rgba},
 };
@@ -35,7 +34,7 @@ use petgraph::{
     Directed,
     graph::NodeIndex,
     stable_graph::StableGraph,
-    visit::{EdgeRef, IntoEdgeReferences}
+    visit::EdgeRef
 }; 
 use rayon::prelude::*;
 use itertools::Itertools;
@@ -50,46 +49,31 @@ use fdg::{
     },
     Force,
     simple::Center,
-    nalgebra::Point2
     
 };
 
-#[derive(Debug, Copy, Clone)]
-pub struct NetworkNode {
-    pub go_id: GOTermID,
-    pub lor: f64,
-    pub stat_sig: f64,
-    // pub size_statistic: u32
-}
+const PLOT_WIDTH: f32 = 10.0;
+const PLOT_HEIGHT: f32 = 6.0;
+const COLS: usize = 2;
+const ROWS: usize = 2;
+const QUADRANTS: usize = COLS * ROWS;
+
+const QUADRANT_WIDTH: f32 = PLOT_WIDTH / COLS as f32;
+const QUADRANT_HEIGHT: f32 = PLOT_HEIGHT / ROWS as f32;
+
+const QUADRANT_DEFINITIONS: [(f32, f32); QUADRANTS] = [
+    (0.0 * QUADRANT_WIDTH, 1.0 * QUADRANT_HEIGHT),
+    (1.0 * QUADRANT_WIDTH, 1.0 * QUADRANT_HEIGHT),
+    (0.0 * QUADRANT_WIDTH, 0.0 * QUADRANT_HEIGHT),
+    (1.0 * QUADRANT_WIDTH, 0.0 * QUADRANT_HEIGHT),
+];
+
 pub type JaccardIndex = f32;
-pub type GoTermNetworkGraph = StableGraph<NetworkNode, JaccardIndex, Directed>;
+pub type GoTermNetworkGraph = StableGraph<GOTermPlotData, JaccardIndex, Directed>;
+pub type LayoutGraph = ForceGraph<f32, 2, GOTermPlotData, JaccardIndex, Directed>;
 
 #[derive(Debug, Clone)]
-pub struct PlotableNode {
-    pub go_id: GOTermID,
-    pub original_data: NetworkNode, 
-    pub x: f32,
-    pub y: f32,
-    pub name: String, 
-}
-
-#[derive(Debug, Clone)]
-pub struct PlotableEdge {
-    pub source_x: f32,
-    pub source_y: f32,
-    pub target_x: f32,
-    pub target_y: f32,
-    pub weight: JaccardIndex,
-}
-
-#[derive(Debug, Clone)]
-pub struct PlotableSubnetwork {
-    pub nodes: Vec<PlotableNode>,
-    pub edges: Vec<PlotableEdge>,
-}
-
-#[derive(Debug, Clone)]
-pub struct TermPlotData {
+pub struct GOTermPlotData {
     pub go_id: GOTermID,
     pub name: String,
     pub wrapped_name: String,
@@ -99,11 +83,6 @@ pub struct TermPlotData {
     pub size_statistic: usize,
     pub namespace: NameSpace,
     pub hover_text: String,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct PlotData {
-    pub terms: Vec<TermPlotData>, 
 }
 
 pub trait EnrichmentResult {
@@ -158,7 +137,7 @@ impl<'a> ProteinDataProvider<'a> {
     ) -> GOTermToProteinSet {
         match self {
             ProteinDataProvider::Species(species_map) => {
-                species_map.get(taxon_name).cloned().unwrap_or_default()
+                species_map.get(taxon_name).cloned().unwrap()
             }
             ProteinDataProvider::Taxonomy {
                 species_data_by_id,
@@ -190,6 +169,17 @@ fn wrap_text(
     width: usize
 ) -> String {
     wrap(text, width).join("<br>")
+}
+
+fn get_namespace_subdir(namespace: &NameSpace, plots_dir: &PathBuf) -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
+    let namespace_str: String = match namespace {
+        NameSpace::BiologicalProcess => "Biological_Process".to_string(),
+        NameSpace::MolecularFunction => "Molecular_Function".to_string(),
+        NameSpace::CellularComponent => "Cellular_Component".to_string(),
+    };
+    let namespace_subdir: PathBuf = plots_dir.join(&namespace_str);
+    fs::create_dir_all(&namespace_subdir)?;
+    Ok(namespace_subdir)
 }
 
 pub fn process_species_data(
@@ -225,26 +215,26 @@ pub fn process_species_data(
 pub fn prepare_plot_data<R>(
     significant_results: &FxHashMap<String, FxHashMap<GOTermID, R>>,
     ontology: &OboMap
-) -> FxHashMap<String, FxHashMap<NameSpace, PlotData>>
+) -> FxHashMap<String, FxHashMap<NameSpace, Vec<GOTermPlotData>>>
 where
     R: EnrichmentResult + Clone + Send + Sync
 {
     significant_results
         .par_iter()
         .filter_map(|(species_name, go_term_results_map)| {
-            let mut species_terms_by_namespace: FxHashMap<NameSpace, Vec<TermPlotData>> =
-                FxHashMap::default();
+            let mut terms_by_namespace: FxHashMap<NameSpace, Vec<GOTermPlotData>> = FxHashMap::default();
 
             for (go_id, results) in go_term_results_map {
                 if let Some(obo_term) = ontology.get(go_id) {
                     let current_p_value = results.p_value();
                     let current_lor = results.log_odds_ratio();
-                    let minus_log_10_p = -current_p_value.log10();
+
+                    let minus_log_10_p = if current_p_value > 0.0 {-current_p_value.log10()} else {0.0};
                     let go_id_string = format!("GO:{:07}", go_id);
                     let original_name = obo_term.name.clone();
                     let wrapped_display_name = wrap_text(&original_name, 30);
                     let size_stat = results.size();
-
+                    let term_namespace = obo_term.namespace.clone();
 
                     let hover_html_content = format!(
                         "<b>Term Name:</b> {}<br><b>Term ID:</b> {}<br><b>log(Odds Ratio):</b> {:.3}<br><b>-log10(Stat. Sig.):</b> {:.3}",
@@ -254,7 +244,7 @@ where
                         minus_log_10_p,
                     );
 
-                    let rich_term = TermPlotData {
+                    let rich_term = GOTermPlotData {
                         go_id: *go_id,
                         name: original_name,
                         wrapped_name: wrapped_display_name,
@@ -262,45 +252,29 @@ where
                         stat_sig: current_p_value,
                         minus_log10_p_value: minus_log_10_p,
                         size_statistic: size_stat,
-                        namespace: obo_term.namespace.clone(),
+                        namespace: term_namespace.clone(),
                         hover_text: hover_html_content,
                     };
 
-                    species_terms_by_namespace
-                        .entry(obo_term.namespace.clone())
-                        .or_default()
+                    terms_by_namespace
+                        .entry(term_namespace)
+                        .or_insert_with(Vec::new)
                         .push(rich_term);
                 }
             }
 
-            let data_for_plotting: FxHashMap<NameSpace, PlotData> =
-                species_terms_by_namespace
-                    .into_iter()
-                    .map(|(ns_enum, mut terms_in_ns_group)| { 
-                        terms_in_ns_group.sort_by(|a, b| {
-                            a.stat_sig.partial_cmp(&b.stat_sig).unwrap_or(Equal)
-                        });
-
-                        (
-                            ns_enum,
-                            PlotData {
-                                terms: terms_in_ns_group,
-                            },
-                        )
-                    })
-                    .collect();
-            
-            if data_for_plotting.is_empty() {
-                None
-            } else {
-                Some((species_name.clone(), data_for_plotting))
+            for terms_vec in terms_by_namespace.values_mut() {
+                terms_vec.sort_by(|a, b| {
+                    a.stat_sig.partial_cmp(&b.stat_sig).unwrap_or(Equal)
+                });
             }
+            Some((species_name.clone(), terms_by_namespace))
         })
         .collect()
 }
 
 pub fn bar_plot(
-    plot_data_map: &FxHashMap<String, FxHashMap<NameSpace, PlotData>>,
+    plot_data_map: &FxHashMap<String, FxHashMap<NameSpace, Vec<GOTermPlotData>>>,
     plots_dir: &PathBuf,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
 
@@ -316,15 +290,8 @@ pub fn bar_plot(
         .par_bridge()
         .try_for_each(|(taxon_name, namespace, namespace_plot_data)| -> Result<(), Box<dyn Error + Send + Sync>> {
 
-            let namespace_str: String = match namespace {
-                NameSpace::BiologicalProcess => "Biological_Process".to_string(),
-                NameSpace::MolecularFunction => "Molecular_Function".to_string(),
-                NameSpace::CellularComponent => "Cellular_Component".to_string(),
-            };
-            let namespace_subdir = plots_dir.join(&namespace_str);
-            fs::create_dir_all(&namespace_subdir)?;
-            
-            let mut top_20_terms: Vec<TermPlotData> = namespace_plot_data.terms
+            let namespace_subdir=  get_namespace_subdir(namespace, plots_dir)?;
+            let mut top_20_terms: Vec<GOTermPlotData> = namespace_plot_data
                 .iter()
                 .take(20)
                 .cloned()
@@ -421,7 +388,7 @@ pub fn bar_plot(
 }
 
 pub fn bubble_plot(
-    plot_data_map: FxHashMap<String, FxHashMap<NameSpace, PlotData>>,
+    plot_data_map: FxHashMap<String, FxHashMap<NameSpace, Vec<GOTermPlotData>>>,
     plots_dir: &PathBuf,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
 
@@ -437,18 +404,12 @@ pub fn bubble_plot(
         .par_bridge()
         .try_for_each(|(taxon_name, namespace, namespace_plot_data)| -> Result<(), Box<dyn Error + Send + Sync>> {
 
-            let namespace_str: String = match namespace {
-                NameSpace::BiologicalProcess => "Biological_Process".to_string(),
-                NameSpace::MolecularFunction => "Molecular_Function".to_string(),
-                NameSpace::CellularComponent => "Cellular_Component".to_string(),
-            };
-            let namespace_subdir = plots_dir.join(&namespace_str);
-            fs::create_dir_all(&namespace_subdir)?;
+            let namespace_subdir=  get_namespace_subdir(&namespace, plots_dir)?;
 
-            let enrichment_values: Vec<f64> = namespace_plot_data.terms.iter().map(|t| t.lor).collect();
-            let stat_sig_values: Vec<f64> = namespace_plot_data.terms.iter().map(|t| t.minus_log10_p_value).collect();
-            let hover_texts: Vec<String> = namespace_plot_data.terms.iter().map(|t| t.hover_text.clone()).collect();
-            let size_statistics: Vec<usize> = namespace_plot_data.terms.iter().map(|t| t.size_statistic).collect();
+            let enrichment_values: Vec<f64> = namespace_plot_data.iter().map(|t| t.lor).collect();
+            let stat_sig_values: Vec<f64> = namespace_plot_data.iter().map(|t| t.minus_log10_p_value).collect();
+            let hover_texts: Vec<String> = namespace_plot_data.iter().map(|t| t.hover_text.clone()).collect();
+            let size_statistics: Vec<usize> = namespace_plot_data.iter().map(|t| t.size_statistic).collect();
             
             let min_bubble_size: f64 = 10.0;
             let max_bubble_size: f64 = 25.0;
@@ -482,14 +443,14 @@ pub fn bubble_plot(
                 .hover_info(HoverInfo::Text) 
                 .show_legend(false);
 
-            let mut terms_for_sorting = namespace_plot_data.terms.clone();
+            let mut terms_for_sorting = namespace_plot_data.clone();
             terms_for_sorting.sort_by(|a, b| {
                 b.minus_log10_p_value
                     .partial_cmp(&a.minus_log10_p_value)
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
 
-            let top_10_terms: Vec<&TermPlotData> = terms_for_sorting.iter().take(10).collect();
+            let top_10_terms: Vec<&GOTermPlotData> = terms_for_sorting.iter().take(10).collect();
 
             let top_10_x_coords: Vec<f64> = top_10_terms.iter().map(|t| t.lor).collect();
             let top_10_y_coords: Vec<f64> = top_10_terms.iter().map(|t| t.minus_log10_p_value).collect();
@@ -574,7 +535,6 @@ where
     significant_results
         .par_iter() 
         .map(|(taxon_name, enriched_go_terms_map)| {
-
             let relevant_go_ids_for_taxon: FxHashSet<GOTermID> = enriched_go_terms_map.keys().cloned().collect();
             let current_taxon_go_to_proteins = protein_provider
                 .get_proteins_for_taxon(taxon_name, &relevant_go_ids_for_taxon);
@@ -603,11 +563,10 @@ where
         .collect()
 }
 
-
 pub fn build_networks<R>(
     network_data: &FxHashMap<String, FxHashMap<NameSpace, GOTermToProteinSet>>,
     enrichment_results: &FxHashMap<String, FxHashMap<GOTermID, R>>,
-    k_communities: usize,
+    ontology: &OboMap,
 ) -> FxHashMap<String, FxHashMap<NameSpace, Vec<GoTermNetworkGraph>>> 
 where 
     R: EnrichmentResult + Clone + Send + Sync
@@ -622,33 +581,50 @@ where
                         FxHashMap::default();
 
                     for current_namespace in NameSpace::iter() {
-                        let go_term_proteins_in_namespace = match taxon_specific_network_data
+                        let go_term_proteins_in_namespace = taxon_specific_network_data
                             .get(&current_namespace)
-                        {
-                            Some(data) => data,
-                            None => {
-                                taxon_networks_graphs
-                                    .insert(current_namespace.clone(), Vec::new());
-                                continue;
-                            }
-                        };
+                            .unwrap();
 
-                        let mut current_term_network: GoTermNetworkGraph = StableGraph::default();
+                        let mut current_namespace_network: GoTermNetworkGraph = StableGraph::default();
                         let mut term_to_node_index_map: FxHashMap<GOTermID, NodeIndex> = FxHashMap::default();
                         let mut term_to_proteins_map_for_nodes: FxHashMap<GOTermID, &FxHashSet<Protein>> = FxHashMap::default();
 
                         for (go_term_id, protein_set) in go_term_proteins_in_namespace {
-                            let enrichment_detail = taxon_specific_enrichment_results.get(go_term_id).unwrap();
-                            let node_data = NetworkNode {
-                                go_id: *go_term_id,
-                                lor: enrichment_detail.log_odds_ratio(),
-                                stat_sig: enrichment_detail.p_value(),
-                            };
+                            if let (Some(enrichment_detail), Some(obo_term)) = (
+                                taxon_specific_enrichment_results.get(go_term_id),
+                                ontology.get(go_term_id)
+                            ) {
+                                let p_value = enrichment_detail.p_value();
+                                let lor = enrichment_detail.log_odds_ratio();
+                                let minus_log10_p = if p_value > 0.0 { -p_value.log10() } else { 0.0 };
+                                let go_id_str = format!("GO:{:07}", go_term_id);
+                                let name = obo_term.name.clone();
+                                let wrapped_name = wrap_text(&name, 30);
+                                let size = enrichment_detail.size();
 
-                            let node_idx = current_term_network.add_node(node_data);
+                                let hover_text = format!(
+                                    "<b>Term:</b> {} ({})<br><b>logOR:</b> {:.2}<br><b>-log10(p):</b> {:.2}<br><b>Size:</b> {}",
+                                    name, go_id_str, lor, minus_log10_p, size
+                                );
+
+                                let node_data = GOTermPlotData {
+                                    go_id: *go_term_id,
+                                    name: name.to_string(),
+                                    wrapped_name,
+                                    lor,
+                                    stat_sig: p_value,
+                                    minus_log10_p_value: minus_log10_p,
+                                    size_statistic: size,
+                                    namespace: obo_term.namespace.clone(), 
+                                    hover_text,
+                                };
+
+                            let node_idx = current_namespace_network.add_node(node_data);
                             term_to_node_index_map.insert(*go_term_id, node_idx);
                             term_to_proteins_map_for_nodes.insert(*go_term_id, protein_set);
+                            }
                         }
+                        
 
                         let mut protein_to_terms_map: FxHashMap<&Protein, FxHashSet<GOTermID>> = FxHashMap::default();
                         let mut term_node_sizes: FxHashMap<GOTermID, usize> = FxHashMap::default();
@@ -680,17 +656,11 @@ where
                         }
 
                         for (term1_id, term2_id) in candidate_go_pairs {
-                            let size1 = *term_node_sizes.get(&term1_id).unwrap_or(&0);
-                            let size2 = *term_node_sizes.get(&term2_id).unwrap_or(&0);
+                            let size1 = *term_node_sizes.get(&term1_id).unwrap();
+                            let size2 = *term_node_sizes.get(&term2_id).unwrap();
 
-                            let proteins1 = match term_to_proteins_map_for_nodes.get(&term1_id) {
-                                Some(p_set) => p_set,
-                                None => continue, 
-                            };
-                            let proteins2 = match term_to_proteins_map_for_nodes.get(&term2_id) {
-                                Some(p_set) => p_set,
-                                None => continue,
-                            };
+                            let proteins1 = term_to_proteins_map_for_nodes.get(&term1_id).unwrap();
+                            let proteins2 = term_to_proteins_map_for_nodes.get(&term2_id).unwrap();
 
                             let intersection_size = proteins1.intersection(proteins2).count();
                             let union_size = size1 + size2 - intersection_size;
@@ -699,16 +669,14 @@ where
                                 (intersection_size as f32) / (union_size as f32);
 
                             if jaccard_similarity >= 0.25 {
-                                if let (Some(&node_idx1), Some(&node_idx2)) = (
-                                    term_to_node_index_map.get(&term1_id),
-                                    term_to_node_index_map.get(&term2_id),
-                                ) {
-                                    current_term_network.add_edge(node_idx1, node_idx2, jaccard_similarity);
-                                }
+                                let &node_idx1= term_to_node_index_map.get(&term1_id).unwrap();
+                                let &node_idx2= term_to_node_index_map.get(&term2_id).unwrap();
+                                
+                                current_namespace_network.add_edge(node_idx1, node_idx2, jaccard_similarity);
                             }
                         }
                         
-                        let top_k_subgraphs = extract_top_k_communities(&current_term_network, k_communities);
+                        let top_k_subgraphs = extract_top_k_communities(&current_namespace_network, 4);
                         taxon_networks_graphs.insert(current_namespace.clone(), top_k_subgraphs);
                     }
                     (taxon_name.clone(), taxon_networks_graphs)
@@ -800,7 +768,7 @@ fn extract_top_k_communities(
 fn apply_fruchterman_reingold_layout(
     original_graph: &GoTermNetworkGraph,
     iterations: usize,
-) -> ForceGraph<f32, 2, NetworkNode, JaccardIndex, Directed> {
+) -> ForceGraph<f32, 2, GOTermPlotData, JaccardIndex, Directed> {
 
     let mut force_layout_graph=
         init_force_graph_uniform(
@@ -810,7 +778,7 @@ fn apply_fruchterman_reingold_layout(
 
     let mut fr_force = FruchtermanReingold {
         conf: FruchtermanReingoldConfiguration {
-            dt: 0.035,
+            dt: 0.02,
             cooloff_factor: 0.975,
             scale: 50.0,
         },
@@ -824,207 +792,203 @@ fn apply_fruchterman_reingold_layout(
 }
 
 pub fn network_plot(
-    taxon_networks: &FxHashMap<String, FxHashMap<NameSpace, Vec<GoTermNetworkGraph>>>,
-    ontology: &OboMap,
-    plots_dir: &PathBuf,
+    top_networks_map: &FxHashMap<String, FxHashMap<NameSpace, Vec<GoTermNetworkGraph>>>,
+    plots_dir: &PathBuf
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let world_min_coord = -1.05_f32;
-    let world_max_coord = 1.05_f32;
-    let world_padding = 0.05_f32;
-    let quadrant_dim_world = ( (world_max_coord - world_padding) - (world_min_coord + world_padding) - world_padding) / 2.0_f32;
 
+    let mut network_layouts_map: FxHashMap<String, FxHashMap<NameSpace, Vec<LayoutGraph>>> =
+        top_networks_map
+            .par_iter() 
+            .map(|(taxon_name, namespace_to_networks_map)| {
+                let layouts_for_taxon: FxHashMap<NameSpace, Vec<LayoutGraph>> =
+                    namespace_to_networks_map
+                        .iter() 
+                        .map(|(namespace, networks_vec)| {
+                            let layouts_for_namespace: Vec<LayoutGraph> = networks_vec
+                                .iter()
+                                .map(|network_graph| {
+                                    apply_fruchterman_reingold_layout(network_graph, 1000)
+                                })
+                                .collect();
+                            (*namespace, layouts_for_namespace)
+                        })
+                        .collect();
+                (taxon_name.clone(), layouts_for_taxon)
+            })
+            .collect();
 
-    for (taxon_name, namespace_map) in taxon_networks {
-        for (namespace, sub_network_list) in namespace_map {
-            if sub_network_list.is_empty() {
-                continue;
-            }
+    network_layouts_map
+        .par_iter_mut() 
+        .try_for_each(|(taxon_name, namespace_map)| {
+            namespace_map
+                .iter_mut()
+                .try_for_each(|(namespace, layouts_vec)| {
+                    layouts_vec
+                        .iter_mut()
+                        .enumerate()
+                        .for_each(|(i, graph)| {
+                            let (quadrant_min_x, quadrant_min_y) = QUADRANT_DEFINITIONS[i];
 
-            let namespace_str: String = match namespace {
-                NameSpace::BiologicalProcess => "Biological_Process".to_string(),
-                NameSpace::MolecularFunction => "Molecular_Function".to_string(),
-                NameSpace::CellularComponent => "Cellular_Component".to_string(),
-            };
-            let namespace_subdir = plots_dir.join(&namespace_str);
-            fs::create_dir_all(&namespace_subdir)?;
+                            let padding_abs_x = QUADRANT_WIDTH * 0.1;
+                            let padding_abs_y = QUADRANT_HEIGHT * 0.1;
 
-            let mut plot = Plot::new();
-            let mut master_plotable_nodes: Vec<PlotableNode> = Vec::new();
-            let mut master_plotable_edges: Vec<PlotableEdge> = Vec::new();
+                            let drawable_origin_x = quadrant_min_x + padding_abs_x;
+                            let drawable_origin_y = quadrant_min_y + padding_abs_y;
+                            let mut drawable_width = QUADRANT_WIDTH - 2.0 * padding_abs_x;
+                            let mut drawable_height = QUADRANT_HEIGHT - 2.0 * padding_abs_y;
 
-            for (sub_network_index, original_sub_network) in sub_network_list.iter().take(4).enumerate() {
+                            drawable_width = drawable_width.max(0.0);
+                            drawable_height = drawable_height.max(0.0);
 
-                let iterations = 100;
+                            let mut min_graph_x = f32::MAX;
+                            let mut max_graph_x = f32::MIN;
+                            let mut min_graph_y = f32::MAX;
+                            let mut max_graph_y = f32::MIN;
 
-                let laid_out_graph: StableGraph<(NetworkNode, Point2<f32>), JaccardIndex, Directed> =
-                    apply_fruchterman_reingold_layout(
-                        original_sub_network,
-                        iterations,
-                    );
+                            graph.node_weights().for_each(|(_node_data, location)| {
+                                min_graph_x = min_graph_x.min(location.x);
+                                max_graph_x = max_graph_x.max(location.x);
+                                min_graph_y = min_graph_y.min(location.y);
+                                max_graph_y = max_graph_y.max(location.y);
+                            });
 
-                if laid_out_graph.node_count() == 0 { continue; }
+                            let current_graph_width = max_graph_x - min_graph_x;
+                            let current_graph_height = max_graph_y - min_graph_y;
 
-                let mut min_x_fdg = f32::MAX; let mut max_x_fdg = f32::MIN;
-                let mut min_y_fdg = f32::MAX; let mut max_y_fdg = f32::MIN;
-                let mut fdg_nodes_with_pos: Vec<(petgraph::graph::NodeIndex, NetworkNode, Point2<f32>)> = Vec::new();
+                            let scale_ratio_x = drawable_width / current_graph_width;
+                            let scale_ratio_y = drawable_height / current_graph_height;
+                            let mut scale_factor = scale_ratio_x.min(scale_ratio_y);
 
-                for node_idx_in_laid_out in laid_out_graph.node_indices() {
-                    let (node_data, pos) = laid_out_graph.node_weight(node_idx_in_laid_out).unwrap().clone();
-                    fdg_nodes_with_pos.push((node_idx_in_laid_out, node_data, pos));
-                    min_x_fdg = min_x_fdg.min(pos.x); max_x_fdg = max_x_fdg.max(pos.x);
-                    min_y_fdg = min_y_fdg.min(pos.y); max_y_fdg = max_y_fdg.max(pos.y);
-                }
+                            scale_factor = scale_factor.max(0.0);
 
-                let fdg_graph_width = if max_x_fdg > min_x_fdg { max_x_fdg - min_x_fdg } else { 1.0 };
-                let fdg_graph_height = if max_y_fdg > min_y_fdg { max_y_fdg - min_y_fdg } else { 1.0 };
+                            let scaled_graph_width = current_graph_width * scale_factor;
+                            let scaled_graph_height = current_graph_height * scale_factor;
 
-                let (quadrant_center_x_world, quadrant_center_y_world) = match sub_network_index {
-                    0 => (world_min_coord + world_padding + quadrant_dim_world / 2.0, world_max_coord - world_padding - quadrant_dim_world / 2.0), 
-                    1 => (world_max_coord - world_padding - quadrant_dim_world / 2.0, world_max_coord - world_padding - quadrant_dim_world / 2.0),
-                    2 => (world_min_coord + world_padding + quadrant_dim_world / 2.0, world_min_coord + world_padding + quadrant_dim_world / 2.0),
-                    _ => (world_max_coord - world_padding - quadrant_dim_world / 2.0, world_min_coord + world_padding + quadrant_dim_world / 2.0),
-                };
+                            let offset_x_in_drawable = (drawable_width - scaled_graph_width) / 2.0;
+                            let offset_y_in_drawable = (drawable_height - scaled_graph_height) / 2.0;
 
-                let scale_to_fit_x = if fdg_graph_width > 1e-6 { (quadrant_dim_world * 0.9) / fdg_graph_width } else { 1.0 };
-                let scale_to_fit_y = if fdg_graph_height > 1e-6 { (quadrant_dim_world * 0.9) / fdg_graph_height } else { 1.0 };
-                let final_scale_to_world = scale_to_fit_x.min(scale_to_fit_y); 
+                            let final_translation_x = drawable_origin_x + offset_x_in_drawable;
+                            let final_translation_y = drawable_origin_y + offset_y_in_drawable;
 
-                let mut temp_idx_to_world_point: FxHashMap<petgraph::graph::NodeIndex, Point2<f32>> = FxHashMap::default();
+                            graph.node_weights_mut().for_each(|(_node_data, location)| {
+                                let original_relative_x = location.x - min_graph_x;
+                                let original_relative_y = location.y - min_graph_y;
 
-                for (idx_in_laid_out, node_data, fdg_pos) in &fdg_nodes_with_pos {
-                    let world_x = fdg_pos.x * final_scale_to_world + quadrant_center_x_world;
-                    let world_y = fdg_pos.y * final_scale_to_world + quadrant_center_y_world;
+                                location.x = original_relative_x * scale_factor + final_translation_x;
+                                location.y = original_relative_y * scale_factor + final_translation_y;
+                            });
+                        }); 
+                    
+                    let mut plot = Plot::new();
+                    let mut all_nodes_x: Vec<f32> = Vec::new();
+                    let mut all_nodes_y: Vec<f32> = Vec::new();
+                    let mut all_nodes_hover_text: Vec<String> = Vec::new();
+                    let mut all_nodes_color_values: Vec<f64> = Vec::new(); 
+                    let mut all_nodes_sizes: Vec<f64> = Vec::new();
 
-                    let go_name = ontology.get(&node_data.go_id)
-                        .map_or_else(|| format!("GO:{:07}", node_data.go_id), |term| term.name.clone());
-
-                    master_plotable_nodes.push(PlotableNode {
-                        go_id: node_data.go_id,
-                        original_data: *node_data,
-                        x: world_x,
-                        y: world_y,
-                        name: go_name,
-                    });
-                    temp_idx_to_world_point.insert(*idx_in_laid_out, Point2::new(world_x, world_y));
-                }
-
-                for edge_ref in laid_out_graph.edge_references() {
-                    if let (Some(p1_world), Some(p2_world)) = (
-                        temp_idx_to_world_point.get(&edge_ref.source()),
-                        temp_idx_to_world_point.get(&edge_ref.target())
-                    ) {
-                        master_plotable_edges.push(PlotableEdge {
-                            source_x: p1_world.x, source_y: p1_world.y,
-                            target_x: p2_world.x, target_y: p2_world.y,
-                            weight: *edge_ref.weight(),
-                        });
+                    for graph in layouts_vec.iter() {
+                        for (node_plot_data, location) in graph.node_weights() { 
+                            all_nodes_x.push(location.x);
+                            all_nodes_y.push(location.y);
+                            all_nodes_hover_text.push(node_plot_data.hover_text.clone());
+                            all_nodes_color_values.push(node_plot_data.lor);
+                            all_nodes_sizes.push(node_plot_data.size_statistic as f64);
+                        }
                     }
-                }
-            } 
+                    
+                    let min_size: f64 = 10.0;
+                    let max_size: f64 = 25.0;
 
-            let mut node_x_coords = Vec::new();
-            let mut node_y_coords = Vec::new();
-            let mut node_hover_texts = Vec::new();
-            let mut node_display_texts = Vec::new();
-            let mut node_colors_val = Vec::new(); 
-            let mut node_sizes_val = Vec::new();
+                    let min_stat: f64 = all_nodes_sizes
+                        .iter()
+                        .copied()
+                        .reduce(f64::min)
+                        .unwrap();
 
-            for p_node in &master_plotable_nodes {
-                node_x_coords.push(p_node.x as f64);
-                node_y_coords.push(p_node.y as f64);
-                let minus_log_p = -p_node.original_data.stat_sig.log10();
-                node_hover_texts.push(format!(
-                    "<b>{}</b><br>GO:{:07}<br>LOR: {:.2}<br>-log10(p): {:.2}",
-                    wrap_text(&p_node.name, 20), p_node.original_data.go_id,
-                    p_node.original_data.lor, minus_log_p
-                ));
-                node_display_texts.push(p_node.name.chars().take(10).collect::<String>() + if p_node.name.len() > 10 { "..." } else { "" });
-                node_colors_val.push(minus_log_p);
-                node_sizes_val.push(8.0 + (p_node.original_data.lor.abs() * 4.0).min(12.0)); 
-            }
+                    let max_stat: f64 = all_nodes_sizes
+                        .iter()
+                        .copied()
+                        .reduce(f64::max)
+                        .unwrap();
 
-            if !node_x_coords.is_empty() {
-                let nodes_scatter = Scatter::new(node_x_coords, node_y_coords)
-                    // .mode(Mode::MarkersPlusText) // Or Mode::Markers
-                    .text_array(node_display_texts)
-                    .text_font(Font::new().size(8))
-                    // .text_position(plotly::common::TextPosition::TopCenter)
-                    .marker(Marker::new()
-                        // .colors_array(node_colors_val)
-                        .color_scale(ColorScale::Palette(ColorScalePalette::Viridis))
-                        // .size_array(node_sizes_val)
-                        .show_scale(true)
-                        .color_bar(ColorBar::new().title(Title::from("-log10(p)"))
-                            .x(1.05) 
-                            // .len(0.75)
+                    let node_sizes: Vec<usize> = all_nodes_sizes
+                        .iter()
+                        .map(|&stat| {
+                            let scaled_size_f64 = if max_stat == min_stat {
+                                min_size + (max_size - min_size) / 2.0
+                            } else {
+                                let normalized_size = (stat as f64 - min_stat) / (max_stat - min_stat);
+                                min_size + (normalized_size * (max_size - min_size))
+                            };
+                            scaled_size_f64.round() as usize
+                        })
+                        
+                        .collect();
+
+                    let color_bar = ColorBar::new()
+                        .title(
+                            Title::from("log(Odds Ratio)")
+                                .side(Side::Right)
+                                .font(Font::new().size(12)),
                         )
-                        .opacity(0.8)
-                    )
-                    .hover_info(HoverInfo::Text)
-                    .hover_text_array(node_hover_texts)
-                    .name("GO Terms");
-                plot.add_trace(nodes_scatter);
-            }
+                        .tick_font(Font::new().size(10))
+                        .len_mode(ThicknessMode::Pixels)
+                        .len(200)
+                        .thickness(15)
+                        .x(1.0)
+                        .y(0.8)
+                        .y_anchor(Anchor::Middle);
 
-            for p_edge in &master_plotable_edges {
-                let edge_trace = Scatter::new(vec![p_edge.source_x as f64, p_edge.target_x as f64],
-                                              vec![p_edge.source_y as f64, p_edge.target_y as f64])
-                    .mode(Mode::Lines)
-                    .line(Line::new()
-                        // .color_rgba(150, 150, 150, 0.6) // Light grey lines
-                        .width((p_edge.weight * 4.0).max(0.5) as f64)
-                    )
-                    .hover_info(HoverInfo::Skip)
-                    .show_legend(false);
-                plot.add_trace(edge_trace);
-            }
+                    let node_trace = Scatter::new(all_nodes_x, all_nodes_y)
+                        .mode(Mode::Markers)
+                        .marker(
+                            Marker::new()
+                                .color_array(all_nodes_color_values)
+                                .color_scale(ColorScale::Palette(ColorScalePalette::Cividis))
+                                .color_bar(color_bar)
+                                .size_array(node_sizes)
+                                .show_scale(true)
+                                .opacity(0.9)
+                            )
+                        .hover_text_array(all_nodes_hover_text) 
+                        .hover_info(HoverInfo::Text) 
+                        .show_legend(false);
+                
+                    plot.add_trace(node_trace);
 
-            let mut main_layout = Layout::new()
-                .width(940)
-                .height(500)
-                .show_legend(false)
-                .hover_mode(plotly::layout::HoverMode::Closest)
-                .paper_background_color("white")
-                .plot_background_color("rgba(240,240,240,0.95)") 
-                .x_axis(Axis::new()
-                    .range(vec![world_min_coord as f64, world_max_coord as f64])
-                    .show_tick_labels(false)
-                    .show_grid(false)
-                    .zero_line(false)
-                    .line_color(NamedColor::LightGrey)
-                )
-                .y_axis(Axis::new()
-                    .range(vec![world_min_coord as f64, world_max_coord as f64])
-                    .show_tick_labels(false)
-                    .show_grid(false)
-                    .zero_line(false)
-                    .line_color(NamedColor::LightGrey)
-                );
-            
-            let center_line_color = NamedColor::DarkGrey;
-            let center_line_width = 1.0;
-            main_layout.add_shape(
-                plotly::layout::Shape::new()
-                    .shape_type(plotly::layout::ShapeType::Line)
-                    .x0(0.0).y0(world_min_coord as f64)
-                    .x1(0.0).y1(world_max_coord as f64)
-                    .line(ShapeLine::new().color(center_line_color).width(center_line_width))
-            );
-            main_layout.add_shape(
-                plotly::layout::Shape::new()
-                    .shape_type(plotly::layout::ShapeType::Line)
-                    .x0(world_min_coord as f64).y0(0.0)
-                    .x1(world_max_coord as f64).y1(0.0)
-                    .line(ShapeLine::new().color(center_line_color).width(center_line_width))
-            );
+                    let layout = Layout::new()
+                        .width(940)
+                        .height(460)
+                        .margin(Margin::new()
+                            .left(60)
+                            .right(0)
+                            .top(30)
+                            .bottom(40))
+                        .x_axis(
+                            Axis::new()
+                                .show_line(false)
+                                .zero_line(false)
+                                .show_grid(false)
+                                .show_tick_labels(false)
+                                .auto_margin(true)
+                        )
+                        .y_axis(
+                            Axis::new() 
+                                .show_line(false)
+                                .zero_line(false)
+                                .show_grid(false)
+                                .show_tick_labels(false)
+                                .auto_margin(true)
+                        );
+                    plot.set_layout(layout);
 
+                    let namespace_subdir = get_namespace_subdir(namespace, plots_dir)?;
+                    let plot_name_path = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
+                    plot.write_html(plot_name_path); 
 
-            plot.set_layout(main_layout);
+                    Ok::<(), Box<dyn Error + Send + Sync>>(())
+                })
+        })?;
 
-            let plot_filename = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
-            plot.write_html(&plot_filename);
-
-        }
-    }
-    Ok(())
+Ok(())
 }

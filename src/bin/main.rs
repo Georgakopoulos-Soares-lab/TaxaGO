@@ -441,7 +441,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             &processed_species_data, 
             &ontology);
         
-        let _species_barp_lots = bar_plot(
+        let _species_bar_plots = bar_plot(
             &species_plot_data, 
             &species_plots_subdir);
         
@@ -459,16 +459,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         let species_networks = build_networks(
             &species_network_data,
             &processed_species_data,
-            4
-        );
-
-        let _species_network_plot = network_plot(
-            &species_networks,
-            &ontology,
-            &species_plots_subdir
+            &ontology
         );
         
-    }
+        let _species_network_plots = network_plot(
+            &species_networks, 
+            &species_plots_subdir);
+    }  
     
     if let Some(level_to_combine) = &cli_args.combine_results {
 
@@ -562,11 +559,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &ontology,
             );
             
-            let _taxon_networks = build_networks(
+            let taxon_networks = build_networks(
                 &taxon_network_data,
                 &significant_taxonomy_results,
-                4
+                &ontology
             );
+            
+            let _taxon_network_plots = network_plot(
+                &taxon_networks, 
+                &taxonomy_plots_subdir);
             }
 
         }

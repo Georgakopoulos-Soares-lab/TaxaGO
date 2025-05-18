@@ -156,13 +156,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("\nMermaid graph Markdown file has been written to: {}\n", &graph_file);
 
     let mermaid_cli = Command::new("mmdc")
-    .arg("-i")
-    .arg(&graph_file)
-    .arg("-o")
-    .arg(&graph_pdf)
-    .arg("-f")
-    .output()
-    .expect("Failed to execute mmdc command\n");
+        .arg("-i")
+        .arg(&graph_file)
+        .arg("-o")
+        .arg(&graph_pdf)
+        .arg("-f")
+        .output()
+        .expect("Failed to execute mmdc command\n");
 
     if mermaid_cli.status.success() {
         println!("Mermaid chart PDF file has been written to: {}\n", &graph_pdf);
