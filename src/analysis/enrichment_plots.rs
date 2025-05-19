@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use std::error::Error;
 use std::fs;
 use plotly::{
-    Plot, Bar, Layout, Scatter,
+    Plot, Bar, Layout, Scatter, 
     common::{
         Title, Font, HoverInfo,
         ColorScale, ColorScalePalette,
         Marker, ColorBar, Anchor, Side,
         ThicknessMode, Orientation, Mode,
+        Line
     },
     layout::{
         Axis, Margin,
@@ -348,7 +349,7 @@ pub fn bar_plot(
                 .width(460)
                 .height(920)
                 .margin(Margin::new()
-                    .left(30)
+                    .left(50)
                     .right(0)
                     .top(30)
                     .bottom(0))
@@ -457,9 +458,9 @@ pub fn bubble_plot(
             let mut annotations: Vec<Annotation> = Vec::new();
             let text_positions_cycle = vec![
                 (30, -30),
-                (-30, 30),
+                (-30, 15),
                 (30, 30),
-                (-30, -30)
+                (-30, -15)
             ];
 
             for (i, term) in top_10_terms.iter().enumerate() {
@@ -492,10 +493,10 @@ pub fn bubble_plot(
                 .width(940)
                 .height(460)
                 .margin(Margin::new()
-                    .left(60)
-                    .right(30)
+                    .left(50)
+                    .right(0)
                     .top(30)
-                    .bottom(40))
+                    .bottom(0))
                 .x_axis(
                     Axis::new()
                         .title(Title::with_text("log(Odds Ratio)").font(Font::new().size(14)))
@@ -519,7 +520,8 @@ pub fn bubble_plot(
                         .show_tick_labels(true)
                         .auto_margin(true)
                         .range_mode(RangeMode::ToZero),
-                );
+                )
+                .annotations(annotations);
 
             plot.set_layout(layout);
 
@@ -612,8 +614,8 @@ where
                                 let size = enrichment_detail.size();
 
                                 let hover_text = format!(
-                                    "<b>Term:</b> {} ({})<br><b>logOR:</b> {:.2}<br><b>-log10(p):</b> {:.2}<br><b>Size:</b> {}",
-                                    name, go_id_str, lor, minus_log10_p, size
+                                    "<b>Term Name:</b> {}<br><b>Term ID:</b> {}<br><b>log(Odds Ratio):</b> {:.3}<br><b>-log10(Stat. Sig.):</b> {:.3}",
+                                    name, go_id_str, lor, minus_log10_p
                                 );
 
                                 let node_data = GOTermPlotData {
@@ -891,6 +893,63 @@ pub fn network_plot(
                         }); 
                     
                     let mut plot = Plot::new();
+                    const MIN_EDGE_WIDTH: f64 = 2.0;
+                    const MAX_EDGE_WIDTH: f64 = 8.0; 
+
+                    let mut all_jaccard_indices_for_this_plot: Vec<JaccardIndex> = Vec::new();
+                    for graph in layouts_vec.iter() {
+                        for edge_ref in graph.edge_references() {
+                            all_jaccard_indices_for_this_plot.push(*edge_ref.weight());
+                        }
+                    }
+
+                    let min_jaccard_opt = all_jaccard_indices_for_this_plot.iter().copied().reduce(f32::min);
+                    let max_jaccard_opt = all_jaccard_indices_for_this_plot.iter().copied().reduce(f32::max);
+
+                    if let (Some(min_j), Some(max_j)) = (min_jaccard_opt, max_jaccard_opt) {
+                        let min_jaccard = min_j;
+                        let max_jaccard = max_j;
+
+                        for graph in layouts_vec.iter() {
+                            for edge_ref in graph.edge_references() {
+                                let jaccard_index_val = *edge_ref.weight();
+                                let source_idx = edge_ref.source();
+                                let target_idx = edge_ref.target();
+
+                                if let (Some(source_node_info), Some(target_node_info)) =
+                                    (graph.node_weight(source_idx), graph.node_weight(target_idx))
+                                {
+                                    let x_start = source_node_info.1.x as f64;
+                                    let y_start = source_node_info.1.y as f64;
+                                    let x_end = target_node_info.1.x as f64;
+                                    let y_end = target_node_info.1.y as f64;
+
+                                    let scaled_width = if max_jaccard <= min_jaccard { 
+                                        MIN_EDGE_WIDTH + (MAX_EDGE_WIDTH - MIN_EDGE_WIDTH) / 2.0
+                                    } else {
+                                        let normalized_val = (jaccard_index_val - min_jaccard) as f64 / (max_jaccard - min_jaccard) as f64;
+                                        MIN_EDGE_WIDTH + normalized_val * (MAX_EDGE_WIDTH - MIN_EDGE_WIDTH)
+                                    };
+                                    let final_edge_width = scaled_width.max(MIN_EDGE_WIDTH).min(MAX_EDGE_WIDTH);
+
+                                    let edge_segment_trace = Scatter::new(vec![x_start, x_end], vec![y_start, y_end])
+                                        .mode(Mode::Lines)
+                                        .line(
+                                            Line::new()
+                                                .width(final_edge_width)
+                                                .color(Rgba::new(0, 0, 0, 0.5))
+                                                
+                                        )
+                                        .show_legend(false);
+                                    plot.add_trace(edge_segment_trace);
+                                }
+                            }
+                        }
+                    }
+                    let mut all_plot_annotations: Vec<Annotation> = Vec::new();
+                    let text_positions_cycle = vec![(20, -15), (-20, 15), (15, 15), (-15, -15), (0, 20)];
+                    let mut annotation_offset_idx_counter = 0;
+
                     let mut all_nodes_x: Vec<f32> = Vec::new();
                     let mut all_nodes_y: Vec<f32> = Vec::new();
                     let mut all_nodes_hover_text: Vec<String> = Vec::new();
@@ -906,6 +965,25 @@ pub fn network_plot(
                             all_nodes_hover_text.push(node_plot_data.hover_text.clone());
                             all_nodes_color_values.push(node_plot_data.minus_log10_p_value);
                             all_nodes_sizes.push(node_plot_data.size_statistic as f64);
+
+                            let (ax_offset, ay_offset) = text_positions_cycle[annotation_offset_idx_counter % text_positions_cycle.len()];
+                            annotation_offset_idx_counter += 1;
+
+                            let annotation = Annotation::new()
+                                .x(location.x as f64)
+                                .y(location.y as f64)
+                                .text(format!("GO:{:07}", node_plot_data.go_id))
+                                .show_arrow(true)
+                                .font(Font::new().size(7).color(NamedColor::DarkSlateGray))
+                                .arrow_head(1) 
+                                .arrow_size(0.8)
+                                .arrow_width(0.7)
+                                .arrow_color(NamedColor::Gray)
+                                .ax(ax_offset)
+                                .ay(ay_offset)
+                                .opacity(0.75);
+                            all_plot_annotations.push(annotation);
+
                         }
 
                         for edge_ref in graph.edge_references() {
@@ -997,31 +1075,21 @@ pub fn network_plot(
                         }
                     }
 
-                    let edge_trace = Scatter::new(edge_x_coords, edge_y_coords)
-                            .mode(Mode::Lines)
-                            .marker(
-                                Marker::new()
-                                    .color(NamedColor::Black)
-                                    .opacity(0.3)
-                            )
-                            .show_legend(false);
-                    
-                    plot.add_trace(edge_trace);
                     plot.add_trace(node_trace);
 
                     let layout = Layout::new()
                         .width(940)
                         .height(460)
                         .margin(Margin::new()
-                            .left(60)
+                            .left(50)
                             .right(0)
                             .top(30)
-                            .bottom(40))
+                            .bottom(0))
                         .x_axis(
                             Axis::new()
                                 .show_line(false)
                                 .zero_line(false)
-                                .show_grid(false)
+                                .show_grid(true)
                                 .show_tick_labels(false)
                                 .auto_margin(true)
                         )
@@ -1029,10 +1097,11 @@ pub fn network_plot(
                             Axis::new() 
                                 .show_line(false)
                                 .zero_line(false)
-                                .show_grid(false)
+                                .show_grid(true)
                                 .show_tick_labels(false)
                                 .auto_margin(true)
-                        );
+                        )
+                        .annotations(all_plot_annotations);
                     plot.set_layout(layout);
 
                     let namespace_subdir = get_namespace_subdir(namespace, plots_dir)?;
