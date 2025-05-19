@@ -1,0 +1,2834 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TaxaGO - Home</title>
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-hover: #4338ca;
+            --background-color: #f8fafc;
+            --card-background: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            line-height: 1.5;
+            overflow-y: overlay;
+            scrollbar-gutter: stable;
+        }
+
+        .main-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1.75rem;
+        }
+
+        .header {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 1.75rem;
+            margin-bottom: 1.75rem;
+            padding: 1.25rem;
+            background-color: var(--card-background);
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .title {
+            color: var(--text-primary);
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin: 0;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            white-space: nowrap;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            max-width: 550px;
+            margin: 0;
+            text-align: left;
+            line-height: 1.45;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 2.2fr 1fr;
+            gap: 1.75rem;
+            margin-bottom: 1.75rem;
+            align-items: stretch;
+        }
+
+        .section {
+            background: var(--card-background);
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px -1px rgb(0 0 0 / 0.15);
+        }
+
+        .section-title {
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            text-align: center;
+            position: relative;
+            padding-bottom: 0.5rem;
+            display: inline-block;
+            margin: 0 auto;
+        }
+
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 2px;
+            background: var(--primary-color);
+            border-radius: 2px;
+        }
+
+        .dropzone {
+            flex: 1;
+            border: 2px dashed var(--border-color);
+            border-radius: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: var(--background-color);
+            margin: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--primary-color);
+            background-color: #eef2ff;
+        }
+
+        .dropzone.has-file {
+            border-style: solid;
+            border-color: var(--success-color);
+            background-color: #ecfdf5;
+        }
+
+        .plus-symbol {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 0.75rem;
+            transition: transform 0.3s ease;
+        }
+
+        .dropzone:hover .plus-symbol {
+            transform: scale(1.1);
+        }
+
+        .drop-text {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-align: center;
+            transition: opacity 0.3s ease;
+        }
+
+        .file-info {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--card-background);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: translateY(100%);
+            transition: all 0.3s ease;
+            padding: 1rem;
+        }
+
+        .dropzone.has-file .file-info {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            word-break: break-word;
+            text-align: center;
+        }
+
+        .file-size {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .remove-file {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.25rem;
+            font-size: 1.25rem;
+            transition: color 0.2s ease;
+        }
+
+        .remove-file:hover {
+            color: var(--error-color);
+        }
+
+        .search-container {
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .search-bar {
+            width: calc(100% - 3.5rem);
+            padding: 0.75rem 1rem;
+            padding-left: 2.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            background-color: var(--card-background);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            pointer-events: none;
+            width: 1rem;
+            height: 1rem;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+        }
+
+        .search-bar:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .tab-content {
+            margin-top: 1rem;
+            height: 650px;
+            overflow: hidden;
+        }
+
+        .multiple-organisms-content {
+            height: 550px;
+            overflow-y: auto;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            background-color: var(--card-background);
+        }
+
+        .species-box {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            background: var(--card-background);
+            height: 550px;
+            position: relative;
+        }
+
+        .virtual-scroll-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            min-height: 100%;
+            overflow-x: hidden;
+        }
+
+        .species-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            transition: background-color 0.2s ease;
+            width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .species-item:hover {
+            background-color: var(--background-color);
+        }
+
+        .species-item input[type="checkbox"] {
+            margin-right: 0.75rem;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 0.25rem;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .species-item input[type="checkbox"]:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .species-item input[type="checkbox"]:checked::after {
+            content: '\2713';
+            position: absolute;
+            color: white;
+            font-size: 0.75rem;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            line-height: 1;
+            font-weight: bold;
+        }
+
+        .species-item label {
+            cursor: pointer;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            margin: 0;
+            font-weight: normal;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .config-box {
+            margin-bottom: 0.75rem;
+        }
+
+        .config-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .config-content {
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            min-height: 2rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s ease;
+            margin: 0;
+        }
+
+        .radio-option:hover {
+            background-color: var(--card-background);
+            color: var(--text-primary);
+        }
+
+        .radio-option input[type="radio"] {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            appearance: none;
+            -webkit-appearance: none;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            margin: 0;
+        }
+
+        .radio-option input[type="radio"]:checked {
+            border-color: var(--primary-color);
+            background-color: var(--primary-color);
+        }
+
+        .radio-option input[type="radio"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 0.375rem;
+            height: 0.375rem;
+            background-color: white;
+            border-radius: 50%;
+        }
+
+        .number-input {
+            width: calc(100% - 1rem);
+            padding: 0.4rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            background-color: var(--card-background);
+        }
+
+        .number-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .select-box {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            background-color: var(--card-background);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+
+        .select-box:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .button-container {
+            text-align: center;
+            padding: 1rem 0;
+        }
+
+        .begin-analysis-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem 2.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgb(79 70 229 / 0.2);
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .begin-analysis-btn:not(:disabled):hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px -1px rgb(79 70 229 / 0.3);
+        }
+
+        .begin-analysis-btn:not(:disabled):active {
+            transform: translateY(0);
+        }
+
+        .begin-analysis-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .begin-analysis-btn .spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 1.5rem;
+            height: 1.5rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        .begin-analysis-btn.loading .spinner {
+            display: block;
+        }
+
+        .begin-analysis-btn.loading .btn-text {
+            visibility: hidden;
+        }
+
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            background-color: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(100, 116, 139, 0.2);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(100, 116, 139, 0.3);
+        }
+
+        /* For Firefox */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(100, 116, 139, 0.2) transparent;
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr 1fr;
+                align-items: stretch;
+            }
+            .section:nth-child(2) {
+                grid-column: span 2;
+            }
+            .background-container {
+                flex-direction: column;
+                height: auto;
+                gap: 1.25rem;
+                overflow: hidden;
+            }
+            .right-column-section {
+                flex: unset;
+                height: auto;
+                min-height: 0;
+                margin-bottom: 0;
+                min-height: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                align-items: stretch;
+            }
+            .section:nth-child(2) {
+                grid-column: span 1;
+            }
+            .title {
+                font-size: 2rem;
+            }
+            .subtitle {
+                font-size: 1rem;
+            }
+            .background-container {
+                flex-direction: column;
+                height: auto;
+                gap: 1.25rem;
+                overflow: hidden;
+            }
+            .right-column-section {
+                flex: unset;
+                height: auto;
+                min-height: 0;
+                margin-bottom: 0;
+                min-height: 0;
+            }
+        }
+
+        .custom-background {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .dropzone.mini {
+            margin: 0;
+            padding: 0.75rem;
+            min-height: 60px;
+            background-color: var(--background-color);
+        }
+
+        .dropzone.mini .plus-symbol {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .dropzone.mini .drop-text {
+            font-size: 0.75rem;
+        }
+
+        .dropzone.mini .file-info {
+            padding: 0.5rem;
+        }
+
+        .dropzone.mini .file-name {
+            font-size: 0.75rem;
+        }
+
+        .dropzone.mini .file-size {
+            font-size: 0.7rem;
+        }
+
+        .dropzone.mini .remove-file {
+            font-size: 1rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1px;
+            background-color: var(--border-color);
+            padding: 1px;
+            border-radius: 0.5rem;
+            margin: 1rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            background-color: var(--card-background);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .tab-btn:first-child {
+            border-top-left-radius: 0.5rem;
+            border-bottom-left-radius: 0.5rem;
+        }
+
+        .tab-btn:last-child {
+            border-top-right-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Updated config box styles */
+        .config-box {
+            margin-bottom: 0.75rem;
+        }
+
+        .config-content {
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            min-height: 2rem;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Switch styles */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0;
+            width: 100%;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border-color);
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+        }
+
+        .switch input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+
+        .switch input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        .slider.round {
+            border-radius: 24px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+        }
+
+        .switch-label {
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        /* FDR options styles */
+        .fdr-options {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border-color);
+            width: 100%;
+            position: relative;
+            transition: opacity 0.3s ease;
+        }
+
+        .fdr-options.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .fdr-options.disabled::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 0.5rem;
+        }
+
+        .fdr-methods {
+            margin-bottom: 0.75rem;
+        }
+
+        .threshold-input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .threshold-label {
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .config-content.has-fdr {
+            display: block;
+            min-height: auto;
+        }
+
+        /* Superkingdom Tabs */
+        .superkingdom-tabs {
+            display: flex;
+            gap: 1px;
+            background-color: var(--border-color);
+            padding: 1px;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .superkingdom-tab {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            background-color: var(--card-background);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .superkingdom-tab:first-child {
+            border-top-left-radius: 0.5rem;
+            border-bottom-left-radius: 0.5rem;
+        }
+
+        .superkingdom-tab:last-child {
+            border-top-right-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+
+        .superkingdom-tab.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Taxonomy Dropdowns */
+        .taxonomy-dropdowns {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            padding: 0 1rem;
+            margin-top: 1rem;
+        }
+
+        .taxonomy-level {
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .taxonomy-header {
+            width: 100%;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-background);
+            border: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .taxonomy-header:hover {
+            background-color: var(--background-color);
+        }
+
+        .taxonomy-header .arrow {
+            transition: transform 0.3s ease;
+            color: var(--text-secondary);
+        }
+
+        .taxonomy-header.active .arrow {
+            transform: rotate(180deg);
+        }
+
+        .taxonomy-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background: var(--card-background);
+        }
+
+        .taxonomy-content.open {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .taxonomy-content .dropdown-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-top: 1px solid var(--border-color);
+            transition: background-color 0.2s ease;
+        }
+
+        .taxonomy-content .dropdown-item:hover {
+            background-color: var(--background-color);
+        }
+
+        .taxonomy-content .dropdown-item input[type="checkbox"] {
+            margin-right: 0.75rem;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 0.25rem;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .taxonomy-content .dropdown-item input[type="checkbox"]:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .taxonomy-content .dropdown-item input[type="checkbox"]:checked::after {
+            content: '\2713';
+            position: absolute;
+            color: white;
+            font-size: 0.75rem;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            line-height: 1;
+            font-weight: bold;
+        }
+
+        .taxonomy-content .dropdown-item label {
+            cursor: pointer;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            margin: 0;
+            font-weight: normal;
+        }
+
+        @media (max-width: 768px) {
+            .taxonomy-dropdowns {
+                padding: 0 0.5rem;
+            }
+        }
+
+        .section.standard-section {
+            height: 800px;  
+        }
+
+        .section.background-section-top {
+            height: 100%;  /* Change from 'auto' to '100%' to fill the parent container */
+            margin-bottom: 2rem;  
+        }
+
+        .section.background-section-bottom {
+            height: 100%;  /* Change from 'auto' to '100%' to fill the parent container */
+            margin-bottom: 0rem;  
+        }
+
+        .background-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 1.25rem;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            padding: 0 1rem;
+            margin-top: 1.5rem;  /* Add margin to create space below the header */
+        }
+
+        .config-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Update existing styles */
+        .config-box {
+            margin-bottom: 0.75rem;
+        }
+
+        @media (max-width: 768px) {
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Update the multiple-testing-option styles */
+        .multiple-testing-option {
+            transition: opacity 0.3s ease;
+            position: relative;
+        }
+
+        .multiple-testing-option.disabled {
+            opacity: 0.5;
+        }
+
+        .multiple-testing-option.disabled .config-content {
+            pointer-events: none;
+            position: relative;
+        }
+
+        .multiple-testing-option.disabled .config-content::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 0.5rem;
+        }
+
+        .section-header {
+            position: relative;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .demo-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .demo-button:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .demo-button:active {
+            transform: translateY(0);
+        }
+
+        .info-button {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 18px;
+            height: 18px;
+            margin: 0.25rem 0.25rem 0 0;
+            border-radius: 50%;
+            border: 2px solid var(--text-secondary);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: help;
+            background: none;
+            padding: 0;
+        }
+
+        .info-button:hover .tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .tooltip {
+            position: absolute;
+            top: calc(100% + 5px);
+            right: 0;  /* Align with the right side */
+            transform: none;  /* Remove the horizontal centering */
+            background-color: var(--text-primary);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: normal;
+            width: max-content;
+            max-width: 300px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 10;
+            text-align: left;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .tooltip::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            right: 6px;  /* Align arrow with the info button */
+            left: auto;  /* Remove the left positioning */
+            transform: none;  /* Remove the horizontal centering */
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 6px solid var(--text-primary);
+        }
+
+        /* Upload buttons styles */
+        .upload-btn {
+            padding: 0.5rem 1rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-btn:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .upload-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Add styles for combine-dependent boxes */
+        .combine-dependent {
+            transition: opacity 0.3s ease;
+            position: relative;
+            margin-top: -0.5rem;
+        }
+
+        /* Initial state - dark gray */
+        .combine-dependent {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .combine-dependent .config-content::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 0.5rem;
+        }
+
+        /* Multiple testing enabled - light gray */
+        .multiple-enabled .combine-dependent {
+            opacity: 0.7;
+        }
+
+        .multiple-enabled .combine-dependent .config-content::after {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Combination enabled - normal */
+        .combine-dependent.enabled {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .combine-dependent.enabled .config-content::after {
+            display: none;
+        }
+
+        /* Disabled propagation algorithm radio group */
+        .propagate-disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .lineage-percentage-box {
+            margin-top: -0.5rem;
+        }
+
+        .config-box {
+            margin-bottom: 0.75rem;
+        }
+
+        .count-propagation-box,
+        .odds-ratio-box,
+        .combine-results-box,
+        .lineage-percentage-box {
+            margin-top: -0.5rem;
+        }
+
+        .config-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        /* Evidence code checkboxes - match purple style */
+        .evidence-checkbox {
+            margin-right: 0.75rem;
+            width: 1.1rem;
+            height: 1.1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 0.25rem;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            position: relative;
+            transition: all 0.2s ease;
+            background: var(--card-background);
+        }
+        .evidence-checkbox:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        .evidence-checkbox:checked::after {
+            content: '\2713';
+            position: absolute;
+            color: white;
+            font-size: 0.75rem;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            line-height: 1;
+            font-weight: bold;
+        }
+
+        /* Right column section sizing for alignment */
+        .background-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 1.25rem;
+        }
+        .right-column-section {
+            flex: 1 1 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        .right-column-section.evidence-section {
+            flex: 0 0 auto;
+        }
+        .right-column-section:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Evidence code checkboxes - match purple style */
+        .evidence-checkboxes-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem 2rem;
+            justify-items: start;
+            align-items: center;
+            padding: 0.5rem 0 0 0;
+            margin-bottom: 0.5rem;
+        }
+        .evidence-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+            margin: 0;
+        }
+        .evidence-checkbox {
+            margin-right: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="main-container">
+        <div class="header">
+            <?xml version="1.0" encoding="UTF-8"?>
+            <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1366 768" width="250" height="130" style="opacity: 0.75;">
+              <defs>
+                <style>
+                  .cls-1 {
+                    clip-path: url(#clippath-1);
+                  }
+            
+                  .cls-1, .cls-2, .cls-3, .cls-4 {
+                    fill: none;
+                  }
+            
+                  .cls-5 {
+                    fill: #0af;
+                  }
+            
+                  .cls-6 {
+                    fill: #0068ff;
+                  }
+            
+                  .cls-7 {
+                    fill: #1300c6;
+                  }
+            
+                  .cls-8 {
+                    fill: #4dffa6;
+                  }
+            
+                  .cls-2, .cls-4 {
+                    stroke: #4d4d4d;
+                    stroke-miterlimit: 10;
+                  }
+            
+                  .cls-3 {
+                    clip-path: url(#clippath);
+                  }
+            
+                  .cls-4 {
+                    stroke-width: 1px;
+                  }
+                </style>
+                <clipPath id="clippath">
+                  <path class="cls-8" d="m1031.91,370.3c0,74.83-56.5,123.24-126.45,123.24-78.19,0-137.29-58.34-137.29-128.58s59.25-129.35,135.61-129.35c31.31.46,67.5,13.74,87.81,32.53l-36.19,49.63c-13.74-12.83-33.44-21.07-51.62-21.07-36.65,0-68.87,30.08-68.87,68.11,0,34.51,27.64,68.11,73.15,68.11,29.78,0,51.01-14.36,51.92-37.87h-56.35v-48.72h126.29c1.22,8.25,1.99,16.19,1.99,23.98Z"/>
+                </clipPath>
+                <clipPath id="clippath-1">
+                  <path class="cls-8" d="m1040.99,364.96c0-73.91,58.64-129.96,135.15-129.96s135.15,56.05,135.15,129.96-58.64,129.04-135.3,129.04-135-55.74-135-129.04Zm204.18-.46c0-38.03-29.93-67.35-69.03-67.35s-69.02,29.32-69.02,67.35,29.93,67.04,69.02,67.04,69.03-29.17,69.03-67.04Z"/>
+                </clipPath>
+              </defs>
+              <path class="cls-7" d="m238.27,302.65h-58.95v185.09h-65.51v-185.09h-59.1v-61.09h183.56v61.09Z"/>
+              <path class="cls-7" d="m380.95,442.41c-6.27,3.14-9.78,3.79-11.62,3.79-1.01,0-1.59-.24-2.11-1.59-.58-1.52-1.27-4.61-1.27-10.73v-56.72c0-15.57-5.9-27.99-17.54-36.92-11.34-8.69-28.24-13.1-50.23-13.1-8.55,0-17.11.75-25.46,2.22-8.37,1.48-16.52,3.75-24.23,6.76-7.76,3.04-15.07,6.99-21.73,11.77l-1.54,1.11v50.5l6.27-6.12c7.78-7.6,16.47-13.89,25.81-18.7,9.15-4.71,19.21-7.09,29.91-7.09,8.2,0,13.64,1.56,15.75,4.51,2.12,2.97,3.32,7.11,3.59,12.33-1.14.54-2.24,1-3.3,1.39-1.77.65-4.52,1.58-8.16,2.77-3.7,1.2-9.15,2.96-16.36,5.26-12.81,4.08-23.27,8.08-31.09,11.89-8.18,3.99-14.81,9.22-19.7,15.57-5.06,6.55-7.63,14.86-7.63,24.7,0,6.49,1.45,12.87,4.32,18.96,2.97,6.31,8.14,11.58,15.39,15.65,7.12,4,16.44,6.03,27.71,6.03s21.03-1.58,28.3-4.7c5.58-2.4,10.83-5.34,15.64-8.78,1.6,3,3.69,5.67,6.27,7.99,4.11,3.7,10.77,5.49,20.37,5.49s17.49-.97,24.24-2.88c6.53-1.85,13.74-4.32,21.41-7.33l2.34-.92v-35.77l-5.35,2.67Zm-74.34-26.8v27.39c-3.01,2.22-5.99,4.15-8.87,5.77-2.98,1.67-5.85,2.48-8.8,2.48s-5.24-.96-7.39-2.93c-2.06-1.88-3.06-4.67-3.06-8.53,0-5.6,2.27-9.93,6.95-13.21,4.62-3.25,11.73-6.94,21.17-10.97Z"/>
+              <polygon class="cls-7" points="520.54 403.19 579.08 329.75 512.61 329.75 487.15 366.86 461.96 329.75 388.53 329.75 449.4 408.18 389.61 484.04 456.05 484.04 482.38 445.21 508.85 484.04 582.35 484.04 520.54 403.19"/>
+              <path class="cls-7" d="m756.12,442.41c-6.27,3.14-9.78,3.8-11.62,3.8-1.01,0-1.59-.24-2.1-1.59-.58-1.52-1.27-4.61-1.27-10.73v-56.72c0-15.57-5.9-27.99-17.54-36.92-11.34-8.69-28.24-13.1-50.23-13.1-8.55,0-17.11.75-25.46,2.22-8.37,1.48-16.52,3.75-24.23,6.76-7.76,3.04-15.07,6.99-21.73,11.77l-1.54,1.11v50.5l6.27-6.12c7.78-7.6,16.47-13.89,25.81-18.7,9.15-4.71,19.21-7.09,29.91-7.09,8.2,0,13.65,1.56,15.76,4.51,2.12,2.97,3.32,7.11,3.59,12.33-1.14.54-2.24,1-3.3,1.39-1.78.66-4.53,1.59-8.16,2.77-3.7,1.2-9.15,2.96-16.36,5.26-12.81,4.08-23.27,8.08-31.09,11.89-8.18,3.99-14.81,9.22-19.7,15.57-5.06,6.55-7.63,14.86-7.63,24.7,0,6.49,1.45,12.87,4.32,18.96,2.97,6.31,8.14,11.58,15.39,15.65,7.12,4,16.44,6.03,27.71,6.03s21.03-1.58,28.3-4.7c5.58-2.4,10.83-5.34,15.64-8.78,1.6,3,3.69,5.67,6.27,7.99,4.11,3.7,10.77,5.49,20.37,5.49s17.49-.97,24.24-2.88c6.53-1.85,13.73-4.32,21.41-7.33l2.35-.92v-35.77l-5.35,2.67Zm-74.34-26.8v27.39c-3.01,2.22-5.99,4.15-8.87,5.77-2.98,1.67-5.85,2.48-8.8,2.48s-5.24-.96-7.39-2.93c-2.06-1.88-3.06-4.67-3.06-8.53,0-5.6,2.27-9.93,6.95-13.21,4.63-3.25,11.73-6.94,21.17-10.97Z"/>
+              <g>
+                <path class="cls-8" d="m1031.91,370.3c0,74.83-56.5,123.24-126.45,123.24-78.19,0-137.29-58.34-137.29-128.58s59.25-129.35,135.61-129.35c31.31.46,67.5,13.74,87.81,32.53l-36.19,49.63c-13.74-12.83-33.44-21.07-51.62-21.07-36.65,0-68.87,30.08-68.87,68.11,0,34.51,27.64,68.11,73.15,68.11,29.78,0,51.01-14.36,51.92-37.87h-56.35v-48.72h126.29c1.22,8.25,1.99,16.19,1.99,23.98Z"/>
+                <g class="cls-3">
+                  <g>
+                    <g>
+                      <polyline class="cls-2" points="828.02 248.5 876.37 295.1 876.37 248.5"/>
+                      <polyline class="cls-2" points="973.06 434.9 924.72 388.3 1021.41 434.9"/>
+                      <polyline class="cls-2" points="828.02 388.3 779.67 434.9 779.67 388.3 828.02 434.9 828.02 388.3 876.37 434.9 779.67 388.3 924.72 434.9"/>
+                      <polygon class="cls-4" points="925 388.3 973.21 341.7 973.21 388.3 1021.41 341.7 1021.41 388.3 925 341.7 925 388.3"/>
+                      <line class="cls-4" x1="973.21" y1="388.3" x2="925" y2="341.7"/>
+                      <line class="cls-4" x1="925" y1="388.3" x2="1021.41" y2="341.7"/>
+                      <line class="cls-2" x1="924.72" y1="481.5" x2="973.06" y2="434.9"/>
+                      <polyline class="cls-2" points="924.72 434.9 924.72 481.5 876.37 434.9 828.02 481.5 924.72 434.9 876.37 481.5 828.02 434.9 828.02 481.5 779.67 434.9 876.37 481.5 876.37 434.9"/>
+                      <polyline class="cls-2" points="973.06 341.7 1021.41 388.3 1025.23 434.9 973.06 388.3 973.06 434.9"/>
+                      <polyline class="cls-2" points="973.06 295.1 828.02 248.5 924.72 295.1"/>
+                      <polyline class="cls-2" points="779.67 341.7 876.37 295.1 828.02 341.7 828.02 388.3 779.67 341.7 779.67 388.3 828.02 341.7 828.02 295.1 779.67 341.7 828.02 248.5 828.02 295.1 876.37 248.5 924.72 295.1 924.72 248.5 973.06 295.1 876.37 248.5"/>
+                      <polyline class="cls-2" points="876.37 295.1 924.72 248.5 828.02 295.1"/>
+                      <polyline class="cls-2" points="779.67 434.9 924.72 481.5 828.02 434.9"/>
+                      <line class="cls-2" x1="1025.23" y1="434.9" x2="924.72" y2="481.5"/>
+                      <polygon class="cls-2" points="828.02 481.5 973.06 434.9 876.37 481.5 1021.41 434.9 828.02 481.5"/>
+                      <polyline class="cls-2" points="1025.23 434.9 1021.41 388.3 973.06 434.9"/>
+                      <polyline class="cls-2" points="973.06 388.3 924.72 434.9 1021.41 388.3"/>
+                    </g>
+                    <g>
+                      <rect class="cls-5" x="913.22" y="237" width="23" height="23"/>
+                      <rect class="cls-5" x="864.87" y="237" width="23" height="23"/>
+                      <rect class="cls-5" x="816.52" y="237" width="23" height="23"/>
+                      <rect class="cls-5" x="961.56" y="283.6" width="23" height="23"/>
+                      <rect class="cls-5" x="913.22" y="283.6" width="23" height="23"/>
+                      <rect class="cls-5" x="864.87" y="283.6" width="23" height="23"/>
+                      <rect class="cls-5" x="816.52" y="283.6" width="23" height="23"/>
+                      <rect class="cls-5" x="1009.91" y="330.2" width="23" height="23"/>
+                      <rect class="cls-5" x="961.56" y="330.2" width="23" height="23"/>
+                      <rect class="cls-5" x="913.22" y="330.2" width="23" height="23"/>
+                      <rect class="cls-5" x="816.52" y="330.2" width="23" height="23"/>
+                      <rect class="cls-5" x="768.17" y="330.2" width="23" height="23"/>
+                      <rect class="cls-5" x="1009.91" y="376.8" width="23" height="23"/>
+                      <rect class="cls-5" x="961.56" y="376.8" width="23" height="23"/>
+                      <rect class="cls-5" x="913.22" y="376.8" width="23" height="23"/>
+                      <rect class="cls-5" x="816.52" y="376.8" width="23" height="23"/>
+                      <rect class="cls-5" x="768.17" y="376.8" width="23" height="23"/>
+                      <rect class="cls-5" x="1009.91" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="961.56" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="913.22" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="864.87" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="816.52" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="768.17" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="913.22" y="470" width="23" height="23"/>
+                      <rect class="cls-5" x="864.87" y="470" width="23" height="23"/>
+                      <rect class="cls-5" x="816.52" y="470" width="23" height="23"/>
+                    </g>
+                  </g>
+                </g>
+              </g>
+              <g>
+                <path class="cls-8" d="m1040.99,364.96c0-73.91,58.64-129.96,135.15-129.96s135.15,56.05,135.15,129.96-58.64,129.04-135.3,129.04-135-55.74-135-129.04Zm204.18-.46c0-38.03-29.93-67.35-69.03-67.35s-69.02,29.32-69.02,67.35,29.93,67.04,69.02,67.04,69.03-29.17,69.03-67.04Z"/>
+                <g class="cls-1">
+                  <g>
+                    <g>
+                      <polygon class="cls-2" points="1118.11 295.1 1118.11 248.5 1069.76 295.1 1166.46 248.5 1118.11 295.1"/>
+                      <polygon class="cls-2" points="1214.8 295.1 1118.11 248.5 1166.46 295.1 1166.46 248.5 1214.8 295.1"/>
+                      <polyline class="cls-2" points="1166.46 248.5 1263.15 295.1 1118.11 248.5"/>
+                      <polygon class="cls-2" points="1263.15 295.1 1263.15 248.5 1214.8 295.1 1214.8 248.5 1263.15 295.1"/>
+                      <polygon class="cls-2" points="1118.11 295.1 1259.66 248.5 1166.46 295.1 1214.8 248.5 1118.11 295.1"/>
+                      <polyline class="cls-2" points="1259.66 248.5 1069.76 295.1 1214.8 248.5"/>
+                      <polygon class="cls-2" points="1069.76 341.7 1118.11 295.1 1118.11 341.7 1069.76 295.1 1069.76 341.7"/>
+                      <polygon class="cls-2" points="1311.5 341.7 1214.8 295.1 1263.15 341.7 1263.15 295.1 1311.5 341.7"/>
+                      <polygon class="cls-2" points="1311.5 388.3 1311.5 341.7 1263.15 388.3 1263.15 341.7 1311.5 388.3"/>
+                      <polyline class="cls-2" points="1311.5 388.3 1166.46 434.9 1263.15 388.3"/>
+                      <polyline class="cls-2" points="1263.15 341.7 1166.46 295.1 1311.5 341.7"/>
+                      <polyline class="cls-2" points="1069.76 295.1 1118.11 388.3 1069.76 341.7 1069.76 388.3 1118.11 341.7"/>
+                      <polygon class="cls-2" points="1118.11 388.3 1069.76 434.9 1069.76 388.3 1118.11 434.9 1118.11 388.3"/>
+                      <polyline class="cls-2" points="1069.76 388.3 1166.46 434.9 1118.11 481.5 1263.15 434.9"/>
+                      <polygon class="cls-2" points="1263.15 434.9 1263.15 388.3 1214.8 434.9 1311.5 388.3 1263.15 438.5 1214.8 481.5 1166.46 434.9 1166.46 481.5 1263.15 434.9"/>
+                      <polyline class="cls-2" points="1214.8 434.9 1214.8 481.5 1118.11 434.9"/>
+                      <polygon class="cls-2" points="1166.46 481.5 1210.25 434.9 1118.11 481.5 1118.11 434.9 1166.46 481.5"/>
+                      <polyline class="cls-2" points="1118.11 481.5 1069.76 434.9 1166.46 481.5"/>
+                      <line class="cls-2" x1="1214.8" y1="481.5" x2="1069.76" y2="434.9"/>
+                    </g>
+                    <g>
+                      <rect class="cls-5" x="1251.65" y="237" width="23" height="23"/>
+                      <rect class="cls-5" x="1203.3" y="237" width="23" height="23"/>
+                      <rect class="cls-5" x="1154.96" y="237" width="23" height="23"/>
+                      <rect class="cls-5" x="1106.61" y="237" width="23" height="23"/>
+                      <rect class="cls-5" x="1251.65" y="283.6" width="23" height="23"/>
+                      <rect class="cls-5" x="1203.3" y="283.6" width="23" height="23"/>
+                      <rect class="cls-5" x="1154.96" y="283.6" width="23" height="23"/>
+                      <rect class="cls-5" x="1106.61" y="283.6" width="23" height="23"/>
+                      <rect class="cls-5" x="1058.26" y="283.6" width="23" height="23"/>
+                      <rect class="cls-5" x="1251.65" y="330.2" width="23" height="23"/>
+                      <rect class="cls-5" x="1106.61" y="330.2" width="23" height="23"/>
+                      <rect class="cls-5" x="1058.26" y="330.2" width="23" height="23"/>
+                      <rect class="cls-5" x="1300" y="330.2" width="23" height="23"/>
+                      <rect class="cls-5" x="1251.65" y="376.8" width="23" height="23"/>
+                      <rect class="cls-5" x="1106.61" y="376.8" width="23" height="23"/>
+                      <rect class="cls-5" x="1058.26" y="376.8" width="23" height="23"/>
+                      <rect class="cls-5" x="1300" y="376.8" width="23" height="23"/>
+                      <rect class="cls-5" x="1251.65" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="1203.3" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="1154.96" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="1106.61" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="1058.26" y="423.4" width="23" height="23"/>
+                      <rect class="cls-5" x="1203.3" y="470" width="23" height="23"/>
+                      <rect class="cls-5" x="1154.96" y="470" width="23" height="23"/>
+                      <rect class="cls-5" x="1106.61" y="470" width="23" height="23"/>
+                    </g>
+                  </g>
+                </g>
+              </g>
+              <g>
+                <rect class="cls-6" x="913.22" y="237" width="23" height="23"/>
+                <rect class="cls-6" x="864.87" y="237" width="23" height="23"/>
+                <rect class="cls-6" x="816.52" y="237" width="23" height="23"/>
+                <rect class="cls-6" x="1009.91" y="330.2" width="23" height="23"/>
+                <rect class="cls-6" x="961.56" y="330.2" width="23" height="23"/>
+                <rect class="cls-6" x="913.22" y="330.2" width="23" height="23"/>
+                <rect class="cls-6" x="768.17" y="330.2" width="23" height="23"/>
+                <rect class="cls-6" x="913.22" y="470" width="23" height="23"/>
+                <rect class="cls-6" x="864.87" y="470" width="23" height="23"/>
+              </g>
+              <g>
+                <rect class="cls-6" x="1203.3" y="237" width="23" height="23"/>
+                <rect class="cls-6" x="1106.61" y="237" width="23" height="23"/>
+                <rect class="cls-6" x="1058.26" y="423.4" width="23" height="23"/>
+                <rect class="cls-6" x="1203" y="423" width="23" height="23"/>
+                <rect class="cls-6" x="1106.61" y="470" width="23" height="23"/>
+              </g>
+              <path class="cls-7" d="m1202.58,333.89c.61-.61.51-1.66.16-2.36-.69-1.38-.93-2.33-2.04-3.39-.96-.92-2.64-1.29-3.77-2.04.04,0-.19-.3-.36-.38-.34-.34-.7-.62-1.08-.79-.88-.41-3.51-.47-3.54-.45-.8.4-2.36,1.37-2.48,1.4-.12.17-.26.33-.4.48,0,0-1.11,1.32-1.97,2.25-1.59,1.71-4.42,1.89-6.57,2.14-4.31.5-7.9,3.09-10.4,6.53-2.09,1.73-3.98,3.79-5.65,5.37-2.45,2.31-5.17,4.31-7.55,6.74-2.54,2.59-5.65,4.87-7.8,7.81-1.8,2.47-3.21,4.43-3.82,7.49-.33,1.66-1.05,2.99.49,4.13,2.46,1.81,4.74,3.82,7.35,5.44.39.24.85.47,1.35.69-1.3.67-2.52,1.54-3.58,2.42-3.09,2.55-4.47,6.41-7.76,8.66-1.59,1.09-4.63,1.74-4.56,4.27.02.7-.14,1.72.44,2.27.65.62,1.6,1.13,2.12,1.82.39.52.6,1.21.93,1.77.64,1.09,1.84,1.9,2.72,2.78.78.78,1.55,2,2.69,2.31,1.91.51,4.35.53,6.03-.75,1.31-.99-1.27-3.17-1.87-3.71-1.21-1.09-2.83-1.82-4.1-2.85-1.36-1.09-.9-3.08-.29-4.92.22,0,.43,0,.63-.03,1.09-.14,2.32-.89,3.29-1.3,2.03-.85,4.14-1.53,6.08-2.57,2.76-1.49,5.67-2.8,8.47-4.28-.25,1.29-.42,2.57-.64,3.63-.6,2.98,1.8,5.09,1.79,7.97,0,1.89-1.31,5.66.13,7.24.81.9,1.63.9,2.8,1.11,1.31.24,2.53.82,3.82,1.1,2.58.56,4.99,2.32,7.72,1.94.68-.09,1.62-1.01,2.3-1.29.42-.17,1.82-.82,1.91-1.44.23-1.63-3.42-1.84-4.55-2.2-2.08-.68-3.89-1.65-5.64-2.97-.47-.36-.89-.76-1.29-1.19.07-1.22.34-2.48.49-3.2.37-1.8.5-3.62.83-5.42.21-1.14.23-2.24.23-3.39,0-2.26.25-4.31.62-6.54.38-2.3.12-4.69-1.41-6.5-.96-1.14-2.16-2.21-3.37-3.08-.06-.04-.12-.09-.18-.13,1.22-.57,2.38-1.32,3.57-2.35.34-.3.67-.62.99-.96.88,2.05,2.15,4,2.85,6.06.35,1.03.71,2.01,1.12,2.95-.16,2.02-.36,4.02-.41,6.05-.06,2.07.57,4.15.71,6.21.06.95.04,1.85.12,2.73-.8,1.36-1.47,2.47-1.48,4.31,0,1.11-.02,2.83,1.26,3.21.06.02.12,0,.17-.04.6-.59,1.61-2.42,2.59.39.17.49.27,1.04-.3.89-.43-.11-1.15-.04-1.58.12-.07.03-.1.07-.11.14-.16,1.52,1.29,1.55,2.4,1.43.62-.06,1.24-.13,1.85-.27.62-.14.74-1.03,1.28-1.15,3.33-.73,3.25-4.49,1.49-6.74.3-.9.39-1.84.39-3.01,0-.91-.14-1.81-.14-2.72.84,1.89,1.92,3.69,3.15,5.28-.1.48-.18.97-.23,1.47-.19,2.06.6,4.17.59,6.25,0,.71-.12,1.67.77,1.92.21.06.71-.08.95-.13.78-.15,1.68.47,2.47.23.79-.24.59-.11,1.15-.74,1.15-1.29.8-.56,1.99-1.01,1.1-.42,1.37-.96,1.45-2.13.14-2.22-1.59-4.44-3.34-6.07-.03-2.97.13-6.23-1.16-8.61-.69-1.28-1.35-2.46-2.27-3.52.43-3.68.08-7.52-1.56-10.69-1.41-2.72-2.12-5.99-2.92-8.93-.3-1.11-.74-2.3-1.21-3.35.37-.71.78-1.39,1.26-2.01,1.09-1.4,2.48-2.53,3.69-3.82.85-.91,2.06-1.83,3.07-2.85.66.08,1.31.06,2.04,0,.93-.08,1.6-.87,1.85-1.75,1.2.02,2.5-.72,2.66-2.04.09-.73-.19-1.87-.77-2.58.12-.26.18-.55.1-.81-.22-.75-.75-1.34-1.24-1.95.89-.67,1.21-1.22,2.01-2.02Z"/>
+            </svg>            
+            <p class="subtitle">A taxonomy-aware Gene Ontology Enrichment Analysis tool with unified scoring across taxonomic levels</p>
+        </div>
+        
+        <div class="container">
+            <div class="section standard-section">
+                <div class="section-header">
+                    <div class="section-title">Study Population</div>
+                    <button class="info-button">?
+                        <div class="tooltip">
+                            Upload your study population data here. You can either:
+                            <ul>
+                                <li>1. Upload a single CSV file containing study population with NCBI Taxon IDs as the column names and one UniProt entry per row per Taxon ID</li>
+                                <li>2. Upload individual FASTA files (.fasta/.fa) with NCBI Taxon ID as the header and one UniProt accession per row, one per species</li>
+                                <li>3. Upload a folder containing all study population FASTA files</li>
+                            </ul>
+                            This data represents the proteins you want to analyze for GO term enrichment.
+                        </div>
+                    </button>
+                </div>
+                <div class="dropzone" id="drop-area">
+                    <div class="plus-symbol">+</div>
+                    <div class="drop-text" style="width: 100%; padding: 1rem;">
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;">
+                            <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                                <span style="font-size: 0.85rem;"> REQUIRED: Upload study population either in CSV or FASTA format</span></l2>
+                            </div>
+                        </div>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary); display: block;">
+                            Drop your file(s) here or click to browse
+                        </span>
+                        <button class="demo-button" style="margin-top: 1rem;">Demo</button>
+                    </div>
+                    <div class="file-info">
+                        <div class="file-name"></div>
+                        <div class="file-size"></div>
+                        <button class="remove-file">&times;</button>
+                    </div>
+                    <input type="file" id="file-input" accept=".csv,.fasta,.fa" style="display: none">
+                </div>
+            </div>
+            <div class="section standard-section">
+                <div class="section-header">
+                    <div class="section-title">Analysis Configuration</div>
+                    <button class="info-button">?
+                        <div class="tooltip">
+                            Configure your Gene Ontology Enrichment Analysis parameters:
+                            <ul>
+                              <li><b>Statistical Test:</b> Choose between Fisher's Exact Test or Hypergeometric Test.</li>
+                              <li><b>Count Propagation:</b> Optionally enable propagation of counts through the GO hierarchy, with algorithm choices (Classic, Elim, Weight).</li>
+                              <li><b>log(Odds Ratio) Threshold:</b> Set the minimum log(odds ratio) for reporting enrichment.</li>
+                              <li><b>Multiple Testing Correction:</b> Enable and select a correction method (Bonferroni, Benjamini-Hochberg, Benjamini-Yekutieli) and set the significance threshold.</li>
+                              <li><b>Proteins per GO Term:</b> Set the minimum number of proteins required per GO term in the study population.</li>
+                              <li><b>Combine Results (Phylogenetic Meta Analysis):</b> Optionally enable meta-analysis across taxonomic levels, select the taxonomic level, upload a VCV matrix, set permutations, and specify minimum lineage percentage.</li>
+                            </ul>
+                            Default values are pre-set for standard analysis.
+                        </div>
+                    </button>
+                </div>
+                <div class="config-grid">
+                    <div class="config-column">
+                        <div class="config-box">
+                            <div class="config-title">Statistical Test</div>
+                            <div class="config-content">
+                                <div class="radio-group">
+                                    <label class="radio-option">
+                                        <input type="radio" name="statistical-test" value="fishers" checked>
+                                        <span>Fisher's Exact Test</span>
+                                    </label>
+                                    <label class="radio-option">
+                                        <input type="radio" name="statistical-test" value="hypergeometric">
+                                        <span>Hypergeometric Test</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="config-box count-propagation-box">
+                            <div class="config-title">Count Propagation</div>
+                            <div class="config-content" style="flex-direction: column; align-items: flex-start;">
+                                <div class="switch-container">
+                                    <label class="switch">
+                                        <input type="checkbox" id="propagate-toggle">
+                                        <span class="slider round"></span>
+                                    </label>
+                                    <span class="switch-label">Enable Propagation Algorithm</span>
+                                </div>
+                                
+                                <div id="propagate-algorithm-group" style="margin-top: 0.75rem; width: 100%; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+                                    <div class="radio-group" id="propagate-algorithm-radio-group">
+                                        <label class="radio-option">
+                                            <input type="radio" name="propagate-algorithm" value="classic" checked>
+                                            <span>Classic</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="propagate-algorithm" value="elim">
+                                            <span>Elim</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="propagate-algorithm" value="weight">
+                                            <span>Weight</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="config-box odds-ratio-box">
+                            <div class="config-title">log(Odds Ratio) Threshold</div>
+                            <div class="config-content">
+                                <div class="threshold-input-container">
+                                    <label for="odds-ratio-input" class="threshold-label">Minimum log(Odds Ratio)</label>
+                                    <input type="number" 
+                                           class="number-input" 
+                                           value="0.2" 
+                                           min="0" 
+                                           step="0.1"
+                                           id="odds-ratio-input">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="config-box multiple-testing-option combine-results-box">
+                            <div class="config-title">Phylogenetic Meta Analysis (PMA)</div>
+                            <div class="config-content has-fdr">
+                                <div class="switch-container">
+                                    <label class="switch">
+                                        <input type="checkbox" id="combine-toggle">
+                                        <span class="slider round"></span>
+                                    </label>
+                                    <span class="switch-label">Enable PMA </span>
+                                </div>
+                                
+                                <div id="combine-options" class="fdr-options disabled">
+                                    <div class="threshold-input-container">
+                                        <label for="taxonomic-level" class="threshold-label">Taxonomic Level</label>
+                                        <select class="select-box" id="taxonomic-level">
+                                            <option value="species">Species</option>
+                                            <option value="genus">Genus</option>
+                                            <option value="family">Family</option>
+                                            <option value="order">Order</option>
+                                            <option value="class">Class</option>
+                                            <option value="phylum">Phylum</option>
+                                            <option value="kingdom" selected>Kingdom</option>
+                                            <option value="superkingdom">Superkingdom</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="config-box combine-dependent lineage-percentage-box">
+                            <div class="config-title">Lineage Percentage</div>
+                            <div class="config-content">
+                                <div class="threshold-input-container">
+                                    <label for="lineage-percentage-input" class="threshold-label">Minimum Lineage Percentage</label>
+                                    <input type="number" 
+                                           class="number-input" 
+                                           value="0.25" 
+                                           min="0.00" 
+                                           max="1.00" 
+                                           step="0.01"
+                                           id="lineage-percentage-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-column">
+                        <div class="config-box">
+                            <div class="config-title">Multiple Testing Correction Method</div>
+                            <div class="config-content has-fdr">
+                                <div class="switch-container">
+                                    <label class="switch">
+                                        <input type="checkbox" id="fdr-toggle" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                    <span class="switch-label">Enable Correction</span>
+                                </div>
+                                
+                                <div id="fdr-options" class="fdr-options">
+                                    <div class="radio-group fdr-methods">
+                                        <label class="radio-option">
+                                            <input type="radio" name="fdr-method" value="bonferroni" checked>
+                                            <span>Bonferroni</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="fdr-method" value="benjamini-hochberg">
+                                            <span>Benjamini-Hochberg</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="fdr-method" value="benjamini-yekutieli">
+                                            <span>Benjamini-Yekutieli</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="config-box">
+                            <div class="config-title">Significance Threshold</div>
+                            <div class="config-content">
+                                <div class="threshold-input-container">
+                                    <label for="threshold-input" class="threshold-label">Significance Threshold</label>
+                                    <input type="number" 
+                                           class="number-input" 
+                                           value="0.05" 
+                                           min="0" 
+                                           max="0.1" 
+                                           step="0.01"
+                                           id="threshold-input">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="config-box">
+                            <div class="config-title">Proteins per GO Term in Study Population</div>
+                            <div class="config-content">
+                                <div class="threshold-input-container">
+                                    <label for="n-protein-input" class="threshold-label">Minimum Number of Proteins</label>
+                                    <input type="number" 
+                                           class="number-input" 
+                                           value="5" 
+                                           min="1" 
+                                           step="1"
+                                           id="n-protein-input">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="config-box combine-dependent">
+                            <div class="config-title">Phylogenetic Meta Analysis Parameters</div>
+                            <div class="config-content" style="display: flex; flex-direction: column;">
+                                <div class="threshold-input-container" style="margin-bottom: 0.75rem; width: 100%;">
+                                    <label for="vcv-matrix-input" class="threshold-label">VCV Matrix</label>
+                                    <div class="dropzone mini" id="vcv-matrix-area" style="height: 40px;">
+                                        <div class="plus-symbol">+</div>
+                                        <div class="drop-text" style="width: 100%; padding: 0.5rem; text-align: center;">
+                                            <span style="font-size: 0.85rem;"> OPTIONAL: Upload custom VCV matrix</span>
+                                        </div>
+                                        <div class="file-info">
+                                            <div class="file-name"></div>
+                                            <div class="file-size"></div>
+                                            <button class="remove-file">&times;</button>
+                                        </div>
+                                        <input type="file" id="vcv-matrix-input" accept=".csv" style="display: none">
+                                    </div>
+                                </div>
+                                <div class="threshold-input-container" style="width: 100%;">
+                                    <label for="pm-tolerance-input" class="threshold-label">Permutations</label>
+                                    <input type="number" 
+                                           class="number-input" 
+                                           value="100" 
+                                           min="1" 
+                                           step="1"
+                                           id="pm-tolerance-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="background-container">
+                <div class="section right-column-section">
+                    <div class="section-header">
+                        <div class="section-title">Background Population</div>
+                        <button class="info-button">?
+                            <div class="tooltip">
+                                Upload custom background population files to define the reference set of proteins for your analysis. Files must be named as {taxon_id}_background.txt (e.g., 9606_background.txt for human). You can upload individual files or an entire folder. If not provided, TaxaGO will use default background populations.
+                            </div>
+                        </button>
+                    </div>
+                    <div class="dropzone" id="new-drop-area" style="height: 350px;">
+                        <div class="plus-symbol">+</div>
+                        <div class="drop-text" style="width: 100%; padding: 1rem; text-align: center;">
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;">
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                                    <span style="font-size: 0.85rem;">Custom background population files with naming format: {taxon_id}_background.txt</span>
+                                </div>
+                            </div>
+                            <span style="font-size: 0.75rem; color: var(--text-secondary); display: block;">
+                                Drop your files or folder here or click to browse
+                            </span>
+                        </div>
+                        <div class="file-info">
+                            <div class="file-name"></div>
+                            <div class="file-size"></div>
+                            <button class="remove-file">&times;</button>
+                        </div>
+                        <input type="file" id="new-file-input" accept=".txt" webkitdirectory directory multiple style="display: none">
+                    </div>
+                </div>
+                <!-- Filter by Evidence Code block -->
+                <div class="section right-column-section evidence-section">
+                    <div class="section-header">
+                        <div class="section-title">Filter by Evidence Code</div>
+                        <button class="info-button">?
+                            <div class="tooltip">
+                                Select which Gene Ontology evidence codes to include in your analysis. By default, all are selected. Evidence codes describe the type of evidence supporting each GO annotation:
+                                <ul style="margin: 0.5rem 0 0 1rem;">
+                                    <li><b>Experimental</b>: Direct experimental evidence</li>
+                                    <li><b>Phylogenetic</b>: Inferred from phylogenetic analysis</li>
+                                    <li><b>Computational</b>: Inferred by computational methods</li>
+                                    <li><b>Author</b>: Assigned by the original publication's authors</li>
+                                    <li><b>Curator</b>: Assigned by a database curator</li>
+                                    <li><b>Automatic</b>: Automatically assigned (electronic annotation)</li>
+                                </ul>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="evidence-checkboxes-grid">
+                        <label class="evidence-checkbox-label">
+                            <input type="checkbox" class="evidence-checkbox" name="evidence-code" value="experimental">
+                            Experimental
+                        </label>
+                        <label class="evidence-checkbox-label">
+                            <input type="checkbox" class="evidence-checkbox" name="evidence-code" value="phylogenetic">
+                            Phylogenetic
+                        </label>
+                        <label class="evidence-checkbox-label">
+                            <input type="checkbox" class="evidence-checkbox" name="evidence-code" value="computational">
+                            Computational
+                        </label>
+                        <label class="evidence-checkbox-label">
+                            <input type="checkbox" class="evidence-checkbox" name="evidence-code" value="author">
+                            Author
+                        </label>
+                        <label class="evidence-checkbox-label">
+                            <input type="checkbox" class="evidence-checkbox" name="evidence-code" value="curator">
+                            Curator
+                        </label>
+                        <label class="evidence-checkbox-label">
+                            <input type="checkbox" class="evidence-checkbox" name="evidence-code" value="automatic">
+                            Automatic
+                        </label>
+                    </div>
+                </div>
+                <div class="section right-column-section">
+                    <div class="section-header">
+                        <div class="section-title">Gene Ontology File</div>
+                        <button class="info-button">?
+                            <div class="tooltip">
+                                Upload a custom Gene Ontology (GO) file in OBO format to use for the analysis. 
+                                If not provided, TaxaGO will use the latest version of the Gene Ontology from GO Consortium.
+                            </div>
+                        </button>
+                    </div>
+                    <div class="dropzone" id="additional-drop-area" style="height: 350px;">
+                        <div class="plus-symbol">+</div>
+                        <div class="drop-text" style="width: 100%; padding: 1rem; text-align: center;">
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;">
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                                    <span style="font-size: 0.85rem;">Custom gene ontology file (.obo)</span>
+                                </div>
+                            </div>
+                            <span style="font-size: 0.75rem; color: var(--text-secondary); display: block;">
+                                Drop your file here or click to browse
+                            </span>
+                        </div>
+                        <div class="file-info">
+                            <div class="file-name"></div>
+                            <div class="file-size"></div>
+                            <button class="remove-file">&times;</button>
+                        </div>
+                        <input type="file" id="additional-file-input" accept=".obo" style="display: none">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="button-container">
+            <button class="begin-analysis-btn" id="begin-analysis" disabled>
+                <span class="spinner"></span>
+                <span class="btn-text">Begin Analysis</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let hasFile = false;
+        let hasNewFile = false;
+        let hasAdditionalFile = false;
+        let hasVCVFile = false;
+        let selectedFilePath = null;
+        let selectedFileName = null;
+        let selectedVCVPath = null;
+        let selectedVCVName = null;
+        let isMultipleTesting = false;
+        let selectedBackgroundPath = null;
+        let selectedBackgroundName = null;
+        let selectedOntologyPath = null;
+        let selectedOntologyName = null;
+        let selectedFile = null;  // Store the File object
+        
+        // Add demo button click handler
+        document.querySelector('.demo-button').addEventListener('click', async function(e) {
+            e.stopPropagation();  // Prevent event from bubbling up to dropzone
+            
+            try {
+                // Fetch the demo file
+                const response = await fetch('demo/user_example.csv');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch demo file: ${response.statusText}`);
+                }
+                const blob = await response.blob();
+                console.log('Demo file size:', blob.size);
+                
+                // Create a File object from the blob
+                const file = new File([blob], 'user_example.csv', { type: 'text/csv' });
+                
+                // Create FormData and append the file
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('dropzone', 'study-population');
+                
+                // Upload the file to the server
+                console.log('Uploading demo file to server...');
+                const uploadResponse = await fetch('/upload-file', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!uploadResponse.ok) {
+                    throw new Error(`Failed to upload demo file: ${uploadResponse.statusText}`);
+                }
+                console.log('Demo file uploaded successfully');
+                
+                // Get the dropzone and trigger the file selection
+                const dropzone = document.getElementById('drop-area');
+                const fileInput = document.getElementById('file-input');
+                
+                // Create a DataTransfer object and add the file
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                
+                // Update UI and state
+                dropzone.classList.add('has-file');
+                dropzone.querySelector('.file-name').textContent = file.name;
+                dropzone.querySelector('.file-size').textContent = formatFileSize(blob.size);
+                hasFile = true;
+                
+                // Store file information
+                selectedFileName = file.name;
+                selectedFilePath = `data/${file.name}`;
+                
+                // Read file to determine if it's multiple or single testing
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    const firstLine = content.split('\n')[0];
+                    const columns = firstLine.split(',');
+                    const isMultiple = columns.length > 1;
+                    updateTestingOptions(isMultiple);
+                };
+                reader.readAsText(file);
+                
+                checkAnalysisReady();
+                
+            } catch (error) {
+                console.error('Error loading demo file:', error);
+                alert('Failed to load demo file: ' + error.message);
+            }
+        });
+
+        // Add this function near the start of the script section
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Update the createCustomFileInput function
+        function createCustomFileInput(inputId) {
+            const originalInput = document.getElementById(inputId);
+            const newInput = document.createElement('input');
+            newInput.type = 'file';
+            newInput.id = inputId;
+            newInput.style.display = 'none';
+            
+            if (inputId === 'new-file-input') {
+                // For background population, accept .txt files and enable directory selection
+                newInput.accept = '.txt';
+                newInput.setAttribute('webkitdirectory', '');
+                newInput.setAttribute('directory', '');
+                newInput.setAttribute('multiple', '');
+                
+                // Add change event listener to handle both single and multiple files
+                newInput.addEventListener('change', function(e) {
+                    const files = e.target.files;
+                    if (files && files.length > 0) {
+                        console.log(`Selected ${files.length} files`);
+                    }
+                });
+            } else {
+                // For other inputs, set appropriate accept attribute
+                if (inputId === 'file-input') {
+                    newInput.accept = '.csv,.fasta,.fa';
+                } else if (inputId === 'additional-file-input') {
+                    newInput.accept = '.obo';
+                }
+                
+                // Add validation for specific file types if needed
+                if (inputId === 'additional-file-input') {
+                    newInput.addEventListener('change', function(e) {
+                        const file = e.target.files[0];
+                        if (file && !file.name.toLowerCase().endsWith('.obo')) {
+                            alert('Please upload only OBO files (.obo)');
+                            this.value = '';
+                            return;
+                        }
+                    });
+                }
+            }
+            
+            // Replace the original input
+            originalInput.parentNode.replaceChild(newInput, originalInput);
+            return newInput;
+        }
+
+        // Remove all previous dropzone event listeners and setup
+        function setupDropzone(dropzoneId, inputId, onFileSelect) {
+            const dropzone = document.getElementById(dropzoneId);
+            const fileInput = document.getElementById(inputId);
+            
+            if (!dropzone || !fileInput) {
+                console.error(`Missing elements for dropzone ${dropzoneId}`);
+                    return;
+                }
+
+            // Handle file input change
+            fileInput.addEventListener('change', function(e) {
+                const files = e.target.files;
+                if (files && files.length > 0) {
+                    console.log(`${files.length} files selected via input`);
+                    
+                    // For background population, handle multiple files
+                    if (inputId === 'new-file-input') {
+                        let validFiles = [];
+                        let totalSize = 0;
+                        
+                        // Validate all files
+                        for (let i = 0; i < files.length; i++) {
+                            const file = files[i];
+                            const fileNamePattern = /^[0-9]+_background\.txt$/;
+                            
+                            if (fileNamePattern.test(file.name)) {
+                                validFiles.push(file);
+                                totalSize += file.size;
+                            } else {
+                                console.warn(`Skipping invalid file: ${file.name}`);
+                            }
+                        }
+                        
+                        if (validFiles.length === 0) {
+                            alert('No valid background population files found. Files must be named as {taxon_id}_background.txt (e.g., 9606_background.txt)');
+                            return;
+                        }
+                        
+                        // Update UI to show number of files
+                        dropzone.classList.add('has-file');
+                        dropzone.querySelector('.file-name').textContent = `${validFiles.length} background files`;
+                        dropzone.querySelector('.file-size').textContent = formatFileSize(totalSize);
+                        hasNewFile = true;
+                        
+                        // Store folder name as a reference
+                        selectedBackgroundName = 'background_folder';
+                        selectedBackgroundPath = 'background_folder';
+                        
+                        // Upload each valid file
+                        console.log(`Uploading ${validFiles.length} valid background files`);
+                        validFiles.forEach((file, index) => {
+                            console.log(`Uploading file ${index + 1}/${validFiles.length}: ${file.name}`);
+                            saveFileInfo(file.name, file.path || URL.createObjectURL(file), 'background-population', file);
+                        });
+                        
+                        checkAnalysisReady();
+                    } else {
+                        // For other dropzones, handle single file
+                        const file = files[0];
+                        if (file) {
+                            console.log(`File selected via input: ${file.name}`);
+                            onFileSelect(file, dropzone);
+                        }
+                    }
+                }
+            });
+
+            // Handle click on dropzone
+            dropzone.onclick = function(e) {
+                if (!dropzone.classList.contains('has-file')) {
+                    fileInput.click();
+                }
+            };
+
+            // Handle drag and drop
+            dropzone.ondragover = function(e) {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            };
+
+            dropzone.ondragleave = function(e) {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+            };
+
+            dropzone.ondrop = function(e) {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                
+                if (files && files.length > 0) {
+                    console.log(`${files.length} files dropped`);
+                    
+                    // For background population, handle multiple files
+                    if (inputId === 'new-file-input') {
+                        let validFiles = [];
+                        let totalSize = 0;
+                        
+                        // Validate all files
+                        for (let i = 0; i < files.length; i++) {
+                            const file = files[i];
+                            const fileNamePattern = /^[0-9]+_background\.txt$/;
+                            
+                            if (fileNamePattern.test(file.name)) {
+                                validFiles.push(file);
+                                totalSize += file.size;
+                            } else {
+                                console.warn(`Skipping invalid file: ${file.name}`);
+                            }
+                        }
+                        
+                        if (validFiles.length === 0) {
+                            alert('No valid background population files found. Files must be named as {taxon_id}_background.txt (e.g., 9606_background.txt)');
+                            return;
+                        }
+                        
+                        // Update UI to show number of files
+                        dropzone.classList.add('has-file');
+                        dropzone.querySelector('.file-name').textContent = `${validFiles.length} background files`;
+                        dropzone.querySelector('.file-size').textContent = formatFileSize(totalSize);
+                        hasNewFile = true;
+                        
+                        // Store folder name as a reference
+                        selectedBackgroundName = 'background_folder';
+                        selectedBackgroundPath = 'background_folder';
+                        
+                        // Upload each valid file
+                        console.log(`Uploading ${validFiles.length} valid background files`);
+                        validFiles.forEach((file, index) => {
+                            console.log(`Uploading file ${index + 1}/${validFiles.length}: ${file.name}`);
+                            saveFileInfo(file.name, file.path || URL.createObjectURL(file), 'background-population', file);
+                        });
+                        
+                        checkAnalysisReady();
+                    } else {
+                        // For other dropzones, handle single file
+                        const file = files[0];
+                        if (file) {
+                            // Create a new DataTransfer object and add the file
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(file);
+                            
+                            // Set the files property of the file input
+                            fileInput.files = dataTransfer.files;
+                            
+                            onFileSelect(file, dropzone);
+                        }
+                    }
+                }
+            };
+
+            // Handle remove button
+            const removeButton = dropzone.querySelector('.remove-file');
+            if (removeButton) {
+                removeButton.onclick = function(e) {
+                    e.stopPropagation();
+                    dropzone.classList.remove('has-file');
+                    fileInput.value = '';
+                    dropzone.querySelector('.file-name').textContent = '';
+                    dropzone.querySelector('.file-size').textContent = '';
+
+                    if (dropzoneId === 'drop-area') {
+                        if (selectedFileName) {
+                            deleteFileInfo(selectedFileName);
+                        }
+                        hasFile = false;
+                        selectedFilePath = null;
+                        selectedFileName = null;
+                        updateTestingOptions(false);
+                        
+                        // Reset combination settings and dependent parameters
+                        const combineToggle = document.getElementById('combine-toggle');
+                        const combineOptions = document.getElementById('combine-options');
+                        const taxonomicLevel = document.getElementById('taxonomic-level');
+                        const combineDependentBoxes = document.querySelectorAll('.combine-dependent');
+                        
+                        // Reset combine toggle and its options
+                        combineToggle.checked = false;
+                        combineOptions.classList.add('disabled');
+                        taxonomicLevel.value = 'kingdom';
+                        
+                        // Reset dependent parameters
+                        combineDependentBoxes.forEach(box => box.classList.remove('enabled'));
+                        
+                        // Reset Phylogenetic Meta Analysis parameters and lineage percentage to default styling
+                        document.getElementById('pm-parameters').classList.remove('enabled');
+                        document.getElementById('lineage-percentage').classList.remove('enabled');
+                        
+                        // Save the new states
+                        localStorage.setItem('combineEnabled', false);
+                        localStorage.setItem('taxonomicLevel', 'kingdom');
+                    } else if (dropzoneId === 'new-drop-area') {
+                        // For background population, always delete the entire folder
+                        // Send a request to clear the background_population folder
+                        fetch('/clear-background-folder', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                console.log('Successfully cleared background folder');
+                            } else {
+                                console.warn('Failed to clear background folder:', data.error);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error clearing background folder:', error);
+                        });
+                        
+                        hasNewFile = false;
+                        selectedBackgroundPath = null;
+                        selectedBackgroundName = null;
+                    } else if (dropzoneId === 'additional-drop-area') {
+                        if (selectedOntologyName) {
+                            deleteFileInfo(selectedOntologyName);
+                        }
+                        hasAdditionalFile = false;
+                        selectedOntologyPath = null;
+                        selectedOntologyName = null;
+                    } else if (dropzoneId === 'vcv-matrix-area') {
+                        if (selectedVCVName) {
+                            deleteFileInfo(selectedVCVName);
+                        }
+                        hasVCVFile = false;
+                        selectedVCVPath = null;
+                        selectedVCVName = null;
+                    }
+                    checkAnalysisReady();
+                };
+            }
+        }
+
+        // Initialize dropzones when the document loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Create custom file input for background population
+            const backgroundInput = createCustomFileInput('new-file-input');
+            
+            // Study Population dropzone
+            setupDropzone('drop-area', 'file-input', function(file, dropzone) {
+                const validExtensions = ['.csv', '.fasta', '.fa'];
+                const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+                
+                if (!validExtensions.includes(fileExtension)) {
+                    alert('Please upload only CSV or FASTA files (.csv, .fasta, or .fa)');
+                    return;
+                }
+                
+                // Read the file content to determine if it's multiple or single testing
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    
+                    if (fileExtension === '.csv') {
+                        const firstLine = content.split('\n')[0];
+                        const columns = firstLine.split(',');
+                        const isMultiple = columns.length > 1;
+                        updateTestingOptions(isMultiple);
+                    } else {
+                        const sequences = (content.match(/>/g) || []).length;
+                        const isMultiple = sequences > 1;
+                        updateTestingOptions(isMultiple);
+                    }
+                };
+                
+                reader.readAsText(file);
+                
+                dropzone.classList.add('has-file');
+                dropzone.querySelector('.file-name').textContent = file.name;
+                dropzone.querySelector('.file-size').textContent = formatFileSize(file.size);
+                hasFile = true;
+                
+                // Store both the file name and full path
+                selectedFileName = file.name;
+                selectedFilePath = file.path || URL.createObjectURL(file);  // Use URL.createObjectURL as fallback
+                
+                console.log("Study population file selected:", {
+                    name: selectedFileName,
+                    path: selectedFilePath,
+                    size: file.size
+                });
+                
+                // Make sure the file is in the input element
+                const fileInput = document.getElementById('file-input');
+                if (!fileInput.files || fileInput.files.length === 0 || fileInput.files[0].name !== file.name) {
+                    console.log("File not properly set in input, attempting to set it now");
+                    try {
+                        // Create a new DataTransfer object and add the file
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        
+                        // Set the files property of the file input
+                        fileInput.files = dataTransfer.files;
+                        console.log("File set in input:", fileInput.files[0].name);
+                    } catch (error) {
+                        console.error("Error setting file in input:", error);
+                    }
+                }
+                
+                // Save file information to the server
+                saveFileInfo(selectedFileName, selectedFilePath, 'study-population', file);
+                
+                checkAnalysisReady();
+            });
+
+            // Background Population dropzone
+            setupDropzone('new-drop-area', 'new-file-input', function(file, dropzone) {
+                // Validate file name format
+                const fileNamePattern = /^[0-9]+_background\.txt$/;
+                if (!fileNamePattern.test(file.name)) {
+                    alert('File name must be in the format: {taxon_id}_background.txt where {taxon_id} is a number\nExample: 9606_background.txt');
+                    return;
+                }
+                
+                dropzone.classList.add('has-file');
+                dropzone.querySelector('.file-name').textContent = file.name;
+                dropzone.querySelector('.file-size').textContent = formatFileSize(file.size);
+                hasNewFile = true;
+                
+                // Store both the file name and full path
+                selectedBackgroundName = file.name;
+                selectedBackgroundPath = file.path || URL.createObjectURL(file);
+                
+                // Save file information to the server
+                saveFileInfo(selectedBackgroundName, selectedBackgroundPath, 'background-population', file);
+                
+                checkAnalysisReady();
+            });
+
+            // Gene Ontology dropzone
+            setupDropzone('additional-drop-area', 'additional-file-input', function(file, dropzone) {
+                const validExtensions = ['.obo'];
+                const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+                
+                if (!validExtensions.includes(fileExtension)) {
+                    alert('Please upload only OBO files (.obo)');
+                    return;
+                }
+                
+                dropzone.classList.add('has-file');
+                dropzone.querySelector('.file-name').textContent = file.name;
+                dropzone.querySelector('.file-size').textContent = formatFileSize(file.size);
+                hasAdditionalFile = true;
+                
+                // Store both the file name and full path
+                selectedOntologyName = file.name;
+                selectedOntologyPath = file.path || URL.createObjectURL(file);
+                
+                // Save file information to the server
+                saveFileInfo(selectedOntologyName, selectedOntologyPath, 'gene-ontology', file);
+                
+                checkAnalysisReady();
+            });
+
+            // Initialize FDR options state
+            const fdrToggle = document.getElementById('fdr-toggle');
+            const fdrOptions = document.getElementById('fdr-options');
+            if (!fdrToggle.checked) {
+                fdrOptions.classList.add('disabled');
+            }
+
+            // Initialize combine options state
+            const combineToggle = document.getElementById('combine-toggle');
+            const combineOptions = document.getElementById('combine-options');
+            if (!combineToggle.checked) {
+                combineOptions.classList.add('disabled');
+            }
+
+            // Initialize options as hidden when page loads
+            updateTestingOptions(false); // Start with single testing view
+
+            // VCV Matrix dropzone
+            setupDropzone('vcv-matrix-area', 'vcv-matrix-input', function(file, dropzone) {
+                // Validate file name format
+                if (!file.name.toLowerCase().endsWith('_dmat.csv')) {
+                    alert('File name must end with _dmat.csv');
+                    return;
+                }
+                
+                dropzone.classList.add('has-file');
+                dropzone.querySelector('.file-name').textContent = file.name;
+                dropzone.querySelector('.file-size').textContent = formatFileSize(file.size);
+                hasVCVFile = true;
+                
+                // Store both the file name and full path
+                selectedVCVName = file.name;
+                selectedVCVPath = file.path || URL.createObjectURL(file);
+                
+                // Save file information to the server
+                saveFileInfo(selectedVCVName, selectedVCVPath, 'vcv-matrix', file);
+                
+                checkAnalysisReady();
+            });
+        });
+
+        // Function to format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Function to save file information to the server
+        async function saveFileInfo(filename, filepath, dropzone, file) {
+            try {
+                console.log(`Preparing to upload file: ${filename}, dropzone: ${dropzone}`);
+                
+                // Create a FormData object to send the file
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('filename', filename);
+                formData.append('dropzone', dropzone);
+                
+                console.log(`Sending file upload request for: ${filename}`);
+                
+                // First upload the file
+                const uploadResponse = await fetch('/upload-file', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!uploadResponse.ok) {
+                    console.error('Failed to upload file:', await uploadResponse.text());
+                    return;
+                }
+                
+                console.log(`File uploaded successfully: ${filename}`);
+                
+                // Then save the file info
+                const response = await fetch('/save-file-info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        filename: filename,
+                        filepath: filename, // Use the filename as the path since the file is now on the server
+                        dropzone: dropzone
+                    })
+                });
+                
+                const data = await response.json();
+                if (!data.success) {
+                    console.error('Failed to save file info:', data.error);
+                } else {
+                    console.log(`File info saved successfully: ${filename}`);
+                }
+            } catch (error) {
+                console.error(`Error saving file info for ${filename}:`, error);
+            }
+        }
+
+        // Function to delete file information from the server
+        async function deleteFileInfo(filename) {
+            try {
+                const response = await fetch('/delete-file-info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        filename: filename
+                    })
+                });
+                
+                const data = await response.json();
+                if (!data.success) {
+                    console.warn('Failed to delete file info:', data.error);
+                }
+            } catch (error) {
+                console.error('Error deleting file info:', error);
+            }
+        }
+
+        // Function to check if analysis can begin
+        function checkAnalysisReady() {
+            const beginButton = document.getElementById('begin-analysis');
+            const hasRequiredFiles = hasFile; // Only study population file is required
+            beginButton.disabled = !hasRequiredFiles;
+        }
+
+        // Begin Analysis button functionality
+        document.getElementById('begin-analysis').addEventListener('click', async function() {
+            const button = this;
+            button.classList.add('loading');
+            
+            try {
+                const fileInput = document.getElementById('file-input');
+                console.log("File input element:", fileInput);
+                console.log("Files in input:", fileInput.files);
+                
+                // Check if files array exists and has items
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    console.error('No file selected');
+                    button.classList.remove('loading');
+                    alert('Please select a file before starting the analysis');
+                    return;
+                }
+                
+                const file = fileInput.files[0];
+                console.log("Selected file:", file);
+                
+                // First, clear previous results
+                try {
+                    await fetch('/clear-results', {
+                        method: 'POST',
+                    });
+                } catch (clearError) {
+                    console.warn('Failed to clear previous results:', clearError);
+                    // Continue with analysis even if clearing fails
+                }
+                
+                // Collect checked evidence codes
+                const evidenceCodes = Array.from(document.querySelectorAll('input[name="evidence-code"]:checked'))
+                    .map(cb => cb.value)
+                    .join(',');
+                
+                // Create URL parameters
+                const propagateEnabled = document.getElementById('propagate-toggle').checked;
+                const paramsObj = {
+                    study_pop_path: file.name,
+                    odds_ratio_threshold: document.getElementById('odds-ratio-input').value,
+                    n_protein_threshold: document.getElementById('n-protein-input').value,
+                    lineage_percentage: document.getElementById('lineage-percentage-input').value,
+                    pm_tolerance: document.getElementById('pm-tolerance-input').value,
+                    statistical_test: document.querySelector('input[name="statistical-test"]:checked').value,
+                    fdr_enabled: document.getElementById('fdr-toggle').checked,
+                    fdr_method: document.getElementById('fdr-toggle').checked ? 
+                        document.querySelector('input[name="fdr-method"]:checked').value : '',
+                    fdr_threshold: parseFloat(document.getElementById('threshold-input').value),
+                    propagate_enabled: propagateEnabled,
+                    combine_enabled: document.getElementById('combine-toggle').checked,
+                    taxonomic_level: document.getElementById('combine-toggle').checked ? 
+                        document.getElementById('taxonomic-level').value : '',
+                    multiple_testing: isMultipleTesting,
+                    evidence_codes: evidenceCodes // Always present, even if empty
+                };
+                if (propagateEnabled) {
+                    paramsObj.propagate_algorithm = document.querySelector('input[name="propagate-algorithm"]:checked')?.value || 'classic';
+                }
+                const params = new URLSearchParams(paramsObj);
+
+                // Print the command that would be executed
+                console.log("\n==================================================");
+                console.log("PARAMETERS BEING SENT:");
+                console.log("study_pop_path:", file.name);
+                console.log("odds_ratio_threshold:", document.getElementById('odds-ratio-input').value);
+                console.log("n_protein_threshold:", document.getElementById('n-protein-input').value);
+                console.log("statistical_test:", document.querySelector('input[name="statistical-test"]:checked').value);
+                console.log("fdr_enabled:", document.getElementById('fdr-toggle').checked);
+                console.log("propagate_enabled:", document.getElementById('propagate-toggle').checked);
+                console.log("combine_enabled:", document.getElementById('combine-toggle').checked);
+                console.log("multiple_testing:", isMultipleTesting);
+                console.log("propagate_algorithm:", document.querySelector('input[name="propagate-algorithm"]:checked')?.value || 'classic');
+                console.log("evidence_codes:", evidenceCodes);
+                console.log("==================================================\n");
+
+                // Add OBO path only if a file has been uploaded
+                if (hasAdditionalFile && selectedOntologyName) {
+                    params.append('obo_path', selectedOntologyName);
+                    console.log("Adding OBO path:", selectedOntologyName);
+                }
+
+                // Add background path only if a file has been uploaded
+                if (hasNewFile && selectedBackgroundName) {
+                    params.append('background_path', selectedBackgroundName);
+                    console.log("Adding background path:", selectedBackgroundName);
+                }
+
+                // Add VCV matrix path if a file has been uploaded
+                if (hasVCVFile && selectedVCVName) {
+                    params.append('vcv_matrix_path', selectedVCVName);
+                    console.log("Adding VCV matrix path:", selectedVCVName);
+                }
+
+                // Manually build the query string to ensure evidence_codes is always present
+                let url = '/loading?';
+                url += Array.from(params.entries())
+                    .filter(([key]) => key !== 'evidence_codes')
+                    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+                    .join('&');
+                url += `&evidence_codes=${encodeURIComponent(evidenceCodes)}`;
+                window.location.href = url;
+                
+            } catch (error) {
+                console.error('Error during analysis:', error);
+                button.classList.remove('loading');
+                alert('Error starting analysis: ' + error.message);
+            }
+        });
+
+        // Add this inside your existing script tag
+        document.getElementById('fdr-toggle').addEventListener('change', function() {
+            const fdrOptions = document.getElementById('fdr-options');
+            if (this.checked) {
+                fdrOptions.classList.remove('disabled');
+            } else {
+                fdrOptions.classList.add('disabled');
+            }
+        });
+
+        // Add this with your other event listeners
+        document.getElementById('combine-toggle').addEventListener('change', function() {
+            const combineOptions = document.getElementById('combine-options');
+            const combineDependentBoxes = document.querySelectorAll('.combine-dependent');
+            
+            if (this.checked) {
+                combineOptions.classList.remove('disabled');
+                combineDependentBoxes.forEach(box => box.classList.add('enabled'));
+            } else {
+                combineOptions.classList.add('disabled');
+                combineDependentBoxes.forEach(box => box.classList.remove('enabled'));
+                taxonomicLevel.value = 'kingdom';
+                
+                // Delete VCV matrix file if it exists
+                if (selectedVCVName) {
+                    deleteFileInfo(selectedVCVName);
+                    
+                    // Reset VCV matrix dropzone
+                    const vcvDropzone = document.getElementById('vcv-matrix-area');
+                    if (vcvDropzone) {
+                        vcvDropzone.classList.remove('has-file');
+                        vcvDropzone.querySelector('.file-name').textContent = '';
+                        vcvDropzone.querySelector('.file-size').textContent = '';
+                    }
+                    
+                    // Reset VCV matrix state
+                    hasVCVFile = false;
+                    selectedVCVPath = null;
+                    selectedVCVName = null;
+                }
+            }
+            localStorage.setItem('combineEnabled', this.checked);
+            localStorage.setItem('taxonomicLevel', taxonomicLevel.value);
+        });
+
+        // Update the updateTestingOptions function
+        function updateTestingOptions(isMultiple) {
+            isMultipleTesting = isMultiple;
+            const multipleOptions = document.querySelectorAll('.multiple-testing-option');
+            const mainContainer = document.querySelector('.main-container');
+            
+            if (isMultiple) {
+                multipleOptions.forEach(option => option.classList.remove('disabled'));
+                mainContainer.classList.add('multiple-enabled');
+            } else {
+                multipleOptions.forEach(option => option.classList.add('disabled'));
+                mainContainer.classList.remove('multiple-enabled');
+            }
+        }
+
+        // Add this function to load saved preferences when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Clear any existing preferences for these settings
+            localStorage.removeItem('combineEnabled');
+            localStorage.removeItem('taxonomicLevel');
+            localStorage.removeItem('fdrThreshold');
+            localStorage.removeItem('propagateEnabled'); // Add this line to clear propagation setting
+            localStorage.removeItem('pmTolerance'); // Add this line to clear any saved permutations value
+
+            // Initialize default states before loading preferences
+            const combineToggle = document.getElementById('combine-toggle');
+            const combineOptions = document.getElementById('combine-options');
+            const taxonomicLevel = document.getElementById('taxonomic-level');
+            const propagateToggle = document.getElementById('propagate-toggle'); // Add this line
+            
+            // Set initial states
+            combineToggle.checked = false;
+            combineOptions.classList.add('disabled');
+            taxonomicLevel.value = 'kingdom';
+            propagateToggle.checked = false; // Add this line to set initial state
+            // Ensure significance threshold is set to default 0.05
+            document.getElementById('threshold-input').value = '0.05';
+
+            // Add event listener to combine toggle to ensure proper state management
+            combineToggle.addEventListener('change', function() {
+                if (this.checked) {
+                    combineOptions.classList.remove('disabled');
+                } else {
+                    combineOptions.classList.add('disabled');
+                    taxonomicLevel.value = 'kingdom';
+                    
+                    // Delete VCV matrix file if it exists
+                    if (selectedVCVName) {
+                        deleteFileInfo(selectedVCVName);
+                        
+                        // Reset VCV matrix dropzone
+                        const vcvDropzone = document.getElementById('vcv-matrix-area');
+                        const vcvInput = document.getElementById('vcv-matrix-input');
+                        if (vcvDropzone) {
+                            vcvDropzone.classList.remove('has-file');
+                            vcvDropzone.querySelector('.file-name').textContent = '';
+                            vcvDropzone.querySelector('.file-size').textContent = '';
+                            
+                            // Reset the file input
+                            if (vcvInput) {
+                                vcvInput.value = '';
+                                // Recreate the input to ensure it's completely fresh
+                                const newInput = document.createElement('input');
+                                newInput.type = 'file';
+                                newInput.id = 'vcv-matrix-input';
+                                newInput.accept = '.csv';
+                                newInput.style.display = 'none';
+                                vcvInput.parentNode.replaceChild(newInput, vcvInput);
+                                
+                                // Reattach the dropzone event handlers
+                                setupDropzone('vcv-matrix-area', 'vcv-matrix-input', function(file, dropzone) {
+                                    // Validate file name format
+                                    if (!file.name.toLowerCase().endsWith('_dmat.csv')) {
+                                        alert('File name must end with _dmat.csv');
+                                        return;
+                                    }
+                                    
+                                    dropzone.classList.add('has-file');
+                                    dropzone.querySelector('.file-name').textContent = file.name;
+                                    dropzone.querySelector('.file-size').textContent = formatFileSize(file.size);
+                                    hasVCVFile = true;
+                                    
+                                    // Store both the file name and full path
+                                    selectedVCVName = file.name;
+                                    selectedVCVPath = file.path || URL.createObjectURL(file);
+                                    
+                                    // Save file information to the server
+                                    saveFileInfo(selectedVCVName, selectedVCVPath, 'vcv-matrix', file);
+                                    
+                                    checkAnalysisReady();
+                                });
+                            }
+                        }
+                        
+                        // Reset VCV matrix state
+                        hasVCVFile = false;
+                        selectedVCVPath = null;
+                        selectedVCVName = null;
+                    }
+                }
+                localStorage.setItem('combineEnabled', this.checked);
+                localStorage.setItem('taxonomicLevel', taxonomicLevel.value);
+            });
+            
+            // Add event listener for propagate toggle
+            propagateToggle.addEventListener('change', function() {
+                localStorage.setItem('propagateEnabled', this.checked);
+            });
+            
+            // Add event listener for significance threshold
+            document.getElementById('threshold-input').addEventListener('change', function() {
+                localStorage.setItem('fdrThreshold', this.value);
+            });
+
+            // Load saved preferences
+            const loadSavedPreferences = () => {
+                // Load and set odds ratio threshold
+                const savedOddsRatio = localStorage.getItem('oddsRatioThreshold');
+                if (savedOddsRatio) {
+                    document.getElementById('odds-ratio-input').value = savedOddsRatio;
+                }
+
+                // Load and set n protein threshold
+                const savedNProtein = localStorage.getItem('nProteinThreshold');
+                if (savedNProtein) {
+                    document.getElementById('n-protein-input').value = savedNProtein;
+                }
+
+                // Load and set lineage percentage
+                const savedLineagePercentage = localStorage.getItem('lineagePercentage');
+                if (savedLineagePercentage) {
+                    document.getElementById('lineage-percentage-input').value = savedLineagePercentage;
+                }
+
+                // Load and set PM tolerance
+                const savedPMTolerance = localStorage.getItem('pmTolerance');
+                if (savedPMTolerance) {
+                    document.getElementById('pm-tolerance-input').value = savedPMTolerance;
+                } else {
+                    document.getElementById('pm-tolerance-input').value = '100'; // Set default if no saved value
+                }
+
+                // Load and set statistical test
+                const savedStatTest = localStorage.getItem('statisticalTest');
+                if (savedStatTest) {
+                    document.querySelector(`input[name="statistical-test"][value="${savedStatTest}"]`).checked = true;
+                }
+
+                // Load and set FDR toggle and options
+                const savedFDREnabled = localStorage.getItem('fdrEnabled');
+                // Only set to false if explicitly saved as false
+                document.getElementById('fdr-toggle').checked = savedFDREnabled === null ? true : savedFDREnabled === 'true';
+                const fdrOptions = document.getElementById('fdr-options');
+                if (document.getElementById('fdr-toggle').checked) {
+                    fdrOptions.classList.remove('disabled');
+                    const savedFDRMethod = localStorage.getItem('fdrMethod');
+                    if (savedFDRMethod) {
+                        document.querySelector(`input[name="fdr-method"][value="${savedFDRMethod}"]`).checked = true;
+                    }
+                } else {
+                    fdrOptions.classList.add('disabled');
+                }
+                
+                // Load and set propagate toggle
+                const savedPropagateEnabled = localStorage.getItem('propagateEnabled');
+                // Only set to true if explicitly saved as true
+                document.getElementById('propagate-toggle').checked = savedPropagateEnabled === 'true';
+
+                // Load and set combine toggle and options
+                const savedCombineEnabled = localStorage.getItem('combineEnabled');
+                const combineToggle = document.getElementById('combine-toggle');
+                const combineOptions = document.getElementById('combine-options');
+                
+                // Only set to true if explicitly saved as true
+                combineToggle.checked = savedCombineEnabled === 'true';
+                
+                if (combineToggle.checked) {
+                    combineOptions.classList.remove('disabled');
+                    const savedTaxonomicLevel = localStorage.getItem('taxonomicLevel');
+                    if (savedTaxonomicLevel) {
+                        document.getElementById('taxonomic-level').value = savedTaxonomicLevel;
+                    }
+                } else {
+                    combineOptions.classList.add('disabled');
+                    document.getElementById('taxonomic-level').value = 'kingdom';
+                }
+            };
+
+            // Call the function to load preferences
+            loadSavedPreferences();
+        });
+
+        // Initialize combine-dependent boxes as disabled
+        document.addEventListener('DOMContentLoaded', function() {
+            const combineDependentBoxes = document.querySelectorAll('.combine-dependent');
+            combineDependentBoxes.forEach(box => box.classList.add('disabled'));
+        });
+
+        // Enable/disable propagation algorithm radio group based on toggle
+        function updatePropagateAlgorithmState() {
+            const propagateToggle = document.getElementById('propagate-toggle');
+            const algoRadioGroup = document.getElementById('propagate-algorithm-radio-group');
+            if (propagateToggle.checked) {
+                algoRadioGroup.classList.remove('propagate-disabled');
+                Array.from(algoRadioGroup.querySelectorAll('input[type="radio"]')).forEach(r => r.disabled = false);
+            } else {
+                algoRadioGroup.classList.add('propagate-disabled');
+                Array.from(algoRadioGroup.querySelectorAll('input[type="radio"]')).forEach(r => r.disabled = true);
+            }
+        }
+        document.getElementById('propagate-toggle').addEventListener('change', function() {
+            updatePropagateAlgorithmState();
+            localStorage.setItem('propagateEnabled', this.checked);
+        });
+        document.addEventListener('DOMContentLoaded', function() {
+            updatePropagateAlgorithmState();
+        });
+    </script>
+</body>
+</html>

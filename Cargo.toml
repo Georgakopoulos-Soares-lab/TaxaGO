@@ -6,7 +6,12 @@ build="build.rs"
 
 [[bin]]
 name = "taxago"
+path = "src/bin/taxago.rs"
+
+[[bin]]
+name = "taxago-interactive"
 path = "src/bin/main.rs"
+
 
 [[bin]]
 name = "common-ancestors"
@@ -45,7 +50,21 @@ itertools = "0.14.0"
 strum = "0.27.1"
 strum_macros = "0.27.1"
 fdg = { git = "https://github.com/grantshandy/fdg.git" }
-
+actix-web = "4.4.0"
+actix-files = "0.6.2"
+actix-multipart = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+time = { version = "0.3", features = ["formatting"] }
+log = "0.4"
+env_logger = "0.10"
+anyhow = "1.0"
+ctrlc = "3.4"
+webbrowser = "0.8"
+futures = "0.3"
+tempfile = "3.2"
 
 [build-dependencies]
 flate2 = "1.1.1"

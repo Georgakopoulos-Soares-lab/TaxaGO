@@ -983,7 +983,6 @@ pub fn network_plot(
                                 .ay(ay_offset)
                                 .opacity(0.75);
                             all_plot_annotations.push(annotation);
-
                         }
 
                         for edge_ref in graph.edge_references() {
