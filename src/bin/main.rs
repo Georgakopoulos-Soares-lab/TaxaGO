@@ -40,7 +40,6 @@ struct SavedCategory {
     superkingdom: String,
 }
 
-// AppState will hold our shared data
 struct AppState {
 }
 
@@ -71,12 +70,10 @@ async fn loading(query: web::Query<QueryParams>) -> HttpResponse {
 async fn results(query: web::Query<QueryParams>, _state: web::Data<Arc<AppState>>) -> HttpResponse {
     info!("Processing analysis results request");
     
-    // Log the selected background if present
     if let Some(background) = &query.selected_background {
         debug!("Selected background: {}", background);
     }
     
-    // Read the original results file
     let results_path = Path::new("results/results.txt");
     if let Ok(content) = fs::read_to_string(results_path) {
         let mut biological_process_lines = Vec::new();
@@ -94,7 +91,6 @@ async fn results(query: web::Query<QueryParams>, _state: web::Data<Arc<AppState>
 
             let fields: Vec<&str> = line.split('\t').collect();
             if fields.len() >= 3 {
-                // Extract namespace directly from the results file (3rd column)
                 if let Some(namespace) = fields.get(2) {
                     match namespace.trim().to_lowercase().as_str() {
                         "biological_process" => biological_process_lines.push(line.to_string()),
@@ -106,7 +102,6 @@ async fn results(query: web::Query<QueryParams>, _state: web::Data<Arc<AppState>
             }
         }
 
-        // Write namespace-specific files
         let write_namespace_file = |lines: Vec<String>, filename: &str| -> Result<(), std::io::Error> {
             let mut content = vec![header_line.clone()];
             content.extend(lines);
@@ -135,7 +130,6 @@ async fn results(query: web::Query<QueryParams>, _state: web::Data<Arc<AppState>
     } else {
         error!("Failed to read original results file");
         
-        // Create a custom HTML page with an error popup
         let error_html = r#"<!DOCTYPE html>
 <html>
 <head>
@@ -275,13 +269,10 @@ async fn serve_plot(name: web::Path<String>, _state: web::Data<Arc<AppState>>) -
     debug!("Serving plot: {}", name);
     let plot_path = format!("results/plots/{}", name);
     
-    // Check if the file exists
     if !Path::new(&plot_path).exists() {
         warn!("Plot file not found: {}", name);
         
-        // Determine content type based on file extension for proper error handling
         let content_type = if name.ends_with(".html") {
-            // For HTML plots, return an HTML error page
             return HttpResponse::NotFound()
                 .content_type("text/html")
                 .body(format!(
@@ -310,14 +301,12 @@ async fn serve_plot(name: web::Path<String>, _state: web::Data<Arc<AppState>>) -
             .body(format!("Plot {} not found", name));
     }
     
-    // Determine content type based on file extension
     let content_type = if name.ends_with(".html") {
         "text/html"
     } else {
         "application/octet-stream"
     };
     
-    // Read the file as bytes (works for both text and binary files)
     match fs::read(&plot_path) {
         Ok(content) => {
             debug!("Successfully retrieved plot data");
@@ -328,7 +317,6 @@ async fn serve_plot(name: web::Path<String>, _state: web::Data<Arc<AppState>>) -
         Err(e) => {
             warn!("Failed to read plot file {}: {}", name, e);
             
-            // Return appropriate error based on file type
             if content_type == "text/html" {
                 HttpResponse::InternalServerError()
                     .content_type("text/html")
@@ -410,13 +398,11 @@ struct Species {
 }
 
 async fn get_species() -> Result<HttpResponse> {
-    // Return an empty list since full_lineage.txt is no longer used
     let species_list: Vec<Species> = Vec::new();
     Ok(HttpResponse::Ok().json(species_list))
 }
 
 async fn get_lineage_data() -> Result<HttpResponse> {
-    // Return an empty response since full_lineage.txt is no longer used
     Ok(HttpResponse::Ok()
         .content_type("text/plain")
         .body(""))
@@ -428,7 +414,6 @@ async fn update_categories(data: web::Json<CategoryUpdate>) -> impl Responder {
     let file_path = "data/user_selected_categories.txt";
     
     if data.is_user_action {
-        // Create data directory if it doesn't exist
         if let Err(e) = std::fs::create_dir_all("data") {
             error!("Failed to create data directory: {}", e);
             return HttpResponse::InternalServerError().body("Failed to create data directory");
@@ -438,7 +423,6 @@ async fn update_categories(data: web::Json<CategoryUpdate>) -> impl Responder {
         debug!("Category line: {}", category_line);
         
         if data.is_checked {
-            // Add category
             match OpenOptions::new()
                 .create(true)
                 .append(true)
@@ -457,7 +441,6 @@ async fn update_categories(data: web::Json<CategoryUpdate>) -> impl Responder {
                 }
             }
         } else {
-            // Remove category
             if Path::new(file_path).exists() {
                 match File::open(file_path) {
                     Ok(file) => {
@@ -558,34 +541,27 @@ struct AnalysisParams {
 async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
     info!("Starting analysis with parameters: {:?}", params);
     
-    // Create results directory if it doesn't exist
     if let Err(e) = fs::create_dir_all("results") {
         error!("Failed to create results directory: {}", e);
         return HttpResponse::InternalServerError().body("Failed to create results directory");
     }
     
-    // Create plots directory if it doesn't exist
     if let Err(e) = fs::create_dir_all("results/plots") {
         error!("Failed to create plots directory: {}", e);
         return HttpResponse::InternalServerError().body("Failed to create plots directory");
     }
     
-    // Create a vector to store all arguments
     let mut args = Vec::new();
     
-    // Add all arguments to the vector
     args.push("-s".to_string());
     
-    // Use the file from the data directory instead of the original path
     let study_pop_path = format!("data/{}", params.study_pop_path);
     args.push(study_pop_path.clone());
     
-    // Print the study population path for debugging
     println!("\n==================================================");
     println!("STUDY POPULATION PATH: {}", study_pop_path);
     println!("Checking if file exists: {}", Path::new(&study_pop_path).exists());
     
-    // Print the contents of the data directory
     println!("Contents of data directory:");
     let mut found_obo_file = None;
     let mut found_background_file = None;
@@ -598,7 +574,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
                 let path = entry.path();
                 println!("  {} - {}", file_type, path.display());
                 
-                // Check for OBO files
                 if let Some(extension) = path.extension() {
                     if extension == "obo" {
                         found_obo_file = Some(path.file_name().unwrap().to_string_lossy().to_string());
@@ -606,7 +581,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
                     }
                 }
                 
-                // Check for background files in the data directory (not in background_population)
                 if metadata.is_file() {
                     if let Some(file_name) = path.file_name() {
                         let file_name_str = file_name.to_string_lossy();
@@ -625,14 +599,12 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
         println!("  Failed to read data directory");
     }
     
-    // Check for the background_population directory
     let background_population_dir = Path::new("data/background_population");
     let has_background_population = background_population_dir.exists() && background_population_dir.is_dir();
     
     if has_background_population {
         println!("  Found background_population directory");
         
-        // Check if the directory contains any background files
         if let Ok(entries) = fs::read_dir(background_population_dir) {
             let background_files: Vec<String> = entries
                 .filter_map(Result::ok)
@@ -666,7 +638,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
     
     println!("==================================================\n");
 
-    // Only add the OBO path if it's explicitly provided in params
     if let Some(obo_path) = &params.obo_path {
         if !obo_path.is_empty() {
             println!("Custom OBO file specified: data/{}", obo_path);
@@ -674,17 +645,13 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
             args.push(format!("data/{}", obo_path));
         }
     } else if let Some(obo_file) = found_obo_file {
-        // Use the OBO file found in the data directory
         println!("Found OBO file in data directory: {}", obo_file);
         args.push("-o".to_string());
         args.push(format!("data/{}", obo_file));
     }
-    // If no OBO file is provided or found, don't add the -o option at all
 
-    // Check for background population folder and add it to the command if it exists
     let background_population_dir = Path::new("data/background_population");
     if background_population_dir.exists() && background_population_dir.is_dir() {
-        // Check if the directory contains any background files
         let has_background_files = if let Ok(entries) = fs::read_dir(background_population_dir) {
             entries.filter_map(Result::ok)
                 .any(|entry| {
@@ -708,20 +675,17 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
             println!("Using background_population directory for background files");
         }
     } else if let Some(background_path) = &params.background_path {
-        // Fallback to the specified background path if provided
         if !background_path.is_empty() {
             args.push("-b".to_string());
             args.push(format!("data/{}", background_path));
             println!("Using specified background file: {}", background_path);
         }
     } else if let Some(background_file) = found_background_file {
-        // Fallback to any found background file in the data directory
         args.push("-b".to_string());
         args.push(format!("data/{}", background_file));
         println!("Using background file found in data directory: {}", background_file);
     }
 
-    // Add VCV matrix path if provided or found
     if let Some(vcv_path) = &params.vcv_matrix_path {
         if !vcv_path.is_empty() {
             println!("Custom VCV matrix file specified: data/{}", vcv_path);
@@ -729,7 +693,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
             args.push(format!("data/{}", vcv_path));
         }
     } else if let Some(vcv_file) = found_vcv_file {
-        // Use the VCV matrix file found in the data directory
         println!("Found VCV matrix file in data directory: {}", vcv_file);
         args.push("--vcv-matrix".to_string());
         args.push(format!("data/{}", vcv_file));
@@ -738,7 +701,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
     args.push("-d".to_string());
     args.push("results".to_string());
     
-    // Add optional parameters based on configuration
     args.push("-t".to_string());
     args.push(params.statistical_test.clone());
     
@@ -750,7 +712,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
     args.push("-r".to_string());
     args.push(score_str);
     
-    // Add evidence code filter if provided
     if let Some(evidence_codes) = &params.evidence_codes {
         let trimmed = evidence_codes.trim();
         if !trimmed.is_empty() {
@@ -761,25 +722,20 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
     
     if params.propagate_enabled {
         args.push("-p".to_string());
-        // Add the algorithm value (classic, elim, weight) after -p
         if let Some(algo) = params.propagate_algorithm.as_ref() {
             args.push(algo.clone());
         } else {
-            args.push("classic".to_string()); // fallback default
+            args.push("classic".to_string());
         }
-        // Save the propagation setting to a marker file for other commands to use
         let marker_file = Path::new("data/.propagation_enabled");
         if let Err(e) = fs::write(marker_file, "1") {
             error!("Failed to create propagation marker file: {}", e);
-            // Continue anyway, this is just a helper file
         }
     } else {
-        // Remove the marker file if it exists
         let marker_file = Path::new("data/.propagation_enabled");
         if marker_file.exists() {
             if let Err(e) = fs::remove_file(marker_file) {
                 error!("Failed to remove propagation marker file: {}", e);
-                // Continue anyway, this is just a helper file
             }
         }
     }
@@ -791,9 +747,7 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
         }
     }
     
-    // Handle significance threshold independently
     if let Some(threshold) = params.fdr_threshold {
-        // Only add if different from default (0.05)
         if (threshold - 0.05).abs() > 0.0001 {
             args.push("-a".to_string());
             args.push(threshold.to_string());
@@ -809,24 +763,19 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
             args.push("--permutations".to_string());
             args.push(params.pm_tolerance.to_string());
         } else {
-            // If combination is enabled but no level is specified, log a warning
             warn!("Combination enabled but no taxonomic level specified");
         }
     }
     
-    // Always add --save-plots to the command arguments
     args.push("--save-plots".to_string());
     
-    // Add this before the Command execution
     match std::env::current_dir() {
         Ok(dir) => info!("Current working directory: {:?}", dir),
         Err(e) => error!("Failed to get current directory: {}", e),
     }
     
-    // Create the full command string for display
     let command_str = format!("taxago {}", args.join(" "));
     
-    // Print the command to terminal in a highly visible way
     println!("\n==================================================");
     println!("EXECUTING COMMAND:");
     println!("{}", command_str);
@@ -834,19 +783,15 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
     
     info!("Executing command: taxago with args: {:?}", args);
     
-    // Determine if this is a single analysis by checking the study population file
-    // and the multiple_testing parameter from the frontend
     let is_multiple_testing = params.multiple_testing.unwrap_or(false);
     let is_single_analysis = !is_multiple_testing && !params.study_pop_path.contains(",") && !params.combine_enabled;
     
-    // Log the determination for debugging
     debug!("Study population path: {}", params.study_pop_path);
     debug!("Contains comma: {}", params.study_pop_path.contains(","));
     debug!("Combine enabled: {}", params.combine_enabled);
     debug!("Multiple testing (from frontend): {:?}", params.multiple_testing);
     debug!("Is single analysis: {}", is_single_analysis);
     
-    // Create a marker file to indicate if this is single testing
     if is_single_analysis {
         if let Err(e) = fs::write("results/single_testing_marker", "") {
             warn!("Failed to create single testing marker file: {}", e);
@@ -854,7 +799,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
             debug!("Created single testing marker file");
         }
     } else {
-        // Remove the marker file if it exists
         if let Err(e) = fs::remove_file("results/single_testing_marker") {
             if e.kind() != std::io::ErrorKind::NotFound {
                 warn!("Failed to remove single testing marker file: {}", e);
@@ -870,9 +814,7 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
             if output.status.success() {
                 info!("Analysis completed successfully");
                 
-                // For single analysis (not combined), copy the results file automatically
                 if !params.combine_enabled && !params.study_pop_path.contains(",") {
-                    // Try to find the single result file and copy it
                     if let Ok(entries) = fs::read_dir("results/single_taxon_results") {
                         let files: Vec<_> = entries
                             .filter_map(Result::ok)
@@ -885,36 +827,28 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
                             })
                             .collect();
                         
-                        // If there's exactly one file, copy it to results.txt
                         if files.len() == 1 {
                             let source_path = files[0].path();
                             let dest_path = "results/results.txt";
                             
-                            // Read the source file and replace headers instead of just copying
                             match fs::read_to_string(&source_path) {
                                 Ok(content) => {
-                                    // Get the original header
                                     let original_header = content.lines().next().unwrap_or("");
                                     
-                                    // Store the original filename and header in a metadata file for later use by the download manager
                                     if let Some(filename) = source_path.file_name().and_then(|f| f.to_str()) {
                                         let metadata_path = "results/original_file_info.txt";
                                         let metadata_content = format!("{}\n{}", filename, original_header);
                                         if let Err(e) = fs::write(metadata_path, metadata_content) {
                                             error!("Failed to write metadata file: {}", e);
-                                            // Continue anyway, this is not critical
                                         }
                                     }
                                     
-                                    // Replace the header
                                     let mut lines: Vec<&str> = content.lines().collect();
                                     if !lines.is_empty() {
-                                        // Replace the first line (header) with the new header
                                         lines[0] = "GO ID\tName\tNamespace\tlog(Odds Ratio)\tStat. Sig.";
                                     }
                                     let modified_content = lines.join("\n");
                                     
-                                    // Write the modified content to the destination file
                                     if let Err(e) = fs::write(dest_path, modified_content) {
                                         error!("Failed to write modified single result file: {}", e);
                                     } else {
@@ -923,7 +857,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
                                 },
                                 Err(e) => {
                                     error!("Failed to read single result file: {}", e);
-                                    // Fall back to simple copy if reading fails
                                     if let Err(e) = fs::copy(&source_path, dest_path) {
                                         error!("Failed to copy single result file: {}", e);
                                     }
@@ -932,9 +865,7 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
                         }
                     }
                 }
-                // For combined analysis, check if there's a single combined file to copy
                 else if params.combine_enabled {
-                    // Try to find combined result files
                     if let Ok(entries) = fs::read_dir("results/combined_taxonomy_results") {
                         let files: Vec<_> = entries
                             .filter_map(Result::ok)
@@ -947,36 +878,28 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
                             })
                             .collect();
                         
-                        // If there's exactly one file, copy it to results.txt
                         if files.len() == 1 {
                             let source_path = files[0].path();
                             let dest_path = "results/results.txt";
                             
-                            // Read the source file and replace headers instead of just copying
                             match fs::read_to_string(&source_path) {
                                 Ok(content) => {
-                                    // Get the original header
                                     let original_header = content.lines().next().unwrap_or("");
                                     
-                                    // Store the original filename and header in a metadata file for later use by the download manager
                                     if let Some(filename) = source_path.file_name().and_then(|f| f.to_str()) {
                                         let metadata_path = "results/original_file_info.txt";
                                         let metadata_content = format!("{}\n{}", filename, original_header);
                                         if let Err(e) = fs::write(metadata_path, metadata_content) {
                                             error!("Failed to write metadata file: {}", e);
-                                            // Continue anyway, this is not critical
                                         }
                                     }
                                     
-                                    // Replace the header
                                     let mut lines: Vec<&str> = content.lines().collect();
                                     if !lines.is_empty() {
-                                        // Replace the first line (header) with the new header for combined results
                                         lines[0] = "GO ID\tName\tNamespace\tlog(Odds Ratio)\tStat. Sig.\tHetergnt\tSpecies %\tN w/\tN in tax";
                                     }
                                     let modified_content = lines.join("\n");
                                     
-                                    // Write the modified content to the destination file
                                     if let Err(e) = fs::write(dest_path, modified_content) {
                                         error!("Failed to write modified combined result file: {}", e);
                                     } else {
@@ -985,7 +908,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
                                 },
                                 Err(e) => {
                                     error!("Failed to read combined result file: {}", e);
-                                    // Fall back to simple copy if reading fails
                                     if let Err(e) = fs::copy(&source_path, dest_path) {
                                         error!("Failed to copy combined result file: {}", e);
                                     }
@@ -999,15 +921,11 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
                 info!("Command executed successfully. Stdout: {}, Stderr: {}", stdout, stderr);
                 
-                // After the analysis is complete, check if we need to auto-copy single test results
                 if !params.combine_enabled {
-                    // Wait a moment for files to be written
                     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
                     
-                    // Auto-copy single test results if there's only one
                     if let Err(e) = auto_copy_single_test_results().await {
                         error!("Failed to auto-copy single test results: {}", e);
-                        // Continue anyway, this is not critical
                     }
                 }
                 
@@ -1023,7 +941,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
                 error!("Analysis failed: {}", stderr);
                 
-                // Print the error and command to terminal in a highly visible way
                 println!("\n==================================================");
                 println!("COMMAND FAILED:");
                 println!("taxago {}", args.join(" "));
@@ -1040,7 +957,6 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
         Err(e) => {
             error!("Failed to execute analysis command: {}", e);
             
-            // Print the error and command to terminal in a highly visible way
             println!("\n==================================================");
             println!("COMMAND EXECUTION FAILED:");
             println!("taxago {}", args.join(" "));
@@ -1056,12 +972,10 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
     }
 }
 
-// Add this new endpoint handler
 async fn serve_pdf() -> HttpResponse {
     info!("Attempting to serve PDF");
     let path = Path::new("results/ontology_graph.pdf");
     
-    // Get current working directory
     match std::env::current_dir() {
         Ok(dir) => info!("Current working directory: {:?}", dir),
         Err(e) => error!("Failed to get current directory: {}", e),
@@ -1071,7 +985,6 @@ async fn serve_pdf() -> HttpResponse {
     
     if !path.exists() {
         error!("PDF file not found at {:?}", path);
-        // List contents of results directory
         if let Ok(entries) = fs::read_dir("results") {
             info!("Contents of results directory:");
             for entry in entries {
@@ -1098,11 +1011,9 @@ async fn serve_pdf() -> HttpResponse {
     }
 }
 
-// Add this function to list files in the combined_taxonomy_results directory
 async fn get_combined_files() -> HttpResponse {
     let dir_path = "results/combined_taxonomy_results";
     
-    // Create directory if it doesn't exist
     if !Path::new(dir_path).exists() {
         if let Err(e) = fs::create_dir_all(dir_path) {
             error!("Failed to create combined results directory: {}", e);
@@ -1135,11 +1046,9 @@ async fn get_combined_files() -> HttpResponse {
     }
 }
 
-// Add this function to list files in the single_taxon_results directory
 async fn get_single_files() -> HttpResponse {
     let dir_path = "results/single_taxon_results";
     
-    // Create directory if it doesn't exist
     if !Path::new(dir_path).exists() {
         if let Err(e) = fs::create_dir_all(dir_path) {
             error!("Failed to create single results directory: {}", e);
@@ -1172,7 +1081,6 @@ async fn get_single_files() -> HttpResponse {
     }
 }
 
-// Add this struct for deserializing the request
 #[derive(Deserialize)]
 struct CopyFileRequest {
     #[serde(rename = "type")]
@@ -1180,49 +1088,40 @@ struct CopyFileRequest {
     filename: String,
 }
 
-// Add this function to copy plots from single_taxon_results to results directory
 async fn copy_plots(species_name: &str) -> Result<(), std::io::Error> {
     info!("Copying plots for species: {}", species_name);
     
-    // Create plots directory if it doesn't exist
     let plots_dir = "results/plots";
     if let Err(e) = fs::create_dir_all(plots_dir) {
         error!("Failed to create plots directory: {}", e);
         return Err(e);
     }
     
-    // Remove _GOEA_results.txt from species name if present
     let clean_species_name = species_name.replace("_GOEA_results.txt", "");
     
-    // Use underscores for the new naming convention
     let species_name_with_underscores = clean_species_name.clone();
 
     info!("Looking for plots with species name: {}", species_name_with_underscores);
     
-    // Define the namespaces and their standardized plot names
     let namespaces = [
         ("Biological_Process", "bp"),
         ("Molecular_Function", "mf"),
         ("Cellular_Component", "cc")
     ];
     
-    // Define which plots to copy and their new names (new convention)
     let plot_types = [
         ("network_plot.html", "_network.html"),
         ("bubble_plot.html", "_bubble.html"),
         ("bar_plot.html", "_bar.html")
     ];
     
-    // Copy plots for each namespace
     for (namespace, prefix) in namespaces.iter() {
         let source_dir = format!("results/single_taxon_results/plots/{}", namespace);
-        
-        // For each plot type
+    
         for (source_suffix, dest_suffix) in plot_types.iter() {
             let source_path = format!("{}/{}_{}", source_dir, species_name_with_underscores, source_suffix);
             let dest_path = format!("{}/{}{}", plots_dir, prefix, dest_suffix);
             
-            // Copy the file if it exists
             if Path::new(&source_path).exists() {
                 info!("Copying {} to {}", source_path, dest_path);
                 if let Err(e) = fs::copy(&source_path, &dest_path) {
@@ -1237,7 +1136,6 @@ async fn copy_plots(species_name: &str) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-// Add this endpoint handler
 #[post("/copy-results-file")]
 async fn copy_results_file(data: web::Json<CopyFileRequest>) -> impl Responder {
     info!("Copying results file: {:?} - {}", data.file_type, data.filename);
@@ -1250,62 +1148,48 @@ async fn copy_results_file(data: web::Json<CopyFileRequest>) -> impl Responder {
     
     let dest_path = "results/results.txt";
     
-    // Ensure the results directory exists
     if let Err(e) = fs::create_dir_all("results") {
         error!("Failed to create results directory: {}", e);
         return HttpResponse::InternalServerError().body("Failed to create results directory");
     }
     
-    // Read the source file
     match fs::read_to_string(&source_path) {
         Ok(content) => {
-            // Get the original header
             let original_header = content.lines().next().unwrap_or("");
             
-            // Store the original filename and header in a metadata file for later use by the download manager
             let metadata_path = "results/original_file_info.txt";
             let metadata_content = format!("{}\n{}", data.filename, original_header);
             if let Err(e) = fs::write(metadata_path, metadata_content) {
                 error!("Failed to write metadata file: {}", e);
-                // Continue anyway, this is not critical
             }
             
             let modified_content = if data.file_type == "single_file" {
-                // For single_taxon_results files, replace the header
                 let mut lines: Vec<&str> = content.lines().collect();
                 if !lines.is_empty() {
-                    // Replace the first line (header) with the new header
                     lines[0] = "GO ID\tName\tNamespace\tlog(Odds Ratio)\tStat. Sig.";
                 }
                 lines.join("\n")
             } else if data.file_type == "combined_file" {
-                // For combined_taxonomy_results files, replace the header
                 let mut lines: Vec<&str> = content.lines().collect();
                 if !lines.is_empty() {
-                    // Replace the first line (header) with the new header for combined results
                     lines[0] = "GO ID\tName\tNamespace\tlog(Odds Ratio)\tStat. Sig.\tHetergnt\tSpecies %\tN w/\tN in tax";
                 }
                 lines.join("\n")
             } else {
-                // For any other type, keep the original content
                 content
             };
             
-            // Write the modified content to the destination file
             match fs::write(dest_path, modified_content) {
                 Ok(_) => {
                     info!("Successfully copied and modified {} to {}", source_path, dest_path);
                     
-                    // Copy the appropriate plots based on the file type
                     if data.file_type == "single_file" {
                         if let Err(e) = copy_plots(&data.filename).await {
                             error!("Failed to copy single plots: {}", e);
-                            // Continue anyway, this is not critical
                         }
                     } else if data.file_type == "combined_file" {
                         if let Err(e) = copy_combined_plots(&data.filename).await {
                             error!("Failed to copy combined plots: {}", e);
-                            // Continue anyway, this is not critical
                         }
                     }
                     
@@ -1324,14 +1208,11 @@ async fn copy_results_file(data: web::Json<CopyFileRequest>) -> impl Responder {
     }
 }
 
-// Add this function to clear results
 async fn clear_results() -> HttpResponse {
     info!("Clearing results directory");
     
-    // Create a single cleanup command for the results directory
     let cleanup_script = "rm -rf results";
 
-    // Execute cleanup as a single shell command
     let output = std::process::Command::new("sh")
         .arg("-c")
         .arg(cleanup_script)
@@ -1343,7 +1224,6 @@ async fn clear_results() -> HttpResponse {
                 info!("✓ Successfully removed results directory");
             } else {
                 error!("✗ Cleanup failed: {}", String::from_utf8_lossy(&output.stderr));
-                // Fallback to Rust's fs::remove_dir_all
                 if let Err(e) = fs::remove_dir_all("results") {
                     error!("Fallback cleanup also failed: {}", e);
                     return HttpResponse::InternalServerError().body("Failed to clear results directory");
@@ -1352,7 +1232,6 @@ async fn clear_results() -> HttpResponse {
         },
         Err(e) => {
             error!("✗ Failed to execute cleanup command: {}", e);
-            // Fallback to Rust's fs::remove_dir_all
             if let Err(e) = fs::remove_dir_all("results") {
                 error!("Fallback cleanup also failed: {}", e);
                 return HttpResponse::InternalServerError().body("Failed to clear results directory");
@@ -1360,7 +1239,6 @@ async fn clear_results() -> HttpResponse {
         }
     }
 
-    // Verify final state
     let results_exists = Path::new("results").exists();
     info!("Results directory exists after cleanup: {}", results_exists);
 
@@ -1376,7 +1254,6 @@ async fn clear_results() -> HttpResponse {
 
 #[get("/check-testing-type")]
 async fn check_testing_type() -> impl Responder {
-    // First check if the marker file exists - this is the most reliable indicator
     let marker_exists = Path::new("results/single_testing_marker").exists();
     
     if marker_exists {
@@ -1386,7 +1263,6 @@ async fn check_testing_type() -> impl Responder {
         }));
     }
     
-    // If no marker file, check the directory structure
     let combined_dir = Path::new("results/combined_taxonomy_results");
     let has_combined_files = combined_dir.exists() && 
         fs::read_dir(combined_dir).map(|entries| entries.count() > 0).unwrap_or(false);
@@ -1406,7 +1282,6 @@ async fn check_testing_type() -> impl Responder {
                     })
                     .collect();
                 
-                // Log the actual files found for debugging
                 for (i, file) in files.iter().enumerate() {
                     if let Some(name) = file.file_name().to_str() {
                         debug!("Single taxon file {}: {}", i+1, name);
@@ -1427,12 +1302,8 @@ async fn check_testing_type() -> impl Responder {
     debug!("Check testing type - Combined files: {}, Single files count: {}", 
            has_combined_files, single_files_count);
     
-    // For multiple testing, we should have either:
-    // 1. Files in the combined_taxonomy_results directory, or
-    // 2. More than one file in the single_taxon_results directory
     let is_multiple_testing = has_combined_files || single_files_count > 1;
     
-    // If there's exactly one single test result, automatically copy it and its plots
     if single_files_count == 1 && !has_combined_files {
         debug!("Found exactly one single test result, auto-copying");
         if let Err(e) = auto_copy_single_test_results().await {
@@ -1468,33 +1339,27 @@ async fn run_ancestor_analysis(data: web::Json<AncestorAnalysisRequest>) -> impl
         }));
     }
     
-    // Delete the previous common_ontology_graph.pdf file if it exists
     let pdf_path = Path::new("results/common_ontology_graph.pdf");
     if pdf_path.exists() {
         info!("Deleting previous ancestor analysis PDF file");
         if let Err(e) = fs::remove_file(pdf_path) {
             error!("Failed to delete previous PDF file: {}", e);
-            // Continue with the analysis even if deletion fails
         }
     }
 
-    // Delete the previous common_ontology_graph.mmd file if it exists
     let mmd_path = Path::new("results/common_ontology_graph.mmd");
     if mmd_path.exists() {
         info!("Deleting previous ancestor analysis MMD file");
         if let Err(e) = fs::remove_file(mmd_path) {
             error!("Failed to delete previous MMD file: {}", e);
-            // Continue with the analysis even if deletion fails
         }
     }
     
-    // Check if any OBO file exists in the data directory
     let mut obo_param = String::new();
     let data_dir = Path::new("data");
     let mut obo_found = false;
     
     if data_dir.exists() && data_dir.is_dir() {
-        // Look for .obo files in the data directory
         if let Ok(entries) = fs::read_dir(data_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -1511,7 +1376,6 @@ async fn run_ancestor_analysis(data: web::Json<AncestorAnalysisRequest>) -> impl
         }
     }
     
-    // Build the command with the specified parameters
     let go_terms_arg = data.go_terms.join(",");
     let command = if obo_found {
         format!(
@@ -1525,13 +1389,11 @@ async fn run_ancestor_analysis(data: web::Json<AncestorAnalysisRequest>) -> impl
         )
     };
     
-    // Print the command to the console for debugging
     println!("\n==================================================");
     println!("ANCESTOR ANALYSIS COMMAND:");
     println!("{}", command);
     println!("==================================================\n");
     
-    // Create the results directory if it doesn't exist
     let results_dir = Path::new("results");
     if !results_dir.exists() {
         if let Err(e) = fs::create_dir_all(results_dir) {
@@ -1544,7 +1406,6 @@ async fn run_ancestor_analysis(data: web::Json<AncestorAnalysisRequest>) -> impl
         }
     }
     
-    // Execute the command
     let output = match Command::new("sh")
         .arg("-c")
         .arg(&command)
@@ -1553,7 +1414,6 @@ async fn run_ancestor_analysis(data: web::Json<AncestorAnalysisRequest>) -> impl
             Err(e) => {
                 error!("Failed to execute command: {}", e);
                 
-                // Print the error and command to terminal in a highly visible way
                 println!("\n==================================================");
                 println!("COMMAND EXECUTION FAILED:");
                 println!("{}", command);
@@ -1568,7 +1428,6 @@ async fn run_ancestor_analysis(data: web::Json<AncestorAnalysisRequest>) -> impl
             }
         };
     
-    // Check if the command was successful
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -1583,7 +1442,6 @@ async fn run_ancestor_analysis(data: web::Json<AncestorAnalysisRequest>) -> impl
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         error!("Analysis failed: {}", stderr);
         
-        // Print the error and command to terminal in a highly visible way
         println!("\n==================================================");
         println!("COMMAND FAILED:");
         println!("{}", command);
@@ -1598,7 +1456,6 @@ async fn run_ancestor_analysis(data: web::Json<AncestorAnalysisRequest>) -> impl
     }
 }
 
-// Add this function to serve the ancestor graph image
 async fn serve_ancestor_graph() -> HttpResponse {
     let path = Path::new("results/common_ontology_graph.pdf");
     
@@ -1616,29 +1473,24 @@ async fn serve_ancestor_graph() -> HttpResponse {
         }
     } else {
         error!("Ancestor graph PDF not found");
-        // Return a user-friendly message instead of a 404 error
         HttpResponse::Ok()
             .content_type("text/plain")
             .body("No common ancestors found between the provided GO terms")
     }
 }
 
-// Add this function to serve the ancestor graph mermaid file
 async fn serve_ancestor_mermaid() -> HttpResponse {
     let path = Path::new("results/common_ontology_graph.mmd");
     
     if path.exists() {
         match fs::read_to_string(path) {
             Ok(contents) => {
-                // Process the Mermaid content to remove asterisks from GO IDs
-                // First, handle the common case of GO IDs with asterisks
                 let processed_contents = contents
                     .replace("**GO:", "GO:")
                     .replace("GO:**", "GO:")
                     .replace("**GO", "GO")
                     .replace("GO**", "GO");
                 
-                // Handle more complex cases where asterisks might be in the middle or at the end
                 let mut cleaned = String::with_capacity(processed_contents.len());
                 let mut in_go_id = false;
                 let mut go_id_buffer = String::new();
@@ -1646,37 +1498,29 @@ async fn serve_ancestor_mermaid() -> HttpResponse {
                 
                 while let Some(c) = chars.next() {
                     if in_go_id {
-                        // We're inside a GO ID
                         if c == '*' {
-                            // Skip asterisks inside GO IDs
                             continue;
                         } else if c.is_ascii_digit() || c == ':' {
-                            // Still in the GO ID
                             go_id_buffer.push(c);
                         } else {
-                            // We're exiting the GO ID
                             in_go_id = false;
                             
-                            // Check if there are trailing asterisks in the buffer
                             let clean_go_id = go_id_buffer.trim_end_matches('*');
                             cleaned.push_str(clean_go_id);
-                            cleaned.push(c); // Add the current character
+                            cleaned.push(c);
                             go_id_buffer.clear();
                         }
                     } else {
-                        // Check if we're entering a GO ID
                         if c == 'G' && chars.peek() == Some(&'O') {
-                            // Consume the 'O'
                             chars.next();
                             
-                            // Check for the colon
                             if chars.peek() == Some(&':') {
                                 in_go_id = true;
                                 go_id_buffer.push_str("GO:");
-                                chars.next(); // Consume the ':'
+                                chars.next();
                             } else {
-                                cleaned.push(c); // Just a 'G'
-                                cleaned.push('O'); // Add the 'O' we peeked
+                                cleaned.push(c);
+                                cleaned.push('O');
                             }
                         } else {
                             cleaned.push(c);
@@ -1684,13 +1528,11 @@ async fn serve_ancestor_mermaid() -> HttpResponse {
                     }
                 }
                 
-                // Handle case where the file ends with a GO ID
                 if in_go_id && !go_id_buffer.is_empty() {
                     let clean_go_id = go_id_buffer.trim_end_matches('*');
                     cleaned.push_str(clean_go_id);
                 }
                 
-                // Additional cleanup for any remaining patterns
                 let final_cleaned = cleaned
                     .replace("GO:*", "GO:")
                     .replace("*GO:", "GO:")
@@ -1707,7 +1549,6 @@ async fn serve_ancestor_mermaid() -> HttpResponse {
         }
     } else {
         error!("Ancestor graph Mermaid file not found");
-        // Return a user-friendly message instead of a 404 error
         HttpResponse::Ok()
             .content_type("text/plain")
             .body("No common ancestors found between the provided GO terms")
@@ -1723,14 +1564,12 @@ struct DeleteFileInfoRequest {
 async fn delete_file_info(data: web::Json<DeleteFileInfoRequest>) -> impl Responder {
     info!("Deleting file info for: {}", data.filename);
     
-    // Try to delete the file from both possible locations
     let data_path = format!("data/{}", data.filename);
     let background_path = format!("data/background_population/{}", data.filename);
     
     let mut success = false;
     let mut deleted_from_background = false;
     
-    // Try to delete from data directory
     if Path::new(&data_path).exists() {
         if let Err(e) = fs::remove_file(&data_path) {
             error!("Failed to delete file from data directory: {}", e);
@@ -1740,7 +1579,6 @@ async fn delete_file_info(data: web::Json<DeleteFileInfoRequest>) -> impl Respon
         }
     }
     
-    // Try to delete from background_population directory
     if Path::new(&background_path).exists() {
         if let Err(e) = fs::remove_file(&background_path) {
             error!("Failed to delete file from background_population directory: {}", e);
@@ -1751,16 +1589,12 @@ async fn delete_file_info(data: web::Json<DeleteFileInfoRequest>) -> impl Respon
         }
     }
     
-    // If we deleted a file from the background_population directory,
-    // check if the directory is now empty and delete it if it is
     if deleted_from_background {
         let background_dir = Path::new("data/background_population");
         if background_dir.exists() && background_dir.is_dir() {
-            // Check if directory is empty
             if let Ok(entries) = fs::read_dir(background_dir) {
                 let is_empty = entries.count() == 0;
                 if is_empty {
-                    // Directory is empty, delete it
                     if let Err(e) = fs::remove_dir(background_dir) {
                         error!("Failed to delete empty background_population directory: {}", e);
                     } else {
@@ -1788,10 +1622,8 @@ async fn delete_file_info(data: web::Json<DeleteFileInfoRequest>) -> impl Respon
 async fn clear_data_folder() -> HttpResponse {
     info!("Clearing data folder");
     
-    // Create a single cleanup command for the data directory
     let cleanup_script = "rm -rf data";
 
-    // Execute cleanup as a single shell command
     let output = std::process::Command::new("sh")
         .arg("-c")
         .arg(cleanup_script)
@@ -1803,7 +1635,6 @@ async fn clear_data_folder() -> HttpResponse {
                 info!("✓ Successfully removed data directory");
             } else {
                 error!("✗ Cleanup failed: {}", String::from_utf8_lossy(&output.stderr));
-                // Fallback to Rust's fs::remove_dir_all
                 if let Err(e) = fs::remove_dir_all("data") {
                     error!("Fallback cleanup also failed: {}", e);
                     return HttpResponse::InternalServerError().body("Failed to clear data directory");
@@ -1812,7 +1643,6 @@ async fn clear_data_folder() -> HttpResponse {
         },
         Err(e) => {
             error!("✗ Failed to execute cleanup command: {}", e);
-            // Fallback to Rust's fs::remove_dir_all
             if let Err(e) = fs::remove_dir_all("data") {
                 error!("Fallback cleanup also failed: {}", e);
                 return HttpResponse::InternalServerError().body("Failed to clear data directory");
@@ -1820,7 +1650,6 @@ async fn clear_data_folder() -> HttpResponse {
         }
     }
 
-    // Verify final state
     let data_exists = Path::new("data").exists();
     info!("Data directory exists after cleanup: {}", data_exists);
 
@@ -1837,7 +1666,6 @@ async fn clear_data_folder() -> HttpResponse {
 async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
     info!("Handling file upload");
     
-    // Create data directory if it doesn't exist
     if let Err(e) = fs::create_dir_all("data") {
         error!("Failed to create data directory: {}", e);
         return Ok(HttpResponse::InternalServerError().body("Failed to create data directory"));
@@ -1847,7 +1675,6 @@ async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
     let mut filename = String::new();
     let mut file_data = Vec::new();
     
-    // Process the multipart form data
     while let Ok(Some(mut field)) = payload.try_next().await {
         let content_disposition = field.content_disposition();
         
@@ -1857,7 +1684,6 @@ async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
                     filename = fname.to_string();
                     info!("Processing file: {}", filename);
                     
-                    // Read the file content
                     while let Some(chunk) = field.next().await {
                         let data = match chunk {
                             Ok(data) => data,
@@ -1870,7 +1696,6 @@ async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
                     }
                 }
             } else if name == "dropzone" {
-                // Read the dropzone type
                 while let Some(chunk) = field.next().await {
                     let data = match chunk {
                         Ok(data) => data,
@@ -1885,7 +1710,6 @@ async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
                     }
                 }
             } else if name == "filename" {
-                // Read the filename if provided separately
                 while let Some(chunk) = field.next().await {
                     let data = match chunk {
                         Ok(data) => data,
@@ -1906,9 +1730,7 @@ async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
     }
     
     if !filename.is_empty() && !file_data.is_empty() {
-        // Determine the file path based on the dropzone type
         let filepath = if dropzone_type == "background-population" {
-            // Create background_population directory only if we're uploading to it
             let background_dir = Path::new("data/background_population");
             if !background_dir.exists() {
                 if let Err(e) = fs::create_dir_all(background_dir) {
@@ -1918,7 +1740,6 @@ async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
                 info!("Created background_population directory");
             }
             
-            // Check if this file also exists in the main data directory and remove it if it does
             let data_path = format!("data/{}", filename);
             if Path::new(&data_path).exists() {
                 if let Err(e) = fs::remove_file(&data_path) {
@@ -1935,7 +1756,6 @@ async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
         
         info!("Saving file to: {}", filepath);
         
-        // Create a file to save the uploaded content
         let mut file = match File::create(&filepath) {
             Ok(file) => file,
             Err(e) => {
@@ -1944,7 +1764,6 @@ async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
             }
         };
         
-        // Write the file content
         if let Err(e) = file.write_all(&file_data) {
             error!("Error while writing to file: {}", e);
             return Ok(HttpResponse::InternalServerError().body(format!("Error while writing to file: {}", e)));
@@ -1952,18 +1771,15 @@ async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
         
         info!("File saved successfully: {} ({} bytes)", filepath, file_data.len());
         
-        // For OBO files, print additional information
         if filename.to_lowercase().ends_with(".obo") {
             if let Ok(metadata) = fs::metadata(&filepath) {
                 info!("OBO file size: {} bytes", metadata.len());
                 
-                // Check if the file is empty or very small
                 if metadata.len() < 1000 {
                     warn!("OBO file is suspiciously small (< 1KB). It may be incomplete or corrupted.");
                 }
             }
             
-            // Check if the file exists
             if Path::new(&filepath).exists() {
                 info!("OBO file exists at path: {}", filepath);
             } else {
@@ -1995,13 +1811,11 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
         }));
     }
     
-    // Check if any OBO file exists in the data directory
     let mut obo_param = String::new();
     let data_dir = Path::new("data");
     let mut obo_found = false;
     
     if data_dir.exists() && data_dir.is_dir() {
-        // Look for .obo files in the data directory
         if let Ok(entries) = fs::read_dir(data_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -2018,14 +1832,11 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
         }
     }
     
-    // Check if background population files exist
     let mut background_param = String::new();
     let mut background_found = false;
     
-    // First check if background_population directory exists and has background files
     let background_population_dir = Path::new("data/background_population");
     if background_population_dir.exists() && background_population_dir.is_dir() {
-        // Check if the directory contains any background files
         if let Ok(entries) = fs::read_dir(background_population_dir) {
             let has_background_files = entries
                 .filter_map(Result::ok)
@@ -2049,9 +1860,7 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
         }
     }
     
-    // If no background files found in background_population directory, check the data directory
     if !background_found && data_dir.exists() && data_dir.is_dir() {
-        // Look for background files in the data directory
         if let Ok(entries) = fs::read_dir(data_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -2070,27 +1879,22 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
         }
     }
     
-    // Check if propagation was enabled
     let mut propagation_param = String::new();
     
-    // Read the propagation setting from a file or environment variable
     let propagation_marker = Path::new("data/.propagation_enabled");
     if propagation_marker.exists() {
         propagation_param = "-p".to_string();
         info!("Propagation is enabled");
     }
     
-    // Build the command with the specified parameters
     let go_terms_arg = data.go_terms.join(",");
     
-    // Add method parameter if it's not the default (resnik)
     let method_param = if data.method != "resnik" {
         format!("-m {}", data.method)
     } else {
         String::new()
     };
     
-    // Construct the full command
     let mut command_parts = Vec::new();
     command_parts.push("semantic-similarity".to_string());
     
@@ -2113,20 +1917,16 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
     if !propagation_param.is_empty() {
         command_parts.push(propagation_param);
     } else {
-        // Default propagation parameter if none specified
         command_parts.push("-p".to_string());
     }
     
-    // Join all parts with spaces
     let command = command_parts.join(" ");
     
-    // Print the command to the console for debugging
     println!("\n==================================================");
     println!("SEMANTIC SIMILARITY COMMAND:");
     println!("{}", command);
     println!("==================================================\n");
     
-    // Create the results directory if it doesn't exist
     let results_dir = Path::new("results");
     if !results_dir.exists() {
         if let Err(e) = fs::create_dir_all(results_dir) {
@@ -2139,7 +1939,6 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
         }
     }
     
-    // Execute the command
     let output = match Command::new("sh")
         .arg("-c")
         .arg(&command)
@@ -2165,15 +1964,11 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
         }));
     }
     
-    // Log the command output for debugging
     let stdout = String::from_utf8_lossy(&output.stdout);
     info!("Command output: {}", stdout);
     
-    // Create a map to store similarity scores
     let mut similarity_scores = HashMap::new();
     
-    // Read the similarity scores from the TSV file in the results folder
-    // The file name might vary based on the method used, so we'll look for any TSV files
     let results_dir = Path::new("results");
     let mut tsv_file_path = None;
     
@@ -2183,7 +1978,6 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
                 let path = entry.path();
                 if path.is_file() && 
                    path.extension().map_or(false, |ext| ext == "tsv") {
-                    // Check if the file name contains "similarity" or the method name
                     if let Some(filename) = path.file_name() {
                         let filename_str = filename.to_string_lossy().to_lowercase();
                         if filename_str.contains("similarity") || 
@@ -2199,25 +1993,19 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
         }
     }
     
-    // If we found a TSV file, read the similarity scores from it
     if let Some(path) = tsv_file_path {
         match fs::read_to_string(path.clone()) {
             Ok(content) => {
-                // Parse the TSV file
-                // The format might vary, but typically it would have headers and then rows of data
                 let lines: Vec<&str> = content.lines().collect();
                 
-                if lines.len() > 1 {  // At least one header line and one data line
-                    // Get the headers (GO terms)
+                if lines.len() > 1 { 
                     let headers: Vec<&str> = lines[0].split('\t').collect();
                     
-                    // Process each data row
                     for i in 1..lines.len() {
                         let values: Vec<&str> = lines[i].split('\t').collect();
                         if values.len() > 1 {
                             let term1 = values[0].trim();
                             
-                            // Each column (after the first) represents a similarity score with another term
                             for j in 1..values.len() {
                                 if j < headers.len() {
                                     let term2 = headers[j].trim();
@@ -2235,14 +2023,12 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
             },
             Err(e) => {
                 error!("Failed to read similarity results file: {}", e);
-                // We'll fall back to dummy data below
             }
         }
     } else {
         warn!("No similarity results file found in the results directory");
     }
     
-    // If no scores were found, create dummy data for testing
     if similarity_scores.is_empty() {
         warn!("No similarity scores found, using dummy data");
         for i in 0..data.go_terms.len() {
@@ -2250,7 +2036,7 @@ async fn run_semantic_similarity(data: web::Json<SemanticSimilarityRequest>) -> 
                 let term1 = &data.go_terms[i];
                 let term2 = &data.go_terms[j];
                 
-                let score = if i == j { 1.0 } else { 0.5 }; // Dummy score
+                let score = if i == j { 1.0 } else { 0.5 };
                 let key = format!("{}-{}", term1, term2);
                 similarity_scores.insert(key, score);
             }
@@ -2270,7 +2056,6 @@ async fn clear_background_folder() -> HttpResponse {
     
     let background_dir = Path::new("data/background_population");
     
-    // Delete the entire background_population directory if it exists
     if background_dir.exists() {
         if let Err(e) = fs::remove_dir_all(background_dir) {
             error!("Failed to remove background_population directory: {}", e);
@@ -2281,8 +2066,6 @@ async fn clear_background_folder() -> HttpResponse {
         }
         info!("Successfully removed background_population directory");
     }
-    
-    // We don't recreate the directory - it will be created when needed
     
     HttpResponse::Ok().json(json!({
         "success": true,
@@ -2307,14 +2090,12 @@ async fn test_copy_plots(species: web::Path<String>) -> HttpResponse {
 async fn auto_copy_single_test_results() -> Result<(), std::io::Error> {
     info!("Checking for single test results to auto-copy");
     
-    // Check if single_taxon_results directory exists
     let single_dir = Path::new("results/single_taxon_results");
     if !single_dir.exists() {
         info!("No single_taxon_results directory found");
         return Ok(());
     }
     
-    // Get all files in the directory
     let entries = match fs::read_dir(single_dir) {
         Ok(entries) => entries,
         Err(e) => {
@@ -2323,7 +2104,6 @@ async fn auto_copy_single_test_results() -> Result<(), std::io::Error> {
         }
     };
     
-    // Filter for actual files (not directories)
     let files: Vec<_> = entries
         .filter_map(Result::ok)
         .filter(|entry| {
@@ -2335,38 +2115,29 @@ async fn auto_copy_single_test_results() -> Result<(), std::io::Error> {
         })
         .collect();
     
-    // If there's exactly one file, copy it and its plots
     if files.len() == 1 {
         if let Some(file_name) = files[0].file_name().to_str() {
             info!("Found single test result: {}", file_name);
             
-            // Copy the results file
             let source_path = format!("results/single_taxon_results/{}", file_name);
             let dest_path = "results/results.txt";
             
-            // Read the source file
             match fs::read_to_string(&source_path) {
                 Ok(content) => {
-                    // Get the original header
                     let original_header = content.lines().next().unwrap_or("");
                     
-                    // Store the original filename and header in a metadata file
                     let metadata_path = "results/original_file_info.txt";
                     let metadata_content = format!("{}\n{}", file_name, original_header);
                     if let Err(e) = fs::write(metadata_path, metadata_content) {
                         error!("Failed to write metadata file: {}", e);
-                        // Continue anyway, this is not critical
                     }
                     
-                    // For single_taxon_results files, replace the header
                     let mut lines: Vec<&str> = content.lines().collect();
                     if !lines.is_empty() {
-                        // Replace the first line (header) with the new header
                         lines[0] = "GO ID\tName\tNamespace\tlog(Odds Ratio)\tStat. Sig.";
                     }
                     let modified_content = lines.join("\n");
                     
-                    // Write the modified content to the destination file
                     if let Err(e) = fs::write(dest_path, modified_content) {
                         error!("Failed to write to {}: {}", dest_path, e);
                         return Err(e);
@@ -2374,10 +2145,8 @@ async fn auto_copy_single_test_results() -> Result<(), std::io::Error> {
                     
                     info!("Successfully copied and modified {} to {}", source_path, dest_path);
                     
-                    // Also copy the plots
                     if let Err(e) = copy_plots(file_name).await {
                         error!("Failed to copy plots: {}", e);
-                        // Continue anyway, this is not critical
                     }
                     
                     return Ok(());
@@ -2398,43 +2167,35 @@ async fn auto_copy_single_test_results() -> Result<(), std::io::Error> {
 async fn copy_combined_plots(taxonomy_name: &str) -> Result<(), std::io::Error> {
     info!("Copying combined plots for taxonomy: {}", taxonomy_name);
     
-    // Create plots directory if it doesn't exist
     let plots_dir = "results/plots";
     if let Err(e) = fs::create_dir_all(plots_dir) {
         error!("Failed to create plots directory: {}", e);
         return Err(e);
     }
     
-    // Remove _GOEA_results.txt from taxonomy name if present
     let clean_taxonomy_name = taxonomy_name.replace("_GOEA_results.txt", "");
     
-    // Use underscores for the new naming convention
     let taxonomy_name_with_underscores = clean_taxonomy_name.clone();
     
-    // Define the namespaces and their standardized plot names
     let namespaces = [
         ("Biological_Process", "bp"),
         ("Molecular_Function", "mf"),
         ("Cellular_Component", "cc")
     ];
     
-    // Define which plots to copy and their new names (new convention)
     let plot_types = [
         ("network_plot.html", "_network.html"),
         ("bubble_plot.html", "_bubble.html"),
         ("bar_plot.html", "_bar.html")
     ];
     
-    // Copy plots for each namespace
     for (namespace, prefix) in namespaces.iter() {
         let source_dir = format!("results/combined_taxonomy_results/plots/{}", namespace);
         
-        // For each plot type
         for (source_suffix, dest_suffix) in plot_types.iter() {
             let source_path = format!("{}/{}_{}", source_dir, taxonomy_name_with_underscores, source_suffix);
             let dest_path = format!("{}/{}{}", plots_dir, prefix, dest_suffix);
             
-            // Copy the file if it exists
             if Path::new(&source_path).exists() {
                 info!("Copying {} to {}", source_path, dest_path);
                 if let Err(e) = fs::copy(&source_path, &dest_path) {
@@ -2454,21 +2215,18 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
     info!("Starting Gene Ontology Analysis Tool");
 
-    // Create data directory if it doesn't exist
     if let Err(e) = fs::create_dir_all("data") {
         error!("Failed to create data directory: {}", e);
     } else {
         info!("Data directory created or already exists");
     }
 
-    // Set up cleanup handler before starting the server
     let current_dir = std::env::current_dir().expect("Failed to get current directory");
     println!("Current working directory: {}", current_dir.display());
     
     let results_path = current_dir.join("results");
     let data_path = current_dir.join("data");
     
-    // Create a test file to verify if handler is called
     let test_file = current_dir.join("cleanup_test.txt");
     fs::write(&test_file, "Cleanup test file").expect("Failed to create test file");
     
@@ -2478,7 +2236,6 @@ async fn main() -> std::io::Result<()> {
     println!("Test file: {}", test_file.display());
 
     ctrlc::set_handler(move || {
-        // Immediately disable further Ctrl+C handling to prevent interruption
         let _ = ctrlc::set_handler(move || {
             println!("Cleanup in progress, please wait...");
         });
@@ -2487,10 +2244,8 @@ async fn main() -> std::io::Result<()> {
         println!("CTRL+C received! Starting cleanup process...");
         println!("==================================================");
 
-        // Write to test file first
         let _ = fs::write(&test_file, "Handler was called - cleanup in progress");
         
-        // Create a single cleanup command for both directories
         let cleanup_script = format!(
             "rm -rf '{}' '{}' '{}'",
             results_path.display(),
@@ -2498,7 +2253,6 @@ async fn main() -> std::io::Result<()> {
             test_file.display()
         );
 
-        // Execute cleanup as a single shell command
         let output = std::process::Command::new("sh")
             .arg("-c")
             .arg(&cleanup_script)
@@ -2512,44 +2266,35 @@ async fn main() -> std::io::Result<()> {
                     println!("✗ Cleanup failed: {}", 
                         String::from_utf8_lossy(&output.stderr));
                     
-                    // Fallback to individual removal
                     println!("Attempting individual removal...");
                     
-                    // Remove results directory
                     if let Err(e) = fs::remove_dir_all(&results_path) {
                         println!("Failed to remove results directory: {}", e);
                     }
                     
-                    // Remove data directory
                     if let Err(e) = fs::remove_dir_all(&data_path) {
                         println!("Failed to remove data directory: {}", e);
                     }
                     
-                    // Remove test file
                     let _ = fs::remove_file(&test_file);
                 }
             },
             Err(e) => {
                 println!("✗ Failed to execute cleanup command: {}", e);
-                // Fallback to individual removal
                 println!("Attempting individual removal...");
                 
-                // Remove results directory
                 if let Err(e) = fs::remove_dir_all(&results_path) {
                     println!("Failed to remove results directory: {}", e);
                 }
                 
-                // Remove data directory
                 if let Err(e) = fs::remove_dir_all(&data_path) {
                     println!("Failed to remove data directory: {}", e);
                 }
                 
-                // Remove test file
                 let _ = fs::remove_file(&test_file);
             }
         }
 
-        // Verify final state
         let results_exists = results_path.exists();
         let data_exists = data_path.exists();
         let test_exists = test_file.exists();
@@ -2569,7 +2314,6 @@ async fn main() -> std::io::Result<()> {
         println!("Cleanup process completed. Exiting...");
         println!("==================================================\n");
 
-        // Force exit to ensure we terminate
         std::process::exit(0);
     }).expect("Error setting Ctrl-C handler");
 
@@ -2598,7 +2342,7 @@ async fn main() -> std::io::Result<()> {
             .service(copy_results_file)
             .service(update_categories)
             .service(actix_files::Files::new("/data", "data").show_files_listing())
-            .service(actix_files::Files::new("/demo", "demo").show_files_listing())  // Add this line to serve demo files
+            .service(actix_files::Files::new("/demo", "demo").show_files_listing())
             .route("/clear-results", web::post().to(clear_results))
             .service(check_testing_type)
             .service(run_ancestor_analysis)

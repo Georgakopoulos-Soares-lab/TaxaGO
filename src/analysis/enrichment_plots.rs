@@ -473,7 +473,7 @@ pub fn bubble_plot(
                         .show_arrow(true)
                         .font(
                             Font::new()
-                                .size(8)
+                                .size(10)
                                 .color(NamedColor::Black
                             ))
                         .arrow_head(2)
@@ -482,7 +482,7 @@ pub fn bubble_plot(
                         .arrow_color(NamedColor::DimGray)
                         .ax(ax_offset)
                         .ay(ay_offset)
-                        .opacity(0.8)
+                        .opacity(0.9)
                 );
             }
 
@@ -947,9 +947,6 @@ pub fn network_plot(
                         }
                     }
                     let mut all_plot_annotations: Vec<Annotation> = Vec::new();
-                    let text_positions_cycle = vec![(20, -15), (-20, 15), (15, 15), (-15, -15), (0, 20)];
-                    let mut annotation_offset_idx_counter = 0;
-
                     let mut all_nodes_x: Vec<f32> = Vec::new();
                     let mut all_nodes_y: Vec<f32> = Vec::new();
                     let mut all_nodes_hover_text: Vec<String> = Vec::new();
@@ -966,22 +963,13 @@ pub fn network_plot(
                             all_nodes_color_values.push(node_plot_data.minus_log10_p_value);
                             all_nodes_sizes.push(node_plot_data.size_statistic as f64);
 
-                            let (ax_offset, ay_offset) = text_positions_cycle[annotation_offset_idx_counter % text_positions_cycle.len()];
-                            annotation_offset_idx_counter += 1;
-
                             let annotation = Annotation::new()
                                 .x(location.x as f64)
                                 .y(location.y as f64)
                                 .text(format!("GO:{:07}", node_plot_data.go_id))
-                                .show_arrow(true)
-                                .font(Font::new().size(7).color(NamedColor::DarkSlateGray))
-                                .arrow_head(1) 
-                                .arrow_size(0.8)
-                                .arrow_width(0.7)
-                                .arrow_color(NamedColor::Gray)
-                                .ax(ax_offset)
-                                .ay(ay_offset)
-                                .opacity(0.75);
+                                .show_arrow(false)
+                                .font(Font::new().size(10).color(NamedColor::Black))
+                                .opacity(0.9);
                             all_plot_annotations.push(annotation);
                         }
 
@@ -1051,7 +1039,7 @@ pub fn network_plot(
                                 .color_bar(color_bar)
                                 .size_array(node_sizes)
                                 .show_scale(true)
-                                .opacity(1.0)
+                                .opacity(0.3)
                             )
                         .hover_text_array(all_nodes_hover_text) 
                         .hover_info(HoverInfo::Text) 

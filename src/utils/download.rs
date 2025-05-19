@@ -38,7 +38,6 @@ impl DownloadManager {
         println!("Original filename: {}", original_filename);
         println!("Original header: {}", original_header);
         
-        // Create the output filename with the appropriate extension
         let output_filename = match format {
             "csv" => format!("{}.csv", original_filename),
             "tsv" => format!("{}.tsv", original_filename),
@@ -56,11 +55,9 @@ impl DownloadManager {
                     .has_headers(false) 
                     .from_writer(vec![]);
                 
-                // Convert the original tab-separated header to CSV
                 let header_fields: Vec<&str> = original_header.split('\t').collect();
                 wtr.write_record(&header_fields)?;
                 
-                // Write data
                 for result in &results {
                     if result.is_combined {
                         wtr.write_record(&[
