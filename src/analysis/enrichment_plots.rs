@@ -590,9 +590,9 @@ where
                         FxHashMap::default();
 
                     for current_namespace in NameSpace::iter() {
-                        let go_term_proteins_in_namespace = taxon_specific_network_data
-                            .get(&current_namespace)
-                            .unwrap();
+                        if let Some(proteins) = taxon_specific_network_data.get(&current_namespace) {
+                            let go_term_proteins_in_namespace = proteins;
+                        
 
                         let mut current_namespace_network: GoTermNetworkGraph = StableGraph::default();
                         let mut term_to_node_index_map: FxHashMap<GOTermID, NodeIndex> = FxHashMap::default();
@@ -689,6 +689,7 @@ where
                         let top_k_subgraphs = extract_top_k_communities(&current_namespace_network, 4);
                         taxon_networks_graphs.insert(current_namespace.clone(), top_k_subgraphs);
                     }
+                }
                     (taxon_name.clone(), taxon_networks_graphs)
                 })
         })
