@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::error::Error;
 use std::fs;
 use plotly::{
-    Plot, Bar, Layout, Scatter, 
+    Plot, Bar, Layout, Scatter, Trace,
     common::{
         Title, Font, HoverInfo,
         ColorScale, ColorScalePalette,
@@ -12,8 +12,9 @@ use plotly::{
         Line
     },
     layout::{
-        Axis, Margin,
-        DragMode, RangeMode, Annotation
+        Axis, Margin, Legend,
+        DragMode, RangeMode, Annotation,
+        ItemClick
     },
     color::{Rgb, NamedColor, Rgba},
     // ImageFormat
@@ -170,6 +171,19 @@ fn wrap_text(
     width: usize
 ) -> String {
     wrap(text, width).join("<br>")
+}
+fn create_legend_trace(
+    dummy_x: Vec<std::option::Option<f64>>,
+    dummy_y: Vec<std::option::Option<f64>>,
+    max_bubble_size: usize,
+) -> Box<dyn Trace> {
+    Scatter::new(dummy_x, dummy_y)
+        .mode(Mode::Markers)
+        .marker(Marker::new().size(max_bubble_size).color(NamedColor::Black))
+        .name(format!("{}", max_bubble_size))
+        .text_font(Font::new().size(8))
+        .legend_group("sizes")
+        .show_legend(true)
 }
 
 fn get_namespace_subdir(namespace: &NameSpace, plots_dir: &PathBuf) -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
@@ -380,8 +394,9 @@ pub fn bar_plot(
             plot.set_layout(layout);
 
             let html_file = namespace_subdir.join(format!("{}_bar_plot.html", taxon_name));
-            // let svg_file = namespace_subdir.join(format!("{}_bar_plot.svg", taxon_name));
             plot.write_html(html_file); 
+            
+            // let svg_file = namespace_subdir.join(format!("{}_bar_plot.svg", taxon_name));
             // plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
                                              
             Ok(())
@@ -415,11 +430,8 @@ pub fn bubble_plot(
             let min_bubble_size: f64 = 10.0;
             let max_bubble_size: f64 = 25.0;
 
-            let min_stat_opt = size_statistics.iter().min();
-            let max_stat_opt = size_statistics.iter().max();
-
-            let min_stat: f64 = *min_stat_opt.unwrap() as f64;
-            let max_stat: f64 = *max_stat_opt.unwrap() as f64;
+            let min_stat: f64 = *size_statistics.iter().min().unwrap() as f64;
+            let max_stat: f64 = *size_statistics.iter().max().unwrap() as f64;
 
             let bubble_sizes: Vec<usize> = size_statistics
                 .iter()
@@ -433,6 +445,18 @@ pub fn bubble_plot(
                     scaled_size_f64.round() as usize
                 })
                 .collect();
+
+            let min_bubble_size: usize = *bubble_sizes.iter().min().unwrap();
+            let max_bubble_size: usize = *bubble_sizes.iter().max().unwrap();
+            let mid_bubble_size_float: f64 = (min_bubble_size as f64 + max_bubble_size as f64) / 2.0;
+            let mid_bubble_size: usize = mid_bubble_size_float as usize;
+
+            let dummy_x = vec![None::<f64>];
+            let dummy_y = vec![None::<f64>];
+
+            let legend_trace_small = create_legend_trace(dummy_x.clone(), dummy_y.clone(), min_bubble_size);
+            let legend_trace_medium = create_legend_trace(dummy_x.clone(), dummy_y.clone(), mid_bubble_size);
+            let legend_trace_large = create_legend_trace(dummy_x.clone(), dummy_y.clone(), max_bubble_size);
 
             let scatter_trace = Scatter::new(enrichment_values, stat_sig_values)
                 .mode(Mode::Markers)
@@ -488,6 +512,9 @@ pub fn bubble_plot(
 
             let mut plot = Plot::new();
             plot.add_trace(scatter_trace);
+            plot.add_trace(legend_trace_small);
+            plot.add_trace(legend_trace_medium);
+            plot.add_trace(legend_trace_large);
 
             let layout = Layout::new()
                 .width(940)
@@ -521,13 +548,23 @@ pub fn bubble_plot(
                         .auto_margin(true)
                         .range_mode(RangeMode::ToZero),
                 )
+                .legend(
+                    Legend::new()
+                        .x(1.0)
+                        .y(1.0)
+                        .trace_group_gap(10)
+                        .title(Title::with_text("GO Term size").font(Font::new().size(12)))
+                        .item_click(ItemClick::False)
+                        .item_double_click(ItemClick::False)
+                )
                 .annotations(annotations);
 
             plot.set_layout(layout);
 
             let html_file = namespace_subdir.join(format!("{}_bubble_plot.html", taxon_name));
             plot.write_html(&html_file);
-            // plot.write_image(&svg_file, ImageFormat::SVG, 940, 460, 1.0); // Pass path by reference
+            // let svg_file = namespace_subdir.join(format!("{}_bubble_plot.svg", taxon_name));
+            // plot.write_image(&svg_file, ImageFormat::SVG, 940, 460, 1.0)
 
             Ok(())
         })?;
@@ -1118,8 +1155,8 @@ pub fn network_plot(
 
                     let namespace_subdir = get_namespace_subdir(namespace, plots_dir)?;
                     let html_file = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
-                    // let svg_file = namespace_subdir.join(format!("{}_network_plot.svg", taxon_name));
                     plot.write_html(html_file); 
+                    // let svg_file = namespace_subdir.join(format!("{}_network_plot.svg", taxon_name));
                     // plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
 
                     Ok::<(), Box<dyn Error + Send + Sync>>(())
