@@ -65,7 +65,6 @@ pub enum PlotType {
     Interactive,
     Static,
     Both
-    
 }
 
 const PLOT_WIDTH: f32 = 10.0;
@@ -409,7 +408,7 @@ pub fn bar_plot(
                     .left(50)
                     .right(0)
                     .top(30)
-                    .bottom(15))
+                    .bottom(0))
                 .x_axis(
                     Axis::new()
                         .title(Title::with_text("log(Odds Ratio)").font(Font::new().size(12)))
@@ -443,14 +442,14 @@ pub fn bar_plot(
                 }
                 PlotType::Static => {
                     let svg_file = namespace_subdir.join(format!("{}_bar_plot.svg", taxon_name));
-                    plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
+                    plot.write_image(svg_file, ImageFormat::PDF, 940, 460, 1.0);
                 }
                 PlotType::Both => {
                     let html_file = namespace_subdir.join(format!("{}_bar_plot.html", taxon_name));
                     plot.write_html(html_file); 
 
                     let svg_file = namespace_subdir.join(format!("{}_bar_plot.svg", taxon_name));
-                    plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
+                    plot.write_image(svg_file, ImageFormat::PDF, 940, 460, 1.0);
                 }
                 PlotType::None => {}
 

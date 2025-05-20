@@ -116,12 +116,10 @@ pub fn calculate_information_content(
 }
 
 impl TermPair {
-    // Resnik: Semantic similarity = IC of MICA
     pub fn resnik_similarity(&self) -> f64 {
         self.mica.1
     }
     
-    // Lin: Semantic similarity = 2 * IC(MICA) / (IC(term1) + IC(term2))
     pub fn lin_similarity(&self) -> f64 {
         if self.ic_term1 == 0.0 || self.ic_term2 == 0.0 {
             return 0.0;
@@ -130,8 +128,6 @@ impl TermPair {
         (2.0 * self.mica.1) / (self.ic_term1 + self.ic_term2)
     }
     
-    // Jiang-Conrath: Semantic distance = IC(term1) + IC(term2) - 2*IC(MICA)
-    // Converted to similarity: 1 / (1 + distance)
     pub fn jiang_conrath_similarity(&self) -> f64 {
         let distance = self.ic_term1 + self.ic_term2 - 2.0 * self.mica.1;
         1.0 / (1.0 + distance.max(0.0))  

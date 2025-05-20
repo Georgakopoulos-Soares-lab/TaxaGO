@@ -119,94 +119,106 @@ struct CliArgs {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    todo!();
-    // let cli_args: CliArgs = CliArgs::parse();  
-    // create_dir_all(&cli_args.output_dir)?;
-    
-    // println!("\nReading ontology information from: {}\n\nBuilding ontology graph\n", &cli_args.obo_file);
 
-    // let ontology = parse_obo_file(&cli_args.obo_file)?;
-    // let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
+    let cli_args: CliArgs = CliArgs::parse();  
+    create_dir_all(&cli_args.output_dir)?;
     
-    // let node_index_to_go_id: FxHashMap<NodeIndex, u32> = go_id_to_node_index
-    //     .iter()
-    //     .map(|(&go_id, &node_idx)| (node_idx, go_id))
-    //     .collect();
-    
-    // println!("Reading background populations from: {}\n", &cli_args.background_dir);
-    
-    // let taxon_ids: FxHashSet<TaxonID> = cli_args.taxon_ids.split(',')
-    //                                                     .map(|s| s.trim())
-    //                                                     .filter_map(|s| s.parse::<u32>().ok())
-    //                                                     .collect();
+    println!("\nReading ontology information from: {}\n\nBuilding ontology graph\n", &cli_args.obo_file);
 
-    // let mut background_population = match BackgroundPop::read_background_pop(&taxon_ids, &cli_args.background_dir)? {
-    //     Some(background_pop) => {
-    //         println!("Successfully loaded background population for {} taxa\n", &taxon_ids.len());
-    //         background_pop
-    //     },
-    //     None => {
-    //         return Err(Box::new(std::io::Error::new(
-    //             std::io::ErrorKind::NotFound,
-    //             "No background population data could be loaded\n"
-    //         )));
-    //     }
-    // };
+    let ontology = parse_obo_file(&cli_args.obo_file)?;
+    let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
+    
+    let node_index_to_go_id: FxHashMap<NodeIndex, u32> = go_id_to_node_index
+        .iter()
+        .map(|(&go_id, &node_idx)| (node_idx, go_id))
+        .collect();
+    
+    println!("Reading background populations from: {}\n", &cli_args.background_dir);
+    
+    let taxon_ids: FxHashSet<TaxonID> = cli_args.taxon_ids.split(',')
+                                                        .map(|s| s.trim())
+                                                        .filter_map(|s| s.parse::<u32>().ok())
+                                                        .collect();
+    let categories: Vec<EvidenceCategory> = vec![
+        EvidenceCategory::Experimental,
+        EvidenceCategory::Experimental,
+        EvidenceCategory::Phylogenetic,
+        EvidenceCategory::Computational,
+        EvidenceCategory::Author,
+        EvidenceCategory::Curator,
+        EvidenceCategory::Electronic
+        ];
+    let mut background_population = match BackgroundPop::read_background_pop(
+        &taxon_ids, 
+        &cli_args.background_dir,
+        &categories
+    )? {
+        Some(background_pop) => {
+            println!("Successfully loaded background population for {} taxa\n", &taxon_ids.len());
+            background_pop
+        },
+        None => {
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "No background population data could be loaded\n"
+            )));
+        }
+    };
 
-    // if cli_args.propagate_counts {
-    //     println!("Propagating counts up the Ontology graph\n");
+    if cli_args.propagate_counts {
+        println!("Propagating counts up the Ontology graph\n");
         
-    //     let ancestor_cache: GOAncestorCache = GOAncestorCache::new(
-    //         &ontology_graph, 
-    //         &ontology, 
-    //         &go_id_to_node_index,
-    //         &node_index_to_go_id
-    //     )?;
+        let ancestor_cache: GOAncestorCache = GOAncestorCache::new(
+            &ontology_graph, 
+            &ontology, 
+            &go_id_to_node_index,
+            &node_index_to_go_id
+        )?;
 
-    //     background_population.propagate_counts(&taxon_ids, &ancestor_cache);
+        background_population.propagate_counts(&taxon_ids, &ancestor_cache);
         
-    // }
+    }
 
-    // let go_term_count: FxHashMap<u32, FxHashMap<u32, usize>> = background_population.go_term_count;
+    let go_term_count: FxHashMap<u32, FxHashMap<u32, usize>> = background_population.go_term_count;
 
-    // let go_terms = process_go_terms_input(&cli_args.go_terms_input)?;
+    let go_terms = process_go_terms_input(&cli_args.go_terms_input)?;
 
-    // println!("Calculating Information Content (IC) for {} GO terms\n", go_terms.len());
+    println!("Calculating Information Content (IC) for {} GO terms\n", go_terms.len());
 
-    // let mut expanded_terms = go_terms.clone();
-    // for &term in go_terms.iter() {
-    //     if let Some(&node_idx) = go_id_to_node_index.get(&term) {
-    //         let ancestry_path = collect_ancestry_path(&ontology_graph, node_idx);
-    //         for (idx, _) in ancestry_path {
-    //             let ancestor_id = node_index_to_go_id[&idx];
-    //             expanded_terms.insert(ancestor_id);
-    //         }
-    //     }
-    // }
-    // let ic_results = calculate_information_content(
-    //     &go_term_count,
-    //     &expanded_terms,
-    //     &go_id_to_node_index
-    // );
+    let mut expanded_terms = go_terms.clone();
+    for &term in go_terms.iter() {
+        if let Some(&node_idx) = go_id_to_node_index.get(&term) {
+            let ancestry_path = collect_ancestry_path(&ontology_graph, node_idx);
+            for (idx, _) in ancestry_path {
+                let ancestor_id = node_index_to_go_id[&idx];
+                expanded_terms.insert(ancestor_id);
+            }
+        }
+    }
+    let ic_results = calculate_information_content(
+        &go_term_count,
+        &expanded_terms,
+        &go_id_to_node_index
+    );
 
-    // println!("Finding Most Informative Common Ancestor (MICA)\n");
+    println!("Finding Most Informative Common Ancestor (MICA)\n");
     
-    // println!("Calculating semantic similarity using {} method \n", cli_args.method);
+    println!("Calculating semantic similarity using {} method \n", cli_args.method);
     
-    // for &taxon_id in &taxon_ids {        
-    //     let term_pairs = generate_term_pairs(
-    //         &go_terms,
-    //         taxon_id,
-    //         &ic_results,
-    //         &ontology_graph,
-    //         &go_id_to_node_index,
-    //         &node_index_to_go_id,
-    //         &cli_args.method
-    //     );
-    //     write_similarity_to_tsv(&term_pairs, &go_terms, taxon_id, &cli_args.output_dir);
-    // }
+    for &taxon_id in &taxon_ids {        
+        let term_pairs = generate_term_pairs(
+            &go_terms,
+            taxon_id,
+            &ic_results,
+            &ontology_graph,
+            &go_id_to_node_index,
+            &node_index_to_go_id,
+            &cli_args.method
+        );
+        write_similarity_to_tsv(&term_pairs, &go_terms, taxon_id, &cli_args.output_dir);
+    }
     
-    // println!("All semantic similarity calculations completed successfully!\n");
+    println!("All semantic similarity calculations completed successfully!\n");
     
-    // Ok(())
+    Ok(())
 }

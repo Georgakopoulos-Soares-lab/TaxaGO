@@ -85,7 +85,7 @@ enum PropagationMethod {
     None,
     Classic,
     Elim,
-    Weight,
+    Weight
 }
 
 #[derive(Parser, Debug)]
@@ -240,7 +240,6 @@ struct CliArgs {
         help = "If specified, TaxaGO will save the enrichment plots.",
         value_enum,
         default_value_t = PlotType::Interactive
-
     )]
     save_plots: PlotType,
 }
