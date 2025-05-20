@@ -477,17 +477,26 @@ pub fn bubble_plot(
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
 
-            let top_10_terms: Vec<&GOTermPlotData> = terms_for_sorting.iter().take(10).collect();
+            let mut top_10_significant_terms: Vec<GOTermPlotData> = terms_for_sorting
+                .iter()
+                .take(10)
+                .cloned()
+                .collect();
+
+            top_10_significant_terms.sort_by(|a, b| {
+                a.lor.partial_cmp(&b.lor)
+                    .unwrap_or(Equal)
+            });
 
             let mut annotations: Vec<Annotation> = Vec::new();
             let text_positions_cycle = vec![
-                (30, -30),
-                (-30, 15),
-                (30, 30),
-                (-30, -15)
+                (-30, 20),  // top left
+                (30, 10),   // top right
+                (-30, -20), // bottom left
+                (30, -10),  // bottom right
             ];
 
-            for (i, term) in top_10_terms.iter().enumerate() {
+            for (i, term) in top_10_significant_terms.iter().enumerate() {
                 let (ax_offset, ay_offset) = text_positions_cycle[i % text_positions_cycle.len()];
                 annotations.push(
                     Annotation::new()
