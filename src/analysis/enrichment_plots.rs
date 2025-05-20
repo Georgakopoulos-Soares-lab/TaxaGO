@@ -1,4 +1,7 @@
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::{
+    FxHashMap, 
+    FxHashSet
+};
 use std::path::PathBuf;
 use std::error::Error;
 use std::fs;
@@ -9,14 +12,16 @@ use plotly::{
         ColorScale, ColorScalePalette,
         Marker, ColorBar, Anchor, Side,
         ThicknessMode, Orientation, Mode,
-        Line
+        Line, LegendGroupTitle
     },
     layout::{
         Axis, Margin, Legend,
         DragMode, RangeMode, Annotation,
-        ItemClick
+        ItemClick, TraceOrder
     },
-    color::{Rgb, NamedColor, Rgba},
+    color::{
+        Rgb, NamedColor, Rgba
+    },
     // ImageFormat
 };
 use textwrap::wrap;
@@ -51,7 +56,6 @@ use fdg::{
     },
     Force,
     simple::Center,
-    
 };
 
 const PLOT_WIDTH: f32 = 10.0;
@@ -172,19 +176,47 @@ fn wrap_text(
 ) -> String {
     wrap(text, width).join("<br>")
 }
-fn create_legend_trace(
-    dummy_x: Vec<std::option::Option<f64>>,
-    dummy_y: Vec<std::option::Option<f64>>,
-    max_bubble_size: usize,
+
+fn create_size_legend_trace(
+    label: String,
+    marker_size: usize,
+    group: &str,
+    group_title: Option<String>,
 ) -> Box<dyn Trace> {
-    Scatter::new(dummy_x, dummy_y)
+    let mut scatter = Scatter::new(vec![None::<f64>], vec![None::<f64>])
+        .name(&label)
         .mode(Mode::Markers)
-        .marker(Marker::new().size(max_bubble_size).color(NamedColor::Black))
-        .name(format!("{}", max_bubble_size))
-        .text_font(Font::new().size(8))
-        .legend_group("sizes")
-        .show_legend(true)
+        .marker(Marker::new().size(marker_size).color(NamedColor::Black))
+        .legend_group(group)
+        .show_legend(true);
+
+    if let Some(title) = group_title {
+        scatter = scatter.legend_group_title(LegendGroupTitle::with_text(title));
+    }
+    scatter
+
 }
+
+fn create_edge_width_legend_trace(
+    label: String,
+    width: f64,
+    group: &str,
+    group_title: Option<String>,
+) -> Box<dyn Trace> {
+    let mut scatter = Scatter::new(vec![None::<f64>], vec![None::<f64>])
+        .name(&label)
+        .mode(Mode::Lines)
+        .line(Line::new().width(width).color(NamedColor::Black))
+        .legend_group(group)
+        .show_legend(true); 
+
+    if let Some(title) = group_title {
+        scatter = scatter.legend_group_title(LegendGroupTitle::with_text(title));
+    }
+
+    scatter
+}
+
 
 fn get_namespace_subdir(namespace: &NameSpace, plots_dir: &PathBuf) -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
     let namespace_str: String = match namespace {
@@ -450,13 +482,27 @@ pub fn bubble_plot(
             let max_bubble_size: usize = *bubble_sizes.iter().max().unwrap();
             let mid_bubble_size_float: f64 = (min_bubble_size as f64 + max_bubble_size as f64) / 2.0;
             let mid_bubble_size: usize = mid_bubble_size_float as usize;
-
-            let dummy_x = vec![None::<f64>];
-            let dummy_y = vec![None::<f64>];
-
-            let legend_trace_small = create_legend_trace(dummy_x.clone(), dummy_y.clone(), min_bubble_size);
-            let legend_trace_medium = create_legend_trace(dummy_x.clone(), dummy_y.clone(), mid_bubble_size);
-            let legend_trace_large = create_legend_trace(dummy_x.clone(), dummy_y.clone(), max_bubble_size);
+            let mut plot = Plot::new();
+            let go_term_size_group_name = "GO Term size";
+            
+            plot.add_trace(create_size_legend_trace(
+                format!("{}", min_bubble_size),
+                min_bubble_size,
+                go_term_size_group_name,
+                Some("GO Term size".to_owned()),
+            ));
+            plot.add_trace(create_size_legend_trace(
+                format!("{}", mid_bubble_size),
+                mid_bubble_size,
+                go_term_size_group_name,
+                None,
+            ));
+            plot.add_trace(create_size_legend_trace(
+                format!("{}", max_bubble_size),
+                max_bubble_size,
+                go_term_size_group_name,
+                None,
+            ));
 
             let scatter_trace = Scatter::new(enrichment_values, stat_sig_values)
                 .mode(Mode::Markers)
@@ -469,7 +515,8 @@ pub fn bubble_plot(
                 .hover_text_array(hover_texts)
                 .hover_info(HoverInfo::Text)
                 .show_legend(false);
-
+            
+            plot.add_trace(scatter_trace);
             let mut terms_for_sorting = namespace_plot_data.clone();
             terms_for_sorting.sort_by(|a, b| {
                 b.minus_log10_p_value
@@ -519,12 +566,6 @@ pub fn bubble_plot(
                 );
             }
 
-            let mut plot = Plot::new();
-            plot.add_trace(scatter_trace);
-            plot.add_trace(legend_trace_small);
-            plot.add_trace(legend_trace_medium);
-            plot.add_trace(legend_trace_large);
-
             let layout = Layout::new()
                 .width(940)
                 .height(460)
@@ -563,6 +604,7 @@ pub fn bubble_plot(
                         .y(1.0)
                         .trace_group_gap(10)
                         .title(Title::with_text("GO Term size").font(Font::new().size(12)))
+                        .trace_order(TraceOrder::Grouped) 
                         .item_click(ItemClick::False)
                         .item_double_click(ItemClick::False)
                 )
@@ -964,6 +1006,31 @@ pub fn network_plot(
                     let min_jaccard_opt = all_jaccard_indices_for_this_plot.iter().copied().reduce(f32::min);
                     let max_jaccard_opt = all_jaccard_indices_for_this_plot.iter().copied().reduce(f32::max);
 
+                    let min_jaccard_value = min_jaccard_opt.unwrap();
+                    let max_jaccard_value = max_jaccard_opt.unwrap();
+                    let mid_jaccard_value = (min_jaccard_value + max_jaccard_value) / 2.0;
+                    
+                    let jaccard_group_name = "Jaccard Index";
+                    plot.add_trace(create_edge_width_legend_trace(
+                        format!("{:.3}", min_jaccard_value),
+                        MIN_EDGE_WIDTH,
+                        jaccard_group_name,
+                        Some("Jaccard Index".to_owned())
+                    ));
+
+                    plot.add_trace(create_edge_width_legend_trace(
+                        format!("{:.3}", mid_jaccard_value),
+                        (MIN_EDGE_WIDTH + MAX_EDGE_WIDTH) / 2.0,
+                        jaccard_group_name,
+                        None
+                    ));
+                    plot.add_trace(create_edge_width_legend_trace(
+                        format!("{:.3}", max_jaccard_value),
+                        MAX_EDGE_WIDTH,
+                        jaccard_group_name,
+                        None
+                    ));
+
                     if let (Some(min_j), Some(max_j)) = (min_jaccard_opt, max_jaccard_opt) {
                         let min_jaccard = min_j;
                         let max_jaccard = max_j;
@@ -1026,7 +1093,7 @@ pub fn network_plot(
                             all_nodes_x.push(location.x);
                             all_nodes_y.push(location.y);
                             all_nodes_hover_text.push(node_plot_data.hover_text.clone());
-                            all_nodes_color_values.push(node_plot_data.minus_log10_p_value);
+                            all_nodes_color_values.push(node_plot_data.lor);
                             all_nodes_sizes.push(node_plot_data.size_statistic as f64);
 
                             let (x_shift, y_shift) = &text_positions_cycle[annotation_offset_idx_counter % text_positions_cycle.len()];
@@ -1087,6 +1154,31 @@ pub fn network_plot(
                         
                         .collect();
 
+                    let min_node_size: usize = *node_sizes.iter().min().unwrap();
+                    let max_node_size: usize = *node_sizes.iter().max().unwrap();
+                    let mid_node_size_float: f64 = (min_node_size as f64 + max_node_size as f64) / 2.0;
+                    let mid_node_size: usize = mid_node_size_float as usize;
+
+                    let go_term_size_group_name = "GO Term size";
+                    plot.add_trace(create_size_legend_trace(
+                        format!("{}", min_node_size),
+                        min_node_size,
+                        go_term_size_group_name,
+                        Some("GO Term size".to_owned()),
+                    ));
+                    plot.add_trace(create_size_legend_trace(
+                        format!("{}", mid_node_size),
+                        mid_node_size,
+                        go_term_size_group_name,
+                        None,
+                    ));
+                    plot.add_trace(create_size_legend_trace(
+                        format!("{}", max_node_size),
+                        max_node_size,
+                        go_term_size_group_name,
+                        None,
+                    ));
+
                     let color_bar = ColorBar::new()
                         .title(
                             Title::from("log(Odds Ratio)")
@@ -1095,10 +1187,10 @@ pub fn network_plot(
                         )
                         .tick_font(Font::new().size(10))
                         .len_mode(ThicknessMode::Pixels)
-                        .len(200)
+                        .len(150)
                         .thickness(15)
                         .x(1.0)
-                        .y(0.8)
+                        .y(0.85)
                         .y_anchor(Anchor::Middle);
 
                     let node_trace = Scatter::new(all_nodes_x, all_nodes_y)
@@ -1159,7 +1251,16 @@ pub fn network_plot(
                                 .show_tick_labels(false)
                                 .auto_margin(true)
                         )
-                        .annotations(all_plot_annotations);
+                        .annotations(all_plot_annotations)
+                        .legend(
+                            Legend::new()
+                                .x(1.0)
+                                .y(0.45)
+                                .trace_group_gap(10)
+                                .trace_order(TraceOrder::Grouped)
+                                .item_click(ItemClick::False)
+                                .item_double_click(ItemClick::False)
+                        );
                     plot.set_layout(layout);
 
                     let namespace_subdir = get_namespace_subdir(namespace, plots_dir)?;
