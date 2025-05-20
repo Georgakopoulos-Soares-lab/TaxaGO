@@ -460,7 +460,8 @@ pub fn bubble_plot(
             let size_statistics: Vec<usize> = namespace_plot_data.iter().map(|t| t.size_statistic).collect();
 
             let min_bubble_size: f64 = 10.0;
-            let max_bubble_size: f64 = 25.0;
+            let mid_bubble_size: f64 = 13.0;
+            let max_bubble_size: f64 = 35.0;
 
             let min_stat: f64 = *size_statistics.iter().min().unwrap() as f64;
             let max_stat: f64 = *size_statistics.iter().max().unwrap() as f64;
@@ -478,28 +479,24 @@ pub fn bubble_plot(
                 })
                 .collect();
 
-            let min_bubble_size: usize = *bubble_sizes.iter().min().unwrap();
-            let max_bubble_size: usize = *bubble_sizes.iter().max().unwrap();
-            let mid_bubble_size_float: f64 = (min_bubble_size as f64 + max_bubble_size as f64) / 2.0;
-            let mid_bubble_size: usize = mid_bubble_size_float as usize;
             let mut plot = Plot::new();
             let go_term_size_group_name = "GO Term size";
             
             plot.add_trace(create_size_legend_trace(
                 format!("{}", min_bubble_size),
-                min_bubble_size,
+                min_bubble_size as usize,
                 go_term_size_group_name,
                 Some("GO Term size".to_owned()),
             ));
             plot.add_trace(create_size_legend_trace(
                 format!("{}", mid_bubble_size),
-                mid_bubble_size,
+                mid_bubble_size as usize,
                 go_term_size_group_name,
                 None,
             ));
             plot.add_trace(create_size_legend_trace(
                 format!("{}", max_bubble_size),
-                max_bubble_size,
+                max_bubble_size as usize,
                 go_term_size_group_name,
                 None,
             ));
@@ -559,7 +556,7 @@ pub fn bubble_plot(
                         .arrow_head(2)
                         .arrow_size(1.0)
                         .arrow_width(1.1)
-                        .arrow_color(NamedColor::DimGray)
+                        .arrow_color(NamedColor::Black)
                         .ax(ax_offset)
                         .ay(ay_offset)
                         .opacity(0.9)
@@ -920,7 +917,7 @@ pub fn network_plot(
                             let layouts_for_namespace: Vec<LayoutGraph> = networks_vec
                                 .iter()
                                 .map(|network_graph| {
-                                    apply_fruchterman_reingold_layout(network_graph, 1000)
+                                    apply_fruchterman_reingold_layout(network_graph, 5000)
                                 })
                                 .collect();
                             (*namespace, layouts_for_namespace)
@@ -1073,10 +1070,10 @@ pub fn network_plot(
                     }
                     let mut all_plot_annotations: Vec<Annotation> = Vec::new();
                     let text_positions_cycle = vec![
-                        (30, -30),
-                        (-30, 15),
-                        (30, 30),
-                        (-30, -15)
+                        (-30, 20),  // top left
+                        (30, 10),   // top right
+                        (-30, -20), // bottom left
+                        (30, -10),  // bottom right
                     ];
                     let mut annotation_offset_idx_counter = 0;
 
@@ -1085,6 +1082,13 @@ pub fn network_plot(
                     let mut all_nodes_hover_text: Vec<String> = Vec::new();
                     let mut all_nodes_color_values: Vec<f64> = Vec::new(); 
                     let mut all_nodes_sizes: Vec<f64> = Vec::new();
+
+                    struct NodeAnnotationInfo {
+                        x: f32,
+                        y: f32,
+                        go_id: u32,
+                    }
+                    let mut node_info_for_sorting_annotations: Vec<NodeAnnotationInfo> = Vec::new();
 
                     let mut all_edges_coordinates: Vec<((f64, f64), (f64, f64))> = Vec::new();
 
@@ -1095,20 +1099,17 @@ pub fn network_plot(
                             all_nodes_hover_text.push(node_plot_data.hover_text.clone());
                             all_nodes_color_values.push(node_plot_data.lor);
                             all_nodes_sizes.push(node_plot_data.size_statistic as f64);
+                            
+                            node_info_for_sorting_annotations.push(NodeAnnotationInfo {
+                                x: location.x,
+                                y: location.y,
+                                go_id: node_plot_data.go_id,
+                            });
 
-                            let (x_shift, y_shift) = &text_positions_cycle[annotation_offset_idx_counter % text_positions_cycle.len()];
-                            annotation_offset_idx_counter += 1;
-
-                            let annotation = Annotation::new()
-                                .x(location.x as f64)
-                                .y(location.y as f64)
-                                .text(format!("GO:{:07}", node_plot_data.go_id))
-                                .show_arrow(true)
-                                .font(Font::new().size(10).color(NamedColor::Black))
-                                .ax(*x_shift)
-                                .ay(*y_shift)
-                                .opacity(0.9);
-                            all_plot_annotations.push(annotation);
+                            node_info_for_sorting_annotations.sort_by(|a, b| {
+                                a.y.total_cmp(&b.y) 
+                                    .then_with(|| a.x.total_cmp(&b.x))
+                            });
                         }
 
                         for edge_ref in graph.edge_references() {
@@ -1123,9 +1124,32 @@ pub fn network_plot(
                                 all_edges_coordinates.push((source_coords, target_coords));
                             }
                         }
+
+                    }
+
+                    for sorted_node_info in node_info_for_sorting_annotations {
+                        let (x_shift, y_shift) =
+                            &text_positions_cycle[annotation_offset_idx_counter % text_positions_cycle.len()];
+                        annotation_offset_idx_counter += 1;
+                    
+                        let annotation = Annotation::new()
+                            .x(sorted_node_info.x as f64)
+                            .y(sorted_node_info.y as f64)
+                            .text(format!("GO:{:07}", sorted_node_info.go_id))
+                            .show_arrow(true)
+                            .font(Font::new().size(10).color(NamedColor::Black))
+                            .arrow_head(2)
+                            .arrow_size(1.0)
+                            .arrow_width(1.1)
+                            .arrow_color(NamedColor::Black)
+                            .ax(*x_shift)
+                            .ay(*y_shift)
+                            .opacity(0.9);
+                        all_plot_annotations.push(annotation);
                     }
                     
-                    let min_size: f64 = 15.0;
+                    let min_size: f64 = 10.0;
+                    let mid_size: f64 = 13.0;
                     let max_size: f64 = 35.0;
 
                     let min_stat: f64 = all_nodes_sizes
@@ -1139,6 +1163,9 @@ pub fn network_plot(
                         .copied()
                         .reduce(f64::max)
                         .unwrap();
+
+                    let mid_stat_float: f64 = (min_stat as f64 + max_stat as f64) / 2.0;
+                    let mid_stat: usize = mid_stat_float as usize;
 
                     let node_sizes: Vec<usize> = all_nodes_sizes
                         .iter()
@@ -1154,27 +1181,22 @@ pub fn network_plot(
                         
                         .collect();
 
-                    let min_node_size: usize = *node_sizes.iter().min().unwrap();
-                    let max_node_size: usize = *node_sizes.iter().max().unwrap();
-                    let mid_node_size_float: f64 = (min_node_size as f64 + max_node_size as f64) / 2.0;
-                    let mid_node_size: usize = mid_node_size_float as usize;
-
                     let go_term_size_group_name = "GO Term size";
                     plot.add_trace(create_size_legend_trace(
-                        format!("{}", min_node_size),
-                        min_node_size,
+                        format!("{}", min_stat),
+                        min_size as usize,
                         go_term_size_group_name,
                         Some("GO Term size".to_owned()),
                     ));
                     plot.add_trace(create_size_legend_trace(
-                        format!("{}", mid_node_size),
-                        mid_node_size,
+                        format!("{}", mid_stat),
+                        mid_size as usize,
                         go_term_size_group_name,
                         None,
                     ));
                     plot.add_trace(create_size_legend_trace(
-                        format!("{}", max_node_size),
-                        max_node_size,
+                        format!("{}", max_stat),
+                        max_size as usize,
                         go_term_size_group_name,
                         None,
                     ));
