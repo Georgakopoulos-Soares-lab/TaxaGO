@@ -772,6 +772,18 @@ fn extract_top_k_communities(
                 }
             }
         }
+
+        let mut nodes_to_remove = Vec::new();
+        for node_index in subgraph.node_indices() {
+            if subgraph.neighbors_undirected(node_index).count() == 0 { 
+                nodes_to_remove.push(node_index);
+            }
+        }
+
+        for node_index in nodes_to_remove {
+            subgraph.remove_node(node_index);
+        }
+
         top_k_graphs.push(subgraph);
     }
 
@@ -937,7 +949,7 @@ pub fn network_plot(
                                         .line(
                                             Line::new()
                                                 .width(final_edge_width)
-                                                .color(Rgba::new(0, 0, 0, 0.5))
+                                                .color(Rgba::new(200, 200, 200, 0.5))
                                                 
                                         )
                                         .show_legend(false);
@@ -947,6 +959,14 @@ pub fn network_plot(
                         }
                     }
                     let mut all_plot_annotations: Vec<Annotation> = Vec::new();
+                    let text_positions_cycle = vec![
+                        (30, -30),
+                        (-30, 15),
+                        (30, 30),
+                        (-30, -15)
+                    ];
+                    let mut annotation_offset_idx_counter = 0;
+
                     let mut all_nodes_x: Vec<f32> = Vec::new();
                     let mut all_nodes_y: Vec<f32> = Vec::new();
                     let mut all_nodes_hover_text: Vec<String> = Vec::new();
@@ -963,12 +983,17 @@ pub fn network_plot(
                             all_nodes_color_values.push(node_plot_data.minus_log10_p_value);
                             all_nodes_sizes.push(node_plot_data.size_statistic as f64);
 
+                            let (x_shift, y_shift) = &text_positions_cycle[annotation_offset_idx_counter % text_positions_cycle.len()];
+                            annotation_offset_idx_counter += 1;
+
                             let annotation = Annotation::new()
                                 .x(location.x as f64)
                                 .y(location.y as f64)
                                 .text(format!("GO:{:07}", node_plot_data.go_id))
-                                .show_arrow(false)
+                                .show_arrow(true)
                                 .font(Font::new().size(10).color(NamedColor::Black))
+                                .ax(*x_shift)
+                                .ay(*y_shift)
                                 .opacity(0.9);
                             all_plot_annotations.push(annotation);
                         }
@@ -1039,7 +1064,7 @@ pub fn network_plot(
                                 .color_bar(color_bar)
                                 .size_array(node_sizes)
                                 .show_scale(true)
-                                .opacity(0.3)
+                                .opacity(1.0)
                             )
                         .hover_text_array(all_nodes_hover_text) 
                         .hover_info(HoverInfo::Text) 
