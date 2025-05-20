@@ -131,9 +131,9 @@ pub fn generate_mermaid_chart(
     flowchart LR\n\
     %% Style declarations\n\
     classDef BP fill:#0084c44b,stroke:black\n\
-    classDef MF fill:#2adaed80,stroke:black\n\
+    classDef MF fill:#05daed80,stroke:black\n\
     classDef CC fill:#4dffa669,stroke:black\n\
-    classDef inputNode fill:#b1c7fc80,stroke:black\n\
+    classDef inputNode fill:#0000003d,stroke:black\n\
     classDef intersectingNode fill:#d900c756,stroke:black\n\
     classDef legendNode fill:white, stroke:black\n\
     classDef bothNode fill:#1300c64d, stroke:black\n\
@@ -150,8 +150,8 @@ pub fn generate_mermaid_chart(
             Start1([Child]) -->|Is a| End1([Parent])\n\
             Start2([Child]) -->|Part of| End2([Parent])\n\
             Start3([Child]) -->|Regulates| End3([Parent])\n\
-            Start4([Child]) -->|Positively Regulates| End4([Parent])\n\
-            Start5([Child]) -->|Negatively Regulates| End5([Parent])\n\
+            Start4([Child]) -->|Positively regulates| End4([Parent])\n\
+            Start5([Child]) -->|Negatively regulates| End5([Parent])\n\
             Start6([Child]) -->|Occurs in| End6([Parent])\n\
             \n\
             linkStyle 0 stroke:#000000,stroke-width:2px\n\
@@ -173,7 +173,7 @@ pub fn generate_mermaid_chart(
             CC_Node[\"Cellular component\"]:::CC\n\
             Input_Node[\"Input nodes\"]:::inputNode\n\
             Intersecting_Node[\"First intersect\"]:::intersectingNode\n\
-            Both_Node[\"Input & Intersect\"]:::bothNode\n\
+            Both_Node[\"Input & intersect\"]:::bothNode\n\
             \n\
             BP_Node ~~~ MF_Node\n\
             MF_Node ~~~ CC_Node\n\
