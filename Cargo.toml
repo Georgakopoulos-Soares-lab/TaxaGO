@@ -17,9 +17,9 @@ path = "src/bin/main.rs"
 name = "common-ancestors"
 path = "src/bin/common_ancestor.rs"
 
-# [[bin]]
-# name = "semantic-similarity"
-# path = "src/bin/semantic_similarity.rs"
+[[bin]]
+name = "semantic-similarity"
+path = "src/bin/semantic_similarity.rs"
 
 [dependencies]
 thiserror = "2.0.12"
