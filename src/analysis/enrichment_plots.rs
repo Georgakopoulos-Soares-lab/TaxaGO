@@ -22,7 +22,7 @@ use plotly::{
     color::{
         Rgb, NamedColor, Rgba
     },
-    // ImageFormat
+    ImageFormat
 };
 use textwrap::wrap;
 use std::cmp::Ordering::Equal;
@@ -57,6 +57,16 @@ use fdg::{
     Force,
     simple::Center,
 };
+use clap::ValueEnum;
+
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
+pub enum PlotType {
+    None,
+    Interactive,
+    Static,
+    Both
+    
+}
 
 const PLOT_WIDTH: f32 = 10.0;
 const PLOT_HEIGHT: f32 = 6.0;
@@ -323,6 +333,7 @@ where
 pub fn bar_plot(
     plot_data_map: &FxHashMap<String, FxHashMap<NameSpace, Vec<GOTermPlotData>>>,
     plots_dir: &PathBuf,
+    plot_type: PlotType
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     plot_data_map
@@ -369,7 +380,7 @@ pub fn bar_plot(
                 )
                 .tick_font(Font::new().size(10))
                 .len_mode(ThicknessMode::Pixels)
-                .len(200)
+                .len(150)
                 .thickness(15)
                 .x(1.0)
                 .y(0.9)
@@ -398,11 +409,11 @@ pub fn bar_plot(
                     .left(50)
                     .right(0)
                     .top(30)
-                    .bottom(0))
+                    .bottom(15))
                 .x_axis(
                     Axis::new()
-                        .title(Title::with_text("log(Odds Ratio)").font(Font::new().size(14)))
-                        .tick_font(Font::new().size(12))
+                        .title(Title::with_text("log(Odds Ratio)").font(Font::new().size(12)))
+                        .tick_font(Font::new().size(10))
                         .show_line(true)
                         .line_color(NamedColor::Black)
                         .show_grid(true)
@@ -413,7 +424,7 @@ pub fn bar_plot(
                 .y_axis(
                     Axis::new() 
                         .title(Title::with_text(""))
-                        .tick_font(Font::new().size(14))
+                        .tick_font(Font::new().size(12))
                         .show_line(true)
                         .line_color(NamedColor::Black)
                         .show_grid(true)
@@ -424,13 +435,26 @@ pub fn bar_plot(
                 .drag_mode(DragMode::False)
                 .bar_gap(0.4);
             plot.set_layout(layout);
-
-            let html_file = namespace_subdir.join(format!("{}_bar_plot.html", taxon_name));
-            plot.write_html(html_file); 
             
-            // let svg_file = namespace_subdir.join(format!("{}_bar_plot.svg", taxon_name));
-            // plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
-                                             
+            match plot_type {
+                PlotType::Interactive => {
+                    let html_file = namespace_subdir.join(format!("{}_bar_plot.html", taxon_name));
+                    plot.write_html(html_file); 
+                }
+                PlotType::Static => {
+                    let svg_file = namespace_subdir.join(format!("{}_bar_plot.svg", taxon_name));
+                    plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
+                }
+                PlotType::Both => {
+                    let html_file = namespace_subdir.join(format!("{}_bar_plot.html", taxon_name));
+                    plot.write_html(html_file); 
+
+                    let svg_file = namespace_subdir.join(format!("{}_bar_plot.svg", taxon_name));
+                    plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
+                }
+                PlotType::None => {}
+
+            }                                
             Ok(())
         })?; 
 
@@ -440,6 +464,7 @@ pub fn bar_plot(
 pub fn bubble_plot(
     plot_data_map: FxHashMap<String, FxHashMap<NameSpace, Vec<GOTermPlotData>>>,
     plots_dir: &PathBuf,
+    plot_type: PlotType
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     plot_data_map
         .into_iter()
@@ -570,11 +595,11 @@ pub fn bubble_plot(
                     .left(50)
                     .right(0)
                     .top(30)
-                    .bottom(0))
+                    .bottom(15))
                 .x_axis(
                     Axis::new()
-                        .title(Title::with_text("log(Odds Ratio)").font(Font::new().size(14)))
-                        .tick_font(Font::new().size(12))
+                        .title(Title::with_text("log(Odds Ratio)").font(Font::new().size(12)))
+                        .tick_font(Font::new().size(10))
                         .show_line(true)
                         .line_color(NamedColor::Black)
                         .show_grid(true)
@@ -585,8 +610,8 @@ pub fn bubble_plot(
                 )
                 .y_axis(
                     Axis::new()
-                        .title(Title::with_text("-log10(Stat. Sig.)").font(Font::new().size(14)))
-                        .tick_font(Font::new().size(12))
+                        .title(Title::with_text("-log10(Stat. Sig.)").font(Font::new().size(12)))
+                        .tick_font(Font::new().size(10))
                         .show_line(true)
                         .line_color(NamedColor::Black)
                         .show_grid(true)
@@ -600,7 +625,6 @@ pub fn bubble_plot(
                         .x(1.0)
                         .y(1.0)
                         .trace_group_gap(10)
-                        .title(Title::with_text("GO Term size").font(Font::new().size(12)))
                         .trace_order(TraceOrder::Grouped) 
                         .item_click(ItemClick::False)
                         .item_double_click(ItemClick::False)
@@ -609,10 +633,25 @@ pub fn bubble_plot(
 
             plot.set_layout(layout);
 
-            let html_file = namespace_subdir.join(format!("{}_bubble_plot.html", taxon_name));
-            plot.write_html(&html_file);
-            // let svg_file = namespace_subdir.join(format!("{}_bubble_plot.svg", taxon_name));
-            // plot.write_image(&svg_file, ImageFormat::SVG, 940, 460, 1.0)
+            match plot_type {
+                PlotType::Interactive => {
+                    let html_file = namespace_subdir.join(format!("{}_bubble_plot.html", taxon_name));
+                    plot.write_html(html_file); 
+                }
+                PlotType::Static => {
+                    let svg_file = namespace_subdir.join(format!("{}_bubble_plot.svg", taxon_name));
+                    plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
+                }
+                PlotType::Both => {
+                    let html_file = namespace_subdir.join(format!("{}_bubble_plot.html", taxon_name));
+                    plot.write_html(html_file); 
+
+                    let svg_file = namespace_subdir.join(format!("{}_bubble_plot.svg", taxon_name));
+                    plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
+                }
+                PlotType::None => {}
+
+            }  
 
             Ok(())
         })?;
@@ -903,7 +942,8 @@ fn apply_fruchterman_reingold_layout(
 
 pub fn network_plot(
     top_networks_map: &FxHashMap<String, FxHashMap<NameSpace, Vec<GoTermNetworkGraph>>>,
-    plots_dir: &PathBuf
+    plots_dir: &PathBuf,
+    plot_type: PlotType
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let mut network_layouts_map: FxHashMap<String, FxHashMap<NameSpace, Vec<LayoutGraph>>> =
@@ -1003,8 +1043,16 @@ pub fn network_plot(
                     let min_jaccard_opt = all_jaccard_indices_for_this_plot.iter().copied().reduce(f32::min);
                     let max_jaccard_opt = all_jaccard_indices_for_this_plot.iter().copied().reduce(f32::max);
 
-                    let min_jaccard_value = min_jaccard_opt.unwrap();
-                    let max_jaccard_value = max_jaccard_opt.unwrap();
+                    let min_jaccard_value = if let Some(val) = min_jaccard_opt {
+                        val
+                    } else {
+                        0.0 
+                    };
+                    let max_jaccard_value = if let Some(val) = max_jaccard_opt {
+                        val
+                    } else {
+                        0.0 
+                    };
                     let mid_jaccard_value = (min_jaccard_value + max_jaccard_value) / 2.0;
                     
                     let jaccard_group_name = "Jaccard Index";
@@ -1156,13 +1204,13 @@ pub fn network_plot(
                         .iter()
                         .copied()
                         .reduce(f64::min)
-                        .unwrap();
+                        .unwrap_or(0.0);
 
                     let max_stat: f64 = all_nodes_sizes
                         .iter()
                         .copied()
                         .reduce(f64::max)
-                        .unwrap();
+                        .unwrap_or(0.0);
 
                     let mid_stat_float: f64 = (min_stat as f64 + max_stat as f64) / 2.0;
                     let mid_stat: usize = mid_stat_float as usize;
@@ -1286,10 +1334,26 @@ pub fn network_plot(
                     plot.set_layout(layout);
 
                     let namespace_subdir = get_namespace_subdir(namespace, plots_dir)?;
-                    let html_file = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
-                    plot.write_html(html_file); 
-                    // let svg_file = namespace_subdir.join(format!("{}_network_plot.svg", taxon_name));
-                    // plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
+                    
+                    match plot_type {
+                        PlotType::Interactive => {
+                            let html_file = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
+                            plot.write_html(html_file); 
+                        }
+                        PlotType::Static => {
+                            let svg_file = namespace_subdir.join(format!("{}_network_plot.svg", taxon_name));
+                            plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
+                        }
+                        PlotType::Both => {
+                            let html_file = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
+                            plot.write_html(html_file); 
+        
+                            let svg_file = namespace_subdir.join(format!("{}_network_plot.svg", taxon_name));
+                            plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
+                        }
+                        PlotType::None => {}
+        
+                    }  
 
                     Ok::<(), Box<dyn Error + Send + Sync>>(())
                 })

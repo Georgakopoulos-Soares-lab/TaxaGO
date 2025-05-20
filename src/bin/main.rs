@@ -767,7 +767,7 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
         }
     }
     
-    args.push("--save-plots".to_string());
+    // args.push("--save-plots".to_string());
     
     match std::env::current_dir() {
         Ok(dir) => info!("Current working directory: {:?}", dir),

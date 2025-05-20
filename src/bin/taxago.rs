@@ -237,9 +237,12 @@ struct CliArgs {
 
     #[arg(
         long = "save-plots",
-        help = "If specified, TaxaGO will save the enrichment plots."
+        help = "If specified, TaxaGO will save the enrichment plots.",
+        value_enum,
+        default_value_t = PlotType::Interactive
+
     )]
-    save_plots: bool,
+    save_plots: PlotType,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -426,7 +429,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         &taxid_species_map,
         &cli_args.output_dir)?;
 
-    if cli_args.save_plots {
+    if cli_args.save_plots != PlotType::None {
         println!("Generating enrichment plots\n");
         let species_plots_subdir = cli_args.output_dir.join("single_taxon_results").join("plots");
         fs::create_dir_all(&species_plots_subdir)?;
@@ -443,11 +446,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         
         let _species_bar_plots = bar_plot(
             &species_plot_data, 
-            &species_plots_subdir);
+            &species_plots_subdir,
+            cli_args.save_plots
+        );
         
         let _species_bubble_plots = bubble_plot(
             species_plot_data, 
-            &species_plots_subdir);
+            &species_plots_subdir,
+            cli_args.save_plots);
         
         let species_protein_provider = ProteinDataProvider::Species(&go_term_to_protein_set);
         let species_network_data = prepare_network_data(
@@ -464,7 +470,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         
         let _species_network_plots = network_plot(
             &species_networks, 
-            &species_plots_subdir);
+            &species_plots_subdir,
+            cli_args.save_plots);
     }  
     
     if let Some(level_to_combine) = &cli_args.combine_results {
@@ -533,7 +540,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             level_to_combine
         )?;
 
-        if cli_args.save_plots{
+        if cli_args.save_plots != PlotType::None{
             let taxonomy_plots_subdir = cli_args.output_dir.join("combined_taxonomy_results").join("plots");
             fs::create_dir_all(&taxonomy_plots_subdir)?;
             
@@ -543,11 +550,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             let _taxonomy_bar_plots = bar_plot(
                 &taxonomy_plot_data, 
-                &taxonomy_plots_subdir);
+                &taxonomy_plots_subdir,
+                cli_args.save_plots);
 
             let _taxonomy_bubble_plots = bubble_plot(
                 taxonomy_plot_data, 
-                &taxonomy_plots_subdir);
+                &taxonomy_plots_subdir,
+                cli_args.save_plots);
 
             let taxonomy_protein_provider = ProteinDataProvider::Taxonomy {
                 species_data_by_id: &study_population.go_term_to_protein_set,
@@ -567,7 +576,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             
             let _taxon_network_plots = network_plot(
                 &taxon_networks, 
-                &taxonomy_plots_subdir);
+                &taxonomy_plots_subdir,
+                cli_args.save_plots);
             }
 
         }
