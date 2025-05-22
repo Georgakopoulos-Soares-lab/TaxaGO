@@ -16,6 +16,10 @@
             --error-color: #ef4444;
         }
 
+        iframe.plot-frame {
+            transition: opacity 0.25s ease-in-out; /* Adjust timing as you see fit */
+        }
+
         html {
             /* Force scrollbar to always be visible */
             overflow-y: scroll;
@@ -3061,10 +3065,7 @@
             </div>
         </div>
 
-
-        <!-- Add this to your existing script section -->
         <script>
-            // Add plot tab switching functionality
             document.addEventListener('DOMContentLoaded', function() {
                 const plotTabButtons = document.querySelectorAll('[data-plot-tab]');
                 const plotTabContents = document.querySelectorAll('.plot-tab-content');
@@ -3243,17 +3244,109 @@
 
                 plotTabButtons.forEach(button => {
                     button.addEventListener('click', () => {
-                        // Remove active class from all buttons and contents
-                        plotTabButtons.forEach(btn => btn.classList.remove('active'));
-                        plotTabContents.forEach(content => content.classList.remove('active'));
+                        const currentActiveButton = document.querySelector('.tab-button[data-plot-tab].active');
+                        const currentActiveTabContentElement = document.querySelector('.plot-tab-content.active');
 
-                        // Add active class to clicked button and corresponding content
+                        if (currentActiveButton) {
+                            currentActiveButton.classList.remove('active');
+                        }
+                        if (currentActiveTabContentElement) {
+                            currentActiveTabContentElement.classList.remove('active');
+                        }
+
                         button.classList.add('active');
                         const tabId = button.getAttribute('data-plot-tab');
-                        document.getElementById(tabId).classList.add('active');
-                        
-                        // We don't need to reload iframes or re-setup error handling when switching tabs
-                        // This was causing the flickering issue
+                        const newActiveTabContent = document.getElementById(tabId);
+
+                        if (newActiveTabContent) {
+                            newActiveTabContent.classList.add('active'); 
+
+                            requestAnimationFrame(() => {
+                                const plotsGrid = newActiveTabContent.querySelector('.plots-grid');
+                                const iframesInActiveTab = newActiveTabContent.querySelectorAll('iframe.plot-frame');
+
+                                if (plotsGrid) {
+
+
+                                    const originalOpacity = plotsGrid.style.opacity;
+                                    plotsGrid.style.opacity = '0.9999'; 
+                                    plotsGrid.offsetHeight; 
+                                    plotsGrid.style.opacity = originalOpacity || ''; 
+                                }
+
+                                iframesInActiveTab.forEach(iframe => {
+                                    const parentPlotElement = iframe.parentElement; 
+                                    const loadingIndicator = parentPlotElement ? parentPlotElement.querySelector('.plot-loading') : null;
+
+                                    if (parentPlotElement) {
+                                        const originalDisplay = parentPlotElement.style.display;
+                                        parentPlotElement.style.display = 'none';
+                                        parentPlotElement.offsetHeight; 
+                                        parentPlotElement.style.display = originalDisplay || '';
+                                    }
+
+                                    const currentSrc = iframe.getAttribute('src');
+
+                                    if (currentSrc && currentSrc.trim() !== '' && currentSrc !== 'about:blank' && newActiveTabContent.id !== 'biological-process-plots') {
+                                        if (iframe.dataset.isReloading !== 'true') {
+                                            iframe.dataset.isReloading = 'true';
+
+                                            if (loadingIndicator) {
+                                                loadingIndicator.style.display = 'flex';
+                                            }
+                                            iframe.style.opacity = '0';
+
+                                            const handleLoad = () => {
+                                                if (loadingIndicator) {
+                                                    loadingIndicator.style.display = 'none';
+                                                }
+                                                iframe.style.opacity = '1';
+                                                cleanupListeners();
+                                            };
+
+                                            const handleError = () => {
+                                                if (loadingIndicator) {
+                                                    loadingIndicator.style.display = 'none';
+                                                }
+                                                if (parentPlotElement) {
+                                                    const id = iframe.id || '';
+                                                    let namespace = 'Unknown', plotType = 'plot';
+                                                    if (id.startsWith('bp')) namespace = 'Biological Process';
+                                                    else if (id.startsWith('mf')) namespace = 'Molecular Function';
+                                                    else if (id.startsWith('cc')) namespace = 'Cellular Component';
+                                                    if (id.includes('plot1')) plotType = 'bar plot';
+                                                    else if (id.includes('plot2')) plotType = 'bubble plot';
+                                                    else if (id.includes('plot3')) plotType = 'network plot';
+                                                    parentPlotElement.innerHTML = `<div class="no-plot-message">Error loading ${plotType} for ${namespace}.</div>`;
+                                                }
+                                                cleanupListeners();
+                                            };
+
+                                            const cleanupListeners = () => {
+                                                iframe.removeEventListener('load', handleLoad);
+                                                iframe.removeEventListener('error', handleError);
+                                                delete iframe.dataset.isReloading; 
+                                            };
+
+                                            iframe.addEventListener('load', handleLoad);
+                                            iframe.addEventListener('error', handleError);
+
+                                            iframe.src = 'about:blank'; 
+                                            setTimeout(() => {
+                                                iframe.src = currentSrc;
+                                            }, 30); 
+                                        }
+                                    } else if (loadingIndicator) {
+                                        try {
+                                            if (iframe.contentWindow && iframe.contentWindow.document.readyState === 'complete') {
+                                                loadingIndicator.style.display = 'none';
+                                            }
+                                        } catch (e) {
+                                        }
+                                    }
+                                });
+                            });
+                        }
                     });
                 });
             });
@@ -3969,26 +4062,20 @@
 
                 plotTabButtons.forEach(button => {
                     button.addEventListener('click', () => {
-                        // Remove active class from all buttons and contents
                         plotTabButtons.forEach(btn => btn.classList.remove('active'));
                         plotTabContents.forEach(content => content.classList.remove('active'));
 
-                        // Add active class to clicked button and corresponding content
                         button.classList.add('active');
                         const tabId = button.getAttribute('data-plot-tab');
                         document.getElementById(tabId).classList.add('active');
 
-                        // We don't need to reload iframes or re-setup error handling when switching tabs
-                        // This was causing the flickering issue
                     });
                 });
             });
 
             function initializeFunctionButtons() {
-                // Add this at the top of the function to store selected terms
                 let storedSelectedTerms = new Set();
 
-                // Ancestor Analysis Button Handler
                 const ancestorAnalysisButton = document.querySelector('.secondary-button:nth-child(1)');
                 ancestorAnalysisButton.addEventListener('click', () => {
                     // Open the ancestor analysis modal instead of showing an alert

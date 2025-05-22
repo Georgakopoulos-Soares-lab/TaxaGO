@@ -13,6 +13,9 @@ use actix_multipart::Multipart;
 use futures::{StreamExt, TryStreamExt};
 use std::collections::HashMap;
 use TaxaGO::utils::download;
+use lazy_static::lazy_static;
+use std::env::{var, home_dir};
+use std::path::PathBuf;
 
 #[derive(Deserialize)]
 struct QueryParams {
@@ -896,7 +899,7 @@ async fn execute_analysis(params: web::Json<AnalysisParams>) -> HttpResponse {
                                     
                                     let mut lines: Vec<&str> = content.lines().collect();
                                     if !lines.is_empty() {
-                                        lines[0] = "GO ID\tName\tNamespace\tlog(Odds Ratio)\tStat. Sig.\tHetergnt\tSpecies %\tN w/\tN in tax";
+                                        lines[0] = "GO ID\tName\tNamespace\tlog(Odds Ratio)\tStat. Sig.";
                                     }
                                     let modified_content = lines.join("\n");
                                     
@@ -2210,6 +2213,24 @@ async fn copy_combined_plots(taxonomy_name: &str) -> Result<(), std::io::Error> 
     Ok(())
 }
 
+lazy_static! {
+    static ref DEMO_PATH: String = {
+        let cargo_home = var("CARGO_HOME")
+            .unwrap_or_else(|_| {
+                home_dir()
+                    .expect("Could not determine home directory")
+                    .join(".cargo")
+                    .to_string_lossy()
+                    .into_owned()
+            });
+        PathBuf::from(cargo_home)
+            .join("taxago_assets")
+            .join("demo")
+            .to_string_lossy()
+            .into_owned()
+    };
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
@@ -2342,7 +2363,7 @@ async fn main() -> std::io::Result<()> {
             .service(copy_results_file)
             .service(update_categories)
             .service(actix_files::Files::new("/data", "data").show_files_listing())
-            .service(actix_files::Files::new("/demo", "demo").show_files_listing())
+            .service(actix_files::Files::new("/demo", DEMO_PATH.to_string()).show_files_listing())
             .route("/clear-results", web::post().to(clear_results))
             .service(check_testing_type)
             .service(run_ancestor_analysis)
