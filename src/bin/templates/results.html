@@ -17,13 +17,11 @@
         }
 
         iframe.plot-frame {
-            transition: opacity 0.25s ease-in-out; /* Adjust timing as you see fit */
+            transition: opacity 0.25s ease-in-out;
         }
 
         html {
-            /* Force scrollbar to always be visible */
             overflow-y: scroll;
-            /* This is the modern approach to prevent layout shift */
             scrollbar-gutter: stable both-edges;
         }
 
@@ -33,14 +31,13 @@
             font-family: system-ui, -apple-system, sans-serif;
             background-color: var(--background-color);
             color: var(--text-primary);
-            min-width: 320px; /* Prevent container from becoming too narrow */
-            overflow-x: hidden; /* Prevent horizontal scrolling */
+            min-width: 320px;
+            overflow-x: hidden;
             width: 100vw;
             box-sizing: border-box;
             padding-right: calc(100vw - 100%);
         }
 
-        /* Add custom scrollbar styling */
         ::-webkit-scrollbar {
             width: 10px;
             background-color: transparent;
@@ -55,7 +52,6 @@
             background-color: rgba(100, 116, 139, 0.3);
         }
 
-        /* For Firefox */
         * {
             scrollbar-width: thin;
             scrollbar-color: rgba(100, 116, 139, 0.2) transparent;
@@ -93,7 +89,6 @@
             box-shadow: 0 8px 12px -1px rgb(0 0 0 / 0.15);
         }
 
-        /* Update table scroll container to use overlay scrollbar */
         .table-scroll-container {
             overflow: auto;
             position: relative;
@@ -102,7 +97,7 @@
             overflow-x: overlay;
             overflow-y: overlay;
             scrollbar-gutter: stable;
-            margin-top: 0; /* Remove top margin */
+            margin-top: 0;
         }
 
         .plot-container {
@@ -110,7 +105,7 @@
             border-radius: 1rem;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
             padding: 1.5rem;
-            height: 600px;  /* Fixed height for all plot containers */
+            height: 600px;
             display: flex;
             flex-direction: column;
         }
@@ -159,50 +154,47 @@
             width: 100%;
             border-spacing: 0;
             border-collapse: collapse;
-            table-layout: fixed;  /* Force consistent column widths */
+            table-layout: fixed;
         }
 
-        /* Set specific widths for common column types */
         .results-table th,
         .results-table td {
-            padding: 0.625rem 0.75rem; /* Slightly reduced padding */
+            padding: 0.625rem 0.75rem;
             text-align: center;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: normal;  /* Changed from nowrap to normal */
-            min-width: 120px;  /* Minimum width for all columns */
-            word-wrap: break-word;  /* Enable word wrapping */
-            max-height: none;  /* Allow height to adjust to content */
-            vertical-align: middle;  /* Center content vertically */
-            line-height: 1.4;  /* Improve readability of wrapped text */
+            white-space: normal;
+            min-width: 120px;
+            word-wrap: break-word;
+            max-height: none;
+            vertical-align: middle;
+            line-height: 1.4;
         }
 
-        /* Specific column types */
         .results-table th[data-type="id"],
         .results-table td[data-type="id"] {
-            width: 150px;  /* Fixed width for ID columns */
-            white-space: nowrap;  /* Keep IDs on one line */
-            text-overflow: clip;  /* Remove ellipsis */
-            overflow: visible;  /* Allow content to be fully visible */
+            width: 150px;
+            white-space: nowrap;
+            text-overflow: clip;
+            overflow: visible;
         }
 
         .results-table th[data-type="name"],
         .results-table td[data-type="name"] {
-            width: 200px;  /* Fixed width for name columns */
+            width: 200px;
         }
 
         .results-table th[data-type="numeric"],
         .results-table td[data-type="numeric"] {
-            width: 120px;  /* Fixed width for numeric columns */
-            white-space: nowrap;  /* Keep numbers on one line */
+            width: 120px;
+            white-space: nowrap;
         }
 
         .results-table th[data-type="description"],
         .results-table td[data-type="description"] {
-            width: 300px;  /* Fixed width for description columns */
+            width: 300px;
         }
 
-        /* Keep header text on one line */
         .results-table th {
             white-space: nowrap;
             overflow: hidden;
@@ -213,43 +205,36 @@
             position: sticky;
             top: 0;
             background-color: var(--card-background);
-            z-index: 10;  /* Increased z-index */
+            z-index: 10;
         }
 
-        /* Make the first column sticky */
         .results-table th:first-child,
         .results-table td:first-child {
             position: sticky;
             left: 0;
             background-color: var(--card-background);
-            z-index: 5;  /* Increased z-index */
-            /* Add shadow for better visibility */
+            z-index: 5;
             box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
         }
 
-        /* Make the first header cell (intersection of sticky header and column) extra sticky */
         .results-table thead th:first-child {
             position: sticky;
             left: 0;
-            z-index: 15;  /* Highest z-index to stay on top */
+            z-index: 15;
             background-color: var(--card-background);
-            /* Add shadow for better visibility */
             box-shadow: 
-                2px 0 4px -2px rgba(0, 0, 0, 0.1),  /* right shadow */
-                0 2px 4px -2px rgba(0, 0, 0, 0.1);   /* bottom shadow */
+                2px 0 4px -2px rgba(0, 0, 0, 0.1),
+                0 2px 4px -2px rgba(0, 0, 0, 0.1);
         }
 
-        /* Ensure other header cells stay above regular cells */
         .results-table thead th {
             position: sticky;
             top: 0;
-            z-index: 10;  /* Increased z-index */
+            z-index: 10;
             background-color: var(--card-background);
-            /* Add shadow for better visibility */
             box-shadow: 0 1px 2px -1px rgba(0, 0, 0, 0.1);
         }
 
-        /* Adjust background color on hover while maintaining stickiness */
         .results-table tr:hover td:first-child {
             background-color: var(--background-color);
         }
@@ -261,19 +246,19 @@
         }
 
         .results-table th {
-            padding: 0.5rem 0.5rem; /* Reduced vertical padding */
+            padding: 0.5rem 0.5rem;
             font-size: 0.875rem;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             max-width: 150px;
-            vertical-align: middle; /* Center content vertically */
-            height: 2.5rem; /* Fixed height for headers */
-            line-height: 1.2; /* Tighter line height */
+            vertical-align: middle;
+            height: 2.5rem;
+            line-height: 1.2;
         }
 
         .results-table td {
-            padding: 0.625rem 0.75rem; /* Slightly reduced padding */
+            padding: 0.625rem 0.75rem;
             border-bottom: 1px solid var(--border-color);
             color: var(--text-secondary);
             text-align: center;  
@@ -295,7 +280,6 @@
             color: var(--text-secondary);
         }
 
-        /* Modal styles */
         .modal {
             display: none;
             position: fixed;
@@ -311,7 +295,6 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        /* Add this new style for body when modal is open */
         body.modal-open {
             overflow: hidden !important;
             position: fixed;
@@ -319,7 +302,6 @@
             height: 100%;
         }
 
-        /* Update modal content styles to enable scrolling within modal */
         .modal-content {
             background: var(--card-background);
             margin: auto;
@@ -375,7 +357,6 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        /* Sorting styles */
         .sortable-header {
             cursor: pointer;
             position: relative;
@@ -446,7 +427,6 @@
             opacity: 1;
         }
 
-        /* GO term link styling */
         .go-term-link {
             color: var(--primary-color);
             text-decoration: none;
@@ -478,7 +458,6 @@
             transform-origin: bottom left;
         }
 
-        /* Function Buttons Styling */
         .function-buttons-container {
             margin-bottom: 2rem;
         }
@@ -605,7 +584,6 @@
             transform: translateY(0);
         }
 
-        /* Form styling */
         .form-group {
             margin-bottom: 1.5rem;
         }
@@ -684,7 +662,6 @@
             border-radius: 50%;
         }
 
-        /* Range input styling */
         input[type="range"] {
             -webkit-appearance: none;
             width: 100%;
@@ -709,7 +686,6 @@
             box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2);
         }
 
-        /* Analysis results styling */
         .analysis-parameters {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -784,7 +760,6 @@
             }
         }
 
-        /* Plots styling */
         .content-grid {
             display: grid;
             grid-template-columns: 65% 35%;
@@ -809,7 +784,6 @@
             text-align: center;
         }
 
-        /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -829,7 +803,6 @@
             background: #94a3b8;
         }
 
-        /* Loading skeleton animation */
         @keyframes shimmer {
             0% {
                 background-position: -1000px 0;
@@ -853,7 +826,6 @@
             border-radius: 4px;
         }
 
-        /* Modal loading animation */
         .modal-loading {
             display: flex;
             align-items: center;
@@ -870,7 +842,6 @@
             animation: spin 1s linear infinite;
         }
 
-        /* Checkbox styling */
         .species-checkbox {
             position: relative;
             margin-right: 0.75rem;
@@ -890,7 +861,7 @@
         }
 
         .species-checkbox:checked::after {
-            content: '\2713';  /* Unicode checkmark */
+            content: '\2713';
             position: absolute;
             top: 50%;
             left: 50%;
@@ -901,7 +872,6 @@
             font-weight: bold;
         }
 
-        /* Format checkbox styling */
         .format-checkbox {
             position: relative;
             margin-right: 0.75rem;
@@ -921,7 +891,7 @@
         }
 
         .format-checkbox:checked::after {
-            content: '\2713';  /* Unicode checkmark */
+            content: '\2713';
             position: absolute;
             top: 50%;
             left: 50%;
@@ -932,7 +902,6 @@
             font-weight: bold;
         }
 
-        /* Update species selection modal checkbox styles */
         .species-selection-checkbox {
             position: relative;
             margin-right: 0.75rem;
@@ -952,7 +921,7 @@
         }
 
         .species-selection-checkbox:checked::after {
-            content: '\2713';  /* Unicode checkmark */
+            content: '\2713';
             position: absolute;
             top: 50%;
             left: 50%;
@@ -963,7 +932,6 @@
             font-weight: bold;
         }
 
-        /* Modal specific styles */
         .modal .tab-content {
             display: none;
         }
@@ -972,16 +940,14 @@
             display: block;
         }
 
-        /* Update table container styles */
         .modal .table-container {
-            max-height: calc(90vh - 400px); /* Adjust height to account for headers and padding */
+            max-height: calc(90vh - 400px);
             overflow-y: auto;
             border-radius: 0.5rem;
             background: var(--card-background);
             margin-top: 1rem;
         }
 
-        /* Keep header sticky */
         .modal .results-table thead {
             position: sticky;
             top: 0;
@@ -989,7 +955,6 @@
             z-index: 10;
         }
 
-        /* Update cell styles */
         .modal .results-table td {
             vertical-align: top;
             padding: 1rem;
@@ -997,20 +962,17 @@
             word-wrap: break-word;
         }
 
-        /* Specific styling for the ancestors column */
         .modal .results-table td:last-child {
             max-width: none;
             white-space: normal;
             word-wrap: break-word;
         }
 
-        /* Ensure proper spacing between ancestor terms */
         .modal .results-table .go-term-link {
             display: inline-block;
             margin-right: 0.25rem;
         }
 
-        /* Plots grid layout */
         .plots-grid {
             width: 100%;
             display: grid;
@@ -1025,7 +987,7 @@
                 grid-template-columns: 34% 63%;
                 transform: scale(0.9);
                 transform-origin: top left;
-                width: 111%;  /* Compensate for scale to maintain layout */
+                width: 111%;
             }
         }
 
@@ -1216,9 +1178,8 @@
             }
         }
 
-        /* Tab content styles */
         .tab-content {
-            min-height: 500px;  /* Minimum height to prevent vertical shifts */
+            min-height: 500px;
             width: 100%;
             position: relative;
         }
@@ -1237,20 +1198,18 @@
             position: relative;
         }
 
-        /* Add these styles to the existing <style> section */
         .results-table th {
-            padding: 0.5rem 0.5rem; /* Reduced vertical padding */
+            padding: 0.5rem 0.5rem;
             font-size: 0.875rem;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             max-width: 150px;
-            vertical-align: middle; /* Center content vertically */
-            height: 2.5rem; /* Fixed height for headers */
-            line-height: 1.2; /* Tighter line height */
+            vertical-align: middle;
+            height: 2.5rem;
+            line-height: 1.2;
         }
 
-        /* Add tooltips to show full header text on hover */
         .sortable-header {
             position: relative;
         }
@@ -1272,7 +1231,6 @@
             pointer-events: none;
         }
 
-        /* Add these new styles for the ancestor analysis modal */
         .selected-terms-container {
             background-color: var(--background-color);
             border-radius: 0.75rem;
@@ -1312,7 +1270,6 @@
             transition: all 0.3s ease;
         }
 
-        /* Style for the ancestor analysis modal */
         #ancestor-analysis-modal .modal-content {
             max-width: 800px;
             width: 80%;
@@ -1391,7 +1348,6 @@
             background-color: var(--card-background);
         }
 
-        /* Set a fixed height for the selected terms container to maintain consistent modal size */
         .selected-terms-container {
             background-color: var(--background-color);
             border-radius: 0.75rem;
@@ -1419,13 +1375,11 @@
             color: var(--error-color) !important;
         }
 
-        /* Animation for the ancestor analysis results */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Set a fixed height for the ancestor analysis results to maintain consistent modal size */
         #ancestor-analysis-results {
             margin-top: 2rem;
             animation: fadeIn 0.5s ease forwards;
@@ -1455,7 +1409,6 @@
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
         }
 
-        /* Responsive styles for the ancestor analysis modal */
         @media (max-width: 768px) {
             #ancestor-analysis-modal .modal-content {
                 width: 95%;
@@ -1476,7 +1429,6 @@
             }
         }
 
-        /* Fullscreen container styles */
         #diagram-fullscreen-container {
             display: none;
             position: fixed;
@@ -1552,7 +1504,6 @@
             background-color: var(--background-color);
         }
 
-        /* Style for the semantic similarity modal */
         #semantic-similarity-modal .modal-content {
             max-width: 800px;
             width: 80%;
@@ -1587,7 +1538,6 @@
             margin-bottom: 1.5rem;
         }
 
-        /* Radio button styles */
         .radio-container {
             display: flex;
             flex-direction: column;
@@ -1621,7 +1571,6 @@
             margin-left: 1.5rem;
         }
 
-        /* Method selection styles */
         .method-selection-container {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -1669,7 +1618,6 @@
             color: var(--text-tertiary);
         }
 
-        /* Style for selected method */
         .method-option input[type="radio"]:checked + .method-content {
             background-color: var(--primary-color-light);
             border-color: var(--primary-color);
@@ -1683,7 +1631,6 @@
             box-shadow: 0 0 0 2px var(--primary-color-light);
         }
 
-        /* Similarity table styles */
         .similarity-table-container {
             max-height: 500px;
             min-height: 300px;
@@ -1712,7 +1659,7 @@
             text-align: left;
             position: sticky;
             left: 0;
-            z-index: 2; /* Higher z-index to appear above other sticky elements */
+            z-index: 2;
         }
 
         .similarity-table td:first-child {
@@ -1723,13 +1670,11 @@
             z-index: 1;
         }
 
-        /* Special styling for the corner cell (1,1) - "GO Term" header */
         .similarity-table th:first-child {
-            z-index: 3; /* Highest z-index to stay on top of everything */
+            z-index: 3;
             background-color: var(--card-background);
         }
 
-        /* Specific styling for the corner header */
         .corner-header {
             position: sticky;
             top: 0;
@@ -1741,7 +1686,6 @@
             border-bottom: 1px solid var(--border-color);
         }
 
-        /* Zoom controls for the diagram */
         .zoom-controls {
             display: flex;
             gap: 0.5rem;
@@ -1765,7 +1709,6 @@
             border-color: var(--primary-color);
         }
 
-        /* Add tooltip styles for the info button */
         .info-tooltip {
             position: relative;
             display: inline-flex;
@@ -1783,7 +1726,7 @@
             padding: 8px 12px;
             position: absolute;
             z-index: 100;
-            top: 125%; /* Changed from bottom: 125% to top: 125% */
+            top: 125%;
             left: 50%;
             transform: translateX(-50%);
             opacity: 0;
@@ -1830,7 +1773,6 @@
             border-color: var(--primary-color);
         }
 
-        /* Similarity fullscreen container styles */
         #similarity-fullscreen-container {
             display: none;
             position: fixed;
@@ -1852,7 +1794,7 @@
             height: 95%;
             background-color: white;
             border-radius: 0.5rem;
-            padding: 0 !important; /* Remove padding */
+            padding: 0 !important;
             overflow: hidden;
             position: relative;
             display: flex;
@@ -1863,16 +1805,16 @@
             flex: 1;
             overflow: auto;
             max-height: 100%;
-            margin: 0 !important; /* Remove margin */
-            padding: 0 !important; /* Remove padding */
+            margin: 0 !important;
+            padding: 0 !important;
             width: 100% !important;
         }
         
         #fullscreen-similarity-content .similarity-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 0 !important; /* Remove margin */
-            border-spacing: 0 !important; /* Remove border spacing */
+            margin: 0 !important;
+            border-spacing: 0 !important;
         }
         
         #fullscreen-similarity-content .similarity-table thead th {
@@ -1881,11 +1823,10 @@
             background-color: var(--card-background);
             z-index: 10 !important;
             box-shadow: 0 1px 0 var(--border-color);
-            /* Make headers larger */
             padding: 1rem 1.5rem !important;
             font-size: 1rem !important;
             white-space: nowrap !important;
-            min-width: 150px !important;  /* Increased minimum width */
+            min-width: 150px !important;
         }
         
         #fullscreen-similarity-content .similarity-table tbody td:first-child {
@@ -1894,31 +1835,27 @@
             background-color: var(--card-background);
             z-index: 5 !important;
             box-shadow: 1px 0 0 var(--border-color);
-            /* Match header size */
             padding: 1rem 1.5rem !important;
             font-size: 1rem !important;
             white-space: nowrap !important;
-            min-width: 150px !important;  /* Match header width */
+            min-width: 150px !important;
         }
         
-        /* Make the top-left cell (GO Term) fixed in both directions */
         #fullscreen-similarity-content .similarity-table thead th:first-child,
         #fullscreen-similarity-content .similarity-table thead th.corner-header {
             position: sticky !important;
             left: 0 !important;
             top: 0 !important;
-            z-index: 20 !important; /* Higher z-index to appear above other sticky elements */
+            z-index: 20 !important;
             background-color: var(--card-background);
             box-shadow: 1px 1px 0 var(--border-color);
-            /* Match other header sizes */
             padding: 1rem 1.5rem !important;
-            min-width: 150px !important;  /* Match header width */
+            min-width: 150px !important;
         }
 
-        /* Style the regular cells in the fullscreen table */
         #fullscreen-similarity-content .similarity-table tbody td {
             padding: 1rem 1.5rem !important;
-            min-width: 150px !important;  /* Match header width */
+            min-width: 150px !important;
             text-align: center !important;
         }
                 
@@ -1967,39 +1904,33 @@
             position: sticky;
             top: 0;
             background-color: var(--card-background);
-            z-index: 10;  /* Increased z-index */
+            z-index: 10;
         }
 
-        /* Make the first column sticky */
         .main-container .results-table th:first-child,
         .main-container .results-table td:first-child {
             position: sticky;
             left: 0;
             background-color: var(--card-background);
-            z-index: 5;  /* Increased z-index */
-            /* Add shadow for better visibility */
+            z-index: 5;
             box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
         }
 
-        /* Make the first header cell (intersection of sticky header and column) extra sticky */
         .main-container .results-table thead th:first-child {
             position: sticky;
             left: 0;
-            z-index: 15;  /* Highest z-index to stay on top */
+            z-index: 15;
             background-color: var(--card-background);
-            /* Add shadow for better visibility */
             box-shadow: 
-                2px 0 4px -2px rgba(0, 0, 0, 0.1),  /* right shadow */
-                0 2px 4px -2px rgba(0, 0, 0, 0.1);   /* bottom shadow */
+                2px 0 4px -2px rgba(0, 0, 0, 0.1),
+                0 2px 4px -2px rgba(0, 0, 0, 0.1);
         }
 
-        /* Ensure other header cells stay above regular cells */
         .main-container .results-table thead th {
             position: sticky;
             top: 0;
-            z-index: 10;  /* Increased z-index */
+            z-index: 10;
             background-color: var(--card-background);
-            /* Add shadow for better visibility */
             box-shadow: 0 1px 2px -1px rgba(0, 0, 0, 0.1);
         }
 
@@ -2049,7 +1980,6 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
-        /* Plot loading and error message styles */
         .plot-loading {
             position: absolute;
             top: 50%;
@@ -2072,7 +2002,6 @@
             padding: 2rem;
         }
 
-        /* Modal and Loading Styles */
         .modal-backdrop {
             display: none;
             position: fixed;
@@ -2128,10 +2057,8 @@
             opacity: 1;
         }
     </style>
-    <!-- Add Mermaid library for rendering diagrams -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
     <script>
-        // Initialize mermaid with a light theme that matches our UI
         mermaid.initialize({
             startOnLoad: false,
             theme: 'default',
@@ -2141,9 +2068,7 @@
                 curve: 'basis'
             },
             securityLevel: 'loose',
-            // Add link settings to open in new tab
             htmlLabels: true,
-            // Ensure proper rendering
             er: { useMaxWidth: false },
             sequence: { useMaxWidth: false },
             gantt: { useMaxWidth: false },
@@ -2151,34 +2076,27 @@
             pie: { useMaxWidth: false }
         });
 
-        // Add event listener for the close fullscreen button
         document.addEventListener('DOMContentLoaded', function() {
             setupCloseFullscreenButton();
         });
         
-        // Function to set up the close fullscreen button
         function setupCloseFullscreenButton() {
             const closeFullscreenButton = document.getElementById('close-similarity-fullscreen');
             if (closeFullscreenButton) {
-                // Remove any existing event listeners by cloning
                 const newCloseButton = closeFullscreenButton.cloneNode(true);
                 closeFullscreenButton.parentNode.replaceChild(newCloseButton, closeFullscreenButton);
                 
-                // Add a fresh event listener
                 newCloseButton.addEventListener('click', toggleSimilarityFullscreen);
             }
         }
 
-        // Function to toggle fullscreen mode for the diagram
         function toggleDiagramFullscreen() {
             const diagramContainer = document.getElementById('diagram-fullscreen-container');
             
             if (diagramContainer.style.display === 'flex') {
-                // Exit fullscreen
                 diagramContainer.style.display = 'none';
                 document.body.style.overflow = 'auto';
                 
-                // Remove event listeners for panning and zooming
                 const container = document.querySelector('#fullscreen-diagram-content > div');
                 if (container) {
                     container.removeEventListener('mousedown', handleMouseDown);
@@ -2193,9 +2111,7 @@
                     svgElement.removeEventListener('click', handleSvgClick);
                 }
             } else {
-                // Enter fullscreen
                 try {
-                    // Get the mermaid code directly from the original source
                     fetch('/ancestor-mermaid')
                         .then(response => response.text())
                         .then(mermaidCode => {
@@ -2237,22 +2153,18 @@
                                     </div>
                                 </div>`;
                             
-                            // Re-render the diagram in fullscreen
                             mermaid.run({
                                 nodes: document.querySelectorAll('#fullscreen-diagram-content .mermaid')
                             }).then(() => {
-                                // Make sure the SVG is fully visible in fullscreen mode
                                 const svgElement = document.querySelector('#fullscreen-diagram-content svg');
                                 if (svgElement) {
                                     svgElement.style.maxWidth = 'none';
                                     svgElement.style.width = '100%';
                                     svgElement.style.height = 'auto';
                                     
-                                    // Add click handler to SVG elements
                                     svgElement.addEventListener('click', handleSvgClick, true);
                                 }
                                 
-                                // Store original dimensions and initialize position
                                 const container = document.querySelector('#fullscreen-diagram-content > div');
                                 const zoomContainer = document.querySelector('.zoom-container');
                                 window.originalWidth = zoomContainer.offsetWidth;
@@ -2261,17 +2173,14 @@
                                 window.currentX = 0;
                                 window.currentY = 0;
                                 
-                                // Center the diagram initially
                                 centerDiagram();
                                 
-                                // Add event listeners for panning and zooming
                                 container.addEventListener('mousedown', handleMouseDown);
                                 container.addEventListener('mousemove', handleMouseMove);
                                 container.addEventListener('mouseup', handleMouseUp);
                                 container.addEventListener('mouseleave', handleMouseUp);
                                 container.addEventListener('wheel', handleWheel, { passive: false });
                                 
-                                // Make sure all links open in new tabs
                                 document.querySelectorAll('#fullscreen-diagram-content a').forEach(link => {
                                     link.setAttribute('target', '_blank');
                                     link.setAttribute('rel', 'noopener noreferrer');
@@ -2304,7 +2213,6 @@
             }
         }
         
-        // Function to ensure all links in the Mermaid diagram open in new tabs
         function setLinksToOpenInNewTab() {
             document.querySelectorAll('#mermaid-diagram a, .mermaid a').forEach(link => {
                 link.setAttribute('target', '_blank');
@@ -2312,7 +2220,6 @@
             });
         }
 
-        // Function to zoom the diagram
         function zoomDiagram(scale) {
             const zoomContainer = document.querySelector('.zoom-container');
             if (!zoomContainer) return;
@@ -2321,18 +2228,13 @@
             const oldScale = window.currentScale || 1;
 
             if (scale === 1) {
-                // Reset to original size and center
                 window.currentScale = 1;
                 centerDiagram();
             } else {
-                // Calculate new scale
-                // Use a more aggressive zoom factor
-                const zoomFactor = scale > 1 ? 1.5 : 0.667; // More pronounced zoom in/out
+                const zoomFactor = scale > 1 ? 1.5 : 0.667;
                 window.currentScale = oldScale * zoomFactor;
-                // Allow for more extreme zoom levels
                 window.currentScale = Math.min(Math.max(window.currentScale, 0.1), 10);
 
-                // Adjust position to zoom around center
                 const containerRect = container.getBoundingClientRect();
                 const centerX = containerRect.width / 2;
                 const centerY = containerRect.height / 2;
@@ -2348,20 +2250,17 @@
             }
         }
 
-        // Add wheel zoom support
         function handleWheel(e) {
-            if (!e.ctrlKey) return; // Only zoom when Ctrl is pressed
+            if (!e.ctrlKey) return;
             e.preventDefault();
             
             const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
             zoomDiagram(zoomFactor);
         }
 
-        // Function to zoom the fullscreen diagram
         function zoomFullscreenDiagram(scale) {
             const svgElement = document.querySelector('#fullscreen-diagram-content svg');
             if (svgElement) {
-                // Get the current transform if any
                 const currentTransform = svgElement.getAttribute('transform') || '';
                 const currentScaleMatch = currentTransform.match(/scale\(([^)]+)\)/);
                 
@@ -2370,21 +2269,17 @@
                     currentScale = parseFloat(currentScaleMatch[1]);
                 }
                 
-                // Calculate the new scale
                 const newScale = scale === 1 ? 1 : currentScale * scale;
                 
-                // Apply the new transform
                 if (newScale === 1) {
                     svgElement.removeAttribute('transform');
                 } else {
-                    // Apply transform from the center of the SVG
                     const bbox = svgElement.getBBox();
                     const cx = bbox.x + bbox.width/2;
                     const cy = bbox.y + bbox.height/2;
                     svgElement.setAttribute('transform', `scale(${newScale})`);
                 }
                 
-                // Adjust container to fit the content
                 const fullscreenContainer = document.querySelector('#fullscreen-diagram-content > div');
                 if (fullscreenContainer) {
                     fullscreenContainer.style.minWidth = `${svgElement.getBBox().width * newScale}px`;
@@ -2393,7 +2288,6 @@
             }
         }
 
-        // Function to center the diagram
         function centerDiagram() {
             const container = document.querySelector('#fullscreen-diagram-content > div');
             const zoomContainer = document.querySelector('.zoom-container');
@@ -2410,7 +2304,6 @@
             updateTransform();
         }
 
-        // Function to update transform
         function updateTransform() {
             const zoomContainer = document.querySelector('.zoom-container');
             if (!zoomContainer) return;
@@ -2419,14 +2312,12 @@
             zoomContainer.style.transform = `translate(${window.currentX}px, ${window.currentY}px) scale(${scale})`;
         }
 
-        // Function to handle panning in fullscreen mode
         let isDragging = false;
         let startX, startY;
         let hasMoved = false;
         let clickStartTime = 0;
 
         function handleMouseDown(e) {
-            // Store the time when mouse down occurred
             clickStartTime = Date.now();
             hasMoved = false;
             isDragging = true;
@@ -2436,20 +2327,16 @@
             startY = e.clientY - window.currentY;
             container.style.cursor = 'grabbing';
             
-            // Prevent default to avoid text selection
             e.preventDefault();
             
-            // We no longer disable pointer events here - we'll handle this in the mouseup event
         }
 
         function handleMouseMove(e) {
             if (!isDragging) return;
             
-            // Calculate distance moved
             const dx = e.clientX - (startX + window.currentX);
             const dy = e.clientY - (startY + window.currentY);
             
-            // Set hasMoved flag if moved more than a small threshold
             if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
                 hasMoved = true;
             }
@@ -2458,7 +2345,6 @@
             window.currentY = e.clientY - startY;
             updateTransform();
             
-            // Always prevent default during drag to avoid browser behaviors
             e.preventDefault();
         }
 
@@ -2469,81 +2355,59 @@
                 if (container) {
                     container.style.cursor = 'grab';
                 }
-                
-                // If the mouse hasn't moved significantly and the click was short,
-                // allow the click to proceed naturally to the link
+
                 if (!hasMoved && (Date.now() - clickStartTime < 300)) {
-                    // This was a click, not a drag - do nothing special to allow the click to work
                 } else {
-                    // This was a drag, not a click - prevent any click events
                     e.preventDefault();
                     e.stopPropagation();
                 }
             }
         }
 
-        // Add a click handler for SVG elements
         function handleSvgClick(e) {
-            // Only prevent clicks if we've been dragging
             if (hasMoved) {
                 e.preventDefault();
                 e.stopPropagation();
                 return false;
             }
-            // Otherwise, allow the click to proceed normally
         }
 
-        // Function to toggle fullscreen mode for the similarity table
         function toggleSimilarityFullscreen() {
             const similarityContainer = document.getElementById('similarity-fullscreen-container');
             
             if (similarityContainer.style.display === 'flex') {
-                // Exit fullscreen
                 similarityContainer.style.display = 'none';
                 document.body.style.overflow = 'auto';
             } else {
-                // Enter fullscreen
                 try {
-                    // Always get the current similarity table content
                     const tableContainer = document.querySelector('.similarity-table-container');
                     if (!tableContainer) {
                         console.error('Similarity table container not found');
                         return;
                     }
                     
-                    // Get the current table content
                     const tableHTML = tableContainer.querySelector('.similarity-table').outerHTML;
-                    
-                    // Clear previous content
+
                     const fullscreenContent = document.getElementById('fullscreen-similarity-content');
                     fullscreenContent.innerHTML = '';
                     
-                    // Create a new table container that maximizes height
                     const newTableContainer = document.createElement('div');
                     newTableContainer.className = 'similarity-table-container';
                     newTableContainer.innerHTML = tableHTML;
                     
-                    // No longer adding the non-sticky-table class since we want sticky headers
-                    
-                    // Ensure the corner header has the correct class
                     const cornerHeader = newTableContainer.querySelector('.similarity-table thead th:first-child');
                     if (cornerHeader && !cornerHeader.classList.contains('corner-header')) {
                         cornerHeader.classList.add('corner-header');
                     }
                     
-                    // Append the table container directly to the fullscreen content
                     fullscreenContent.appendChild(newTableContainer);
                     
-                    // Setup CSV download button with a fresh event listener
                     const downloadButton = document.getElementById('download-similarity-csv');
                     if (downloadButton) {
-                        // Remove any existing event listeners by cloning
                         const newDownloadButton = downloadButton.cloneNode(true);
                         downloadButton.parentNode.replaceChild(newDownloadButton, downloadButton);
                         
-                        // Add a fresh event listener that gets the current table
                         newDownloadButton.addEventListener('click', function() {
-                            // Get the current table in the fullscreen view
                             const currentTable = document.querySelector('#fullscreen-similarity-content .similarity-table');
                             if (currentTable) {
                                 downloadSimilarityCSVFromTable(currentTable);
@@ -2553,10 +2417,8 @@
                         });
                     }
                     
-                    // Setup close button with a fresh event listener
                     setupCloseFullscreenButton();
                     
-                    // Show the fullscreen container
                     similarityContainer.style.display = 'flex';
                     document.body.style.overflow = 'hidden';
                 } catch (error) {
@@ -2565,15 +2427,12 @@
             }
         }
         
-        // Function to download similarity table as CSV
         function downloadSimilarityCSV() {
-            // Always get the current table in the fullscreen view
             const currentTable = document.querySelector('#fullscreen-similarity-content .similarity-table');
             if (currentTable) {
                 downloadSimilarityCSVFromTable(currentTable);
             } else {
                 console.error('Table not found in fullscreen view for CSV download');
-                // Try to get the table from the main view as a fallback
                 const mainTable = document.querySelector('.similarity-table');
                 if (mainTable) {
                     downloadSimilarityCSVFromTable(mainTable);
@@ -2583,7 +2442,6 @@
             }
         }
         
-        // Generic function to download a table as CSV
         function downloadSimilarityCSVFromTable(table) {
             try {
                 if (!table) {
@@ -2597,9 +2455,7 @@
                 rows.forEach(row => {
                     const cells = Array.from(row.querySelectorAll('th, td'));
                     const rowData = cells.map(cell => {
-                        // Remove any HTML and get just the text content
                         let content = cell.textContent.trim();
-                        // Escape quotes and wrap content in quotes if it contains commas
                         if (content.includes(',') || content.includes('"')) {
                             content = '"' + content.replace(/"/g, '""') + '"';
                         }
@@ -2620,42 +2476,32 @@
             }
         }
 
-        // Add error handling for iframes
         function setupIframeErrorHandling() {
             document.querySelectorAll('iframe.plot-frame').forEach(iframe => {
-                // Remove any existing event listeners by cloning
                 const newIframe = iframe.cloneNode(true);
                 iframe.parentNode.replaceChild(newIframe, iframe);
                 
-                // Set a timeout to check if the plot is taking too long to load
                 const loadTimeout = setTimeout(() => {
-                    // If the iframe is still loading after 10 seconds, show an error
                     const loadingEl = newIframe.parentElement.querySelector('.plot-loading');
                     if (loadingEl) {
                         loadingEl.textContent = 'Plot is taking longer than expected to load...';
                     }
-                }, 10000); // 10 seconds
+                }, 10000);
                 
-                // Add load event listener to check for errors and remove loading indicator
                 newIframe.addEventListener('load', function() {
-                    // Clear the timeout
                     clearTimeout(loadTimeout);
                     
-                    // Remove the loading indicator
                     const loadingEl = this.parentElement.querySelector('.plot-loading');
                     if (loadingEl) {
                         loadingEl.style.display = 'none';
                     }
                     
                     try {
-                        // If we can access the iframe content and it's an error page
-                        // Note: This might not work for cross-origin iframes due to security restrictions
                         if (this.contentDocument && 
                             (this.contentDocument.title.includes('Error: Plot Not Found') || 
                              this.contentDocument.body.textContent.includes('Plot Not Found') ||
                              this.contentDocument.body.classList.contains('plot-error-page'))) {
-                            
-                            // Get the plot type and namespace from the iframe ID
+
                             const id = this.id || '';
                             let namespace = 'Unknown';
                             let plotType = 'plot';
@@ -2680,17 +2526,13 @@
                             this.parentElement.innerHTML = `<div class="no-plot-message">No ${plotType} available for ${namespace}</div>`;
                         }
                     } catch (e) {
-                        // If we can't access the iframe content (cross-origin), we need to rely on the fetch check
                         console.log('Cannot check iframe content:', e);
                     }
                 });
                 
-                // Add error handler for the iframe
                 newIframe.addEventListener('error', function() {
-                    // Clear the timeout
                     clearTimeout(loadTimeout);
                     
-                    // Get the plot type and namespace from the iframe ID
                     const id = this.id || '';
                     let namespace = 'Unknown';
                     let plotType = 'plot';
@@ -2715,10 +2557,8 @@
                 });
             });
             
-            // Also handle image loading
             document.querySelectorAll('img.plot-frame').forEach(img => {
                 img.addEventListener('load', function() {
-                    // Remove the loading indicator
                     const loadingEl = this.parentElement.querySelector('.plot-loading');
                     if (loadingEl) {
                         loadingEl.style.display = 'none';
@@ -2727,7 +2567,6 @@
             });
         }
 
-        // Add this at the start of your JavaScript section
         function showLoading() {
             const loadingContainer = document.getElementById('global-loading-container');
             loadingContainer.classList.add('active');
@@ -2754,15 +2593,13 @@
             document.body.classList.remove('modal-open');
         }
 
-        // Update the loadResults function
         async function loadResults() {
             try {
                 const tbody = document.getElementById('results-body');
                 const thead = document.querySelector('.results-table thead tr');
                 
-                showLoading(); // Show loading state
+                showLoading();
                 
-                // Show loading skeleton
                 tbody.innerHTML = Array(5).fill(0).map(() => `
                     <tr class="loading-row">
                         ${Array(9).fill('<td class="loading-skeleton">&nbsp;</td>').join('')}
@@ -2780,23 +2617,19 @@
                 }
                 
                 const lines = data.split('\n');
-                tbody.innerHTML = ''; // Clear loading skeleton
+                tbody.innerHTML = '';
                 
-                // Clear existing headers
                 thead.innerHTML = '';
                 
-                // Parse headers from the first line
                 if (lines.length > 0) {
                     const headerLine = lines[0].trim();
                     const headers = headerLine.split('\t');
                     
-                    // Create header cells
                     headers.forEach((header, index) => {
                         const th = document.createElement('th');
                         th.className = 'sortable-header';
                         th.setAttribute('data-column', index);
                         
-                        // Set appropriate data-type based on header content
                         if (header.includes('GO') && header.includes('ID')) {
                             th.setAttribute('data-type', 'id');
                         } else if (header.includes('Name') || header.includes('Namespace')) {
@@ -2805,12 +2638,10 @@
                             th.setAttribute('data-type', 'numeric');
                         }
                         
-                        // Set full title if needed
                         if (header.length > 15) {
                             th.setAttribute('data-full-title', header);
                         }
                         
-                        // Create the header text and sort arrow
                         th.textContent = header;
                         const sortArrow = document.createElement('span');
                         sortArrow.className = 'sort-arrow';
@@ -2820,16 +2651,14 @@
                     });
                 }
                 
-                // Store all results
                 allResults = [];
-                
-                // Process each data row (skip header)
+
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i].trim();
-                    if (!line) continue; // Skip empty lines
+                    if (!line) continue;
                     
                     const columns = line.split('\t');
-                    if (columns.length >= 3) { // Make sure we have at least a few columns
+                    if (columns.length >= 3) {
                         allResults.push(columns);
                     }
                 }
@@ -2838,18 +2667,14 @@
                     throw new Error('No valid results found');
                 }
 
-                // Sort the results by Odds Ratio (descending) and p-value (ascending)
                 allResults = sortResultsByOddsRatioAndPValue(allResults);
 
-                // Display first 10 rows in main table
                 for (let i = 0; i < Math.min(10, allResults.length); i++) {
                     tbody.appendChild(createTableRow(allResults[i]));
                 }
 
-                // Initialize sorting for the main table
                 initializeTableSorting(document.querySelector('.results-table-container .results-table'));
                 
-                // Initialize tabs
                 initializeTabSwitching();
             } catch (error) {
                 console.error('Error loading results:', error);
@@ -2862,13 +2687,11 @@
                     </tr>
                 `;
             } finally {
-                hideLoading(); // Always hide loading when done
+                hideLoading();
             }
         }
 
-        // Update event listeners for modals
         document.addEventListener('DOMContentLoaded', function() {
-            // Close modal when clicking backdrop
             document.getElementById('modal-backdrop').addEventListener('click', function() {
                 const activeModal = document.querySelector('.modal.active');
                 if (activeModal) {
@@ -2876,7 +2699,6 @@
                 }
             });
 
-            // Close modal when clicking close button
             document.querySelectorAll('.close-modal').forEach(button => {
                 button.addEventListener('click', function() {
                     const modal = this.closest('.modal');
@@ -2886,23 +2708,135 @@
                 });
             });
 
-            // Stop propagation of clicks on modal content
             document.querySelectorAll('.modal-content').forEach(content => {
                 content.addEventListener('click', function(e) {
                     e.stopPropagation();
                 });
             });
         });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const downloadButton = document.querySelector('.download-button');
+            if (downloadButton) {
+                console.log('[TaxaGO] Download button found, attaching event listener');
+                downloadButton.addEventListener('click', () => {
+                    console.log('[TaxaGO] Download button clicked, creating modal');
+                    const modal = document.createElement('div');
+                    modal.className = 'modal active';
+                    modal.innerHTML = `
+                        <div class="modal-content" style="max-width: 500px; padding: 2rem;">
+                            <span class="close-modal">&times;</span>
+                            <div class="title" style="font-size: 1.5rem; margin-bottom: 1.5rem;">
+                                Download Results
+                            </div>
+                            <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 2rem;">
+                                Select in what form/s you want to save the results
+                            </p>
+                            <div style="display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 2rem;">
+                                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem; background: var(--background-color); border-radius: 0.5rem; transition: all 0.2s ease;">
+                                    <input type="checkbox" class="format-checkbox" value="csv" style="width: 1.25rem; height: 1.25rem; cursor: pointer;">
+                                    <span style="color: var(--text-primary); font-size: 1rem;">CSV</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem; background: var(--background-color); border-radius: 0.5rem; transition: all 0.2s ease;">
+                                    <input type="checkbox" class="format-checkbox" value="tsv" style="width: 1.25rem; height: 1.25rem; cursor: pointer;">
+                                    <span style="color: var(--text-primary); font-size: 1rem;">TSV</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem; background: var(--background-color); border-radius: 0.5rem; transition: all 0.2s ease;">
+                                    <input type="checkbox" class="format-checkbox" value="json" style="width: 1.25rem; height: 1.25rem; cursor: pointer;">
+                                    <span style="color: var(--text-primary); font-size: 1rem;">JSON</span>
+                                </label>
+                            </div>
+                            <button class="primary-button download-save-btn" 
+                                    style="background-color: var(--primary-color); width: 100%; padding: 1rem; border-radius: 0.5rem; color: white; font-weight: 600; transition: all 0.2s ease;">
+                                Save
+                            </button>
+                        </div>
+                    `;
+                    const labels = modal.querySelectorAll('label');
+                    labels.forEach(label => {
+                        label.addEventListener('mouseover', () => {
+                            label.style.background = 'var(--card-background)';
+                        });
+                        label.addEventListener('mouseout', () => {
+                            label.style.background = 'var(--background-color)';
+                        });
+                    });
+                    document.body.appendChild(modal);
+                    toggleModalState(true);
+                    const saveButton = modal.querySelector('.download-save-btn');
+                    saveButton.addEventListener('click', async () => {
+                        console.log('[TaxaGO] Save button clicked');
+                        const selectedFormats = Array.from(modal.querySelectorAll('.format-checkbox:checked'))
+                            .map(checkbox => checkbox.value);
+                        console.log('[TaxaGO] Selected formats:', selectedFormats);
+                        if (selectedFormats.length === 0) {
+                            alert('Please select at least one format');
+                            return;
+                        }
+                        try {
+                            saveButton.classList.add('loading');
+                            async function downloadWithDelay(formats) {
+                                for (const format of formats) {
+                                    const link = document.createElement('a');
+                                    link.style.display = 'none';
+                                    document.body.appendChild(link);
+                                    const response = await fetch(`/download/${format}`);
+                                    if (!response.ok) {
+                                        throw new Error(`Download failed for ${format}`);
+                                    }
+                                    let filename = `results.${format}`;
+                                    const contentDisposition = response.headers.get('Content-Disposition');
+                                    if (contentDisposition) {
+                                        const filenameMatch = contentDisposition.match(/filename="(.+?)"/);
+                                        if (filenameMatch && filenameMatch[1]) {
+                                            filename = filenameMatch[1];
+                                        }
+                                    }
+                                    const blob = await response.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    link.href = url;
+                                    link.download = filename;
+                                    link.click();
+                                    window.URL.revokeObjectURL(url);
+                                    document.body.removeChild(link);
+                                    console.log(`[TaxaGO] Downloaded ${filename}`);
+                                    await new Promise(res => setTimeout(res, 500));
+                                }
+                            }
+                            await downloadWithDelay(selectedFormats);
+                            document.body.removeChild(modal);
+                            toggleModalState(false);
+                        } catch (error) {
+                            console.error('Error downloading files:', error);
+                            alert('Error downloading files. Please try again.');
+                        } finally {
+                            saveButton.classList.remove('loading');
+                        }
+                    });
+                    const closeButton = modal.querySelector('.close-modal');
+                    closeButton.addEventListener('click', () => {
+                        document.body.removeChild(modal);
+                        toggleModalState(false);
+                    });
+                    modal.addEventListener('click', (event) => {
+                        if (event.target === modal) {
+                            document.body.removeChild(modal);
+                            toggleModalState(false);
+                        }
+                    });
+                });
+            } else {
+                console.error('[TaxaGO] Download button not found');
+            }
+        });
     </script>
 </head>
 <body>
-    <!-- Add backdrop and loading container -->
     <div id="modal-backdrop" class="modal-backdrop"></div>
     <div id="global-loading-container" class="loading-container">
         <div class="loading-text">Processing your request...</div>
     </div>
 
-    <!-- Add fullscreen container at the top level of the body -->
     <div id="diagram-fullscreen-container">
         <div class="fullscreen-controls">
             <div style="display: flex; gap: 0.5rem;">
@@ -2923,7 +2857,6 @@
         <div id="fullscreen-diagram-content"></div>
     </div>
 
-    <!-- Add fullscreen container for semantic similarity table -->
     <div id="similarity-fullscreen-container">
         <div class="fullscreen-controls">
             <div style="display: flex; gap: 0.5rem;">
@@ -2947,7 +2880,6 @@
     <div class="main-container">
         <h1 class="title">TaxaGO Results</h1>
 
-        <!-- Action Buttons at the top -->
         <div class="function-buttons-container">
             <div class="primary-actions">
                 <button class="primary-button download-button">Download Results</button>
@@ -2960,17 +2892,14 @@
             </div>
         </div>
 
-        <!-- Results Table Section -->
         <div class="results-table-container">
             <div class="table-scroll-container">
                 <table class="results-table">
                     <thead>
                         <tr>
-                            <!-- Headers will be dynamically populated -->
                         </tr>
                     </thead>
                     <tbody id="results-body">
-                        <!-- Results will be populated here -->
                     </tbody>
                 </table>
             </div>
@@ -2980,9 +2909,7 @@
             </button>
         </div>
 
-        <!-- Plots Section with Namespace Tabs -->
         <div class="plots-container">
-            <!-- Namespace Tabs for Plots -->
             <div class="tab-container" style="margin-bottom: 1.5rem;">
                 <div style="display: flex; gap: 1rem;">
                     <button class="tab-button active" data-plot-tab="biological-process-plots">
@@ -2997,16 +2924,13 @@
                 </div>
             </div>
 
-            <!-- Plot Content for Each Tab -->
             <div class="plot-tab-content active" id="biological-process-plots">
                 <div class="plots-grid">
-                    <!-- Main plot - Bar plot -->
                     <div class="main-plot">
                         <div class="plot-loading">Loading plot...</div>
                         <iframe id="bp-plot1" class="plot-frame" src="/plots/bp_bar.html" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                     
-                    <!-- Secondary plots - Bubble plots -->
                     <div class="secondary-plots">
                         <div class="secondary-plot">
                             <div class="plot-loading">Loading plot...</div>
@@ -3022,13 +2946,11 @@
 
             <div class="plot-tab-content" id="molecular-function-plots">
                 <div class="plots-grid">
-                    <!-- Main plot - Bar plot -->
                     <div class="main-plot">
                         <div class="plot-loading">Loading plot...</div>
                         <iframe id="mf-plot1" class="plot-frame" src="/plots/mf_bar.html" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                     
-                    <!-- Secondary plots - Bubble plots -->
                     <div class="secondary-plots">
                         <div class="secondary-plot">
                             <div class="plot-loading">Loading plot...</div>
@@ -3044,13 +2966,11 @@
 
             <div class="plot-tab-content" id="cellular-component-plots">
                 <div class="plots-grid">
-                    <!-- Main plot - Bar plot -->
                     <div class="main-plot">
                         <div class="plot-loading">Loading plot...</div>
                         <iframe id="cc-plot1" class="plot-frame" src="/plots/cc_bar.html" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                     
-                    <!-- Secondary plots - Bubble plots -->
                     <div class="secondary-plots">
                         <div class="secondary-plot">
                             <div class="plot-loading">Loading plot...</div>
@@ -3070,7 +2990,6 @@
                 const plotTabButtons = document.querySelectorAll('[data-plot-tab]');
                 const plotTabContents = document.querySelectorAll('.plot-tab-content');
 
-                // Function to check if a plot exists
                 function checkPlotExists(url, callback) {
                     fetch(url, { method: 'HEAD' })
                         .then(response => {
@@ -3081,42 +3000,32 @@
                         });
                 }
 
-                // Add error handling for iframes
                 function setupIframeErrorHandling() {
                     document.querySelectorAll('iframe.plot-frame').forEach(iframe => {
-                        // Remove any existing event listeners by cloning
                         const newIframe = iframe.cloneNode(true);
                         iframe.parentNode.replaceChild(newIframe, iframe);
                         
-                        // Set a timeout to check if the plot is taking too long to load
                         const loadTimeout = setTimeout(() => {
-                            // If the iframe is still loading after 10 seconds, show an error
                             const loadingEl = newIframe.parentElement.querySelector('.plot-loading');
                             if (loadingEl) {
                                 loadingEl.textContent = 'Plot is taking longer than expected to load...';
                             }
-                        }, 10000); // 10 seconds
+                        }, 10000);
                         
-                        // Add load event listener to check for errors and remove loading indicator
                         newIframe.addEventListener('load', function() {
-                            // Clear the timeout
                             clearTimeout(loadTimeout);
                             
-                            // Remove the loading indicator
                             const loadingEl = this.parentElement.querySelector('.plot-loading');
                             if (loadingEl) {
                                 loadingEl.style.display = 'none';
                             }
                             
                             try {
-                                // If we can access the iframe content and it's an error page
-                                // Note: This might not work for cross-origin iframes due to security restrictions
                                 if (this.contentDocument && 
                                     (this.contentDocument.title.includes('Error: Plot Not Found') || 
                                      this.contentDocument.body.textContent.includes('Plot Not Found') ||
                                      this.contentDocument.body.classList.contains('plot-error-page'))) {
                                     
-                                    // Get the plot type and namespace from the iframe ID
                                     const id = this.id || '';
                                     let namespace = 'Unknown';
                                     let plotType = 'plot';
@@ -3140,17 +3049,13 @@
                                     this.parentElement.innerHTML = `<div class="no-plot-message">No ${plotType} available for ${namespace}</div>`;
                                 }
                             } catch (e) {
-                                // If we can't access the iframe content (cross-origin), we need to rely on the fetch check
                                 console.log('Cannot check iframe content:', e);
                             }
                         });
                         
-                        // Add error handler for the iframe
                         newIframe.addEventListener('error', function() {
-                            // Clear the timeout
                             clearTimeout(loadTimeout);
                             
-                            // Get the plot type and namespace from the iframe ID
                             const id = this.id || '';
                             let namespace = 'Unknown';
                             let plotType = 'plot';
@@ -3175,10 +3080,8 @@
                         });
                     });
                     
-                    // Also handle image loading
                     document.querySelectorAll('img.plot-frame').forEach(img => {
                         img.addEventListener('load', function() {
-                            // Remove the loading indicator
                             const loadingEl = this.parentElement.querySelector('.plot-loading');
                             if (loadingEl) {
                                 loadingEl.style.display = 'none';
@@ -3187,13 +3090,11 @@
                     });
                 }
 
-                // Function to check all plots for a namespace and show appropriate messages
                 function checkNamespacePlots(namespace) {
                     let barExists = false;
                     let bubbleExists = false;
                     let networkExists = false;
                     
-                    // Check bar plot
                     checkPlotExists(`/plots/${namespace}_bar_plot.html`, exists => {
                         barExists = exists;
                         const plotContainer = document.querySelector(`#${namespace}-plots .main-plot`);
@@ -3203,7 +3104,6 @@
                         checkAllPlots();
                     });
 
-                    // Check bubble plot
                     checkPlotExists(`/plots/${namespace}_bubble_plot.html`, exists => {
                         bubbleExists = exists;
                         const plotContainer = document.querySelector(`#${namespace}-plots .secondary-plot:first-of-type`);
@@ -3213,7 +3113,6 @@
                         checkAllPlots();
                     });
 
-                    // Check network plot
                     checkPlotExists(`/plots/${namespace}_network_plot.html`, exists => {
                         networkExists = exists;
                         const plotContainer = document.querySelector(`#${namespace}-plots .secondary-plot:last-of-type`);
@@ -3223,7 +3122,6 @@
                         checkAllPlots();
                     });
 
-                    // Function to check if all plots are missing and show a message
                     function checkAllPlots() {
                         if (!barExists && !bubbleExists && !networkExists) {
                             const tabContent = document.querySelector(`#${namespace}-plots`);
@@ -3234,12 +3132,10 @@
                     }
                 }
 
-                // Check plots for all namespaces
                 checkNamespacePlots('bp');
                 checkNamespacePlots('mf');
                 checkNamespacePlots('cc');
                 
-                // Set up iframe error handling
                 setupIframeErrorHandling();
 
                 plotTabButtons.forEach(button => {
@@ -3352,13 +3248,11 @@
             });
         </script>
 
-        <!-- Modal -->
         <div id="full-results-modal" class="modal">
             <div class="modal-content">
                 <span class="close-modal" id="close-modal">&times;</span>
                 <div class="title" style="font-size: 1.5rem; margin-bottom: 1.5rem;">All Results</div>
                 
-                <!-- Add tab container -->
                 <div class="tab-container">
                     <button class="tab-button active" data-namespace="all-results">All Results</button>
                     <button class="tab-button" data-namespace="biological-process">Biological Process</button>
@@ -3367,58 +3261,46 @@
                 </div>
 
                 <div class="table-container">
-                    <!-- All Results Tab -->
                     <div class="tab-content active" id="modal-all-results-content">
                         <table class="results-table">
                             <thead>
                                 <tr>
-                                    <!-- Headers will be dynamically populated -->
                                 </tr>
                             </thead>
                             <tbody id="modal-all-results-body">
-                                <!-- Content will be populated by JavaScript -->
                             </tbody>
                         </table>
                     </div>
 
-                    <!-- Biological Process Tab -->
                     <div class="tab-content" id="modal-biological-process-content">
                         <table class="results-table">
                             <thead>
                                 <tr>
-                                    <!-- Headers will be dynamically populated -->
                                 </tr>
                             </thead>
                             <tbody id="modal-biological-process-body">
-                                <!-- Content will be populated by JavaScript -->
                             </tbody>
                         </table>
                     </div>
 
-                    <!-- Molecular Function Tab -->
                     <div class="tab-content" id="modal-molecular-function-content">
                         <table class="results-table">
                             <thead>
                                 <tr>
-                                    <!-- Headers will be dynamically populated -->
                                 </tr>
                             </thead>
                             <tbody id="modal-molecular-function-body">
-                                <!-- Content will be populated by JavaScript -->
                             </tbody>
                         </table>
                     </div>
 
-                    <!-- Cellular Component Tab -->
                     <div class="tab-content" id="modal-cellular-component-content">
                         <table class="results-table">
                             <thead>
                                 <tr>
-                                    <!-- Headers will be dynamically populated -->
                                 </tr>
                             </thead>
                             <tbody id="modal-cellular-component-body">
-                                <!-- Content will be populated by JavaScript -->
                             </tbody>
                         </table>
                     </div>
@@ -3426,7 +3308,6 @@
             </div>
         </div>
 
-        <!-- Ancestor Analysis Modal -->
         <div id="ancestor-analysis-modal" class="modal">
             <div class="modal-content">
                 <span class="close-modal" id="close-ancestor-modal">&times;</span>
@@ -3471,7 +3352,6 @@
                                 </div>
                             </div>
                             
-                            <!-- Manual GO term entry -->
                             <div id="manual-go-entry" style="display: none; margin-bottom: 1rem;">
                                 <div style="display: flex; gap: 0.5rem;">
                                     <input type="text" id="go-term-input" class="form-input" placeholder="Enter GO:0000000 format" 
@@ -3490,18 +3370,15 @@
                         </button>
                     </div>
                     
-                    <!-- Results section (initially hidden) -->
                     <div id="ancestor-analysis-results" style="display: none; margin-top: 2rem;">
                         <h3 style="font-size: 1.25rem; margin-bottom: 1rem;">Analysis Results</h3>
                         <div id="ancestor-graph-container">
-                            <!-- Graph will be rendered here -->
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Semantic Similarity Modal -->
         <div id="semantic-similarity-modal" class="modal">
             <div class="modal-content">
                 <span class="close-modal" id="close-semantic-modal">&times;</span>
@@ -3546,7 +3423,6 @@
                                 </div>
                             </div>
                             
-                            <!-- Manual GO term entry -->
                             <div id="semantic-manual-go-entry" style="display: none; margin-bottom: 1rem;">
                                 <div style="display: flex; gap: 0.5rem;">
                                     <input type="text" id="semantic-go-term-input" class="form-input" placeholder="Enter GO:0000000 format" 
@@ -3559,7 +3435,6 @@
                             </div>
                         </div>
                         
-                        <!-- Similarity Method Selection -->
                         <div class="form-group">
                             <label class="form-label">Similarity Method</label>
                             <p style="color: var(--text-tertiary); font-size: 0.875rem; margin-top: 0.25rem; margin-bottom: 0.75rem;">
@@ -3603,11 +3478,9 @@
                         </button>
                     </div>
                     
-                    <!-- Results section (initially hidden) -->
                     <div id="semantic-similarity-results" style="display: none; margin-top: 2rem;">
                         <h3 style="font-size: 1.25rem; margin-bottom: 1rem;">Similarity Results</h3>
                         <div id="similarity-results-container">
-                            <!-- Results will be displayed here -->
                         </div>
                     </div>
                 </div>
@@ -3615,7 +3488,6 @@
         </div>
 
         <script>
-            // Function to format scientific notation nicely
             function formatScientific(num) {
                 if (num === undefined || num === null || num === '') return '-';
                 if (num === 0) return "0";
@@ -3624,16 +3496,13 @@
                     if (isNaN(num)) return '-';
                 }
                 
-                // Use exponential notation for very small numbers
                 if (num < 0.0001) {
                     return num.toExponential(2);
                 }
                 
-                // Use fixed notation for other numbers
                 return num.toFixed(6);
             }
 
-            // Function to format regular numbers
             function formatNumber(num) {
                 if (num === undefined || num === null || num === '') return '-';
                 if (num === 0) return "0";
@@ -3648,18 +3517,15 @@
             let currentSortColumn = null;
             let currentSortDirection = null;
 
-            // Function to sort data
             function sortData(data, column, type, direction) {
                 return [...data].sort((a, b) => {
                     let valueA = a[column];
                     let valueB = b[column];
                     
-                    // Special handling for "inf" values in log(Odds Ratio) column
-                    if (column === 3) { // log(Odds Ratio) column
+                    if (column === 3) { 
                         valueA = valueA === "inf" ? Infinity : parseFloat(valueA) || 0;
                         valueB = valueB === "inf" ? Infinity : parseFloat(valueB) || 0;
                         
-                        // If values are equal (including both being Infinity), sort by p-value
                         if (valueA === valueB) {
                             const pValueA = parseFloat(a[4]) || 0;
                             const pValueB = parseFloat(b[4]) || 0;
@@ -3678,7 +3544,6 @@
                 });
             }
 
-            // Function to initialize table sorting
             function initializeTableSorting(table) {
                 if (!table) return;
                 
@@ -3688,14 +3553,12 @@
                         const column = parseInt(this.dataset.column);
                         const type = this.dataset.type;
                         
-                        // Reset all other arrows
                         table.querySelectorAll('.sortable-header').forEach(h => {
                             if (h !== header) {
                                 h.querySelector('.sort-arrow').className = 'sort-arrow';
                             }
                         });
                         
-                        // Toggle sort direction
                         let direction;
                         const arrow = this.querySelector('.sort-arrow');
                         
@@ -3709,18 +3572,15 @@
                         currentSortColumn = column;
                         currentSortDirection = direction;
                         
-                        // Get current namespace
                         const activeTab = document.querySelector('.results-table-container .tab-button.active');
                         const currentNamespace = activeTab ? activeTab.getAttribute('data-tab') : 'all-results';
                         
-                        // Filter and sort data
                         let dataToSort = currentNamespace === 'all-results' ? 
                             allResults : 
                             allResults.filter(row => row[2].toLowerCase().replace(' ', '-') === currentNamespace);
                         
                         const sortedData = sortData(dataToSort, column, type === 'numeric' ? 'number' : 'string', direction);
                         
-                        // Update table
                         tbody.innerHTML = '';
                         for (let i = 0; i < Math.min(10, sortedData.length); i++) {
                             tbody.appendChild(createTableRow(sortedData[i]));
@@ -3729,7 +3589,6 @@
                 });
             }
 
-            // Function to display results for a namespace
             function displayNamespaceResults(namespace) {
                 const tbody = document.getElementById('results-body');
                 tbody.innerHTML = '';
@@ -3749,13 +3608,11 @@
                     return;
                 }
                 
-                // Display first 10 rows
                 for (let i = 0; i < Math.min(10, results.length); i++) {
                     tbody.appendChild(createTableRow(results[i]));
                 }
             }
 
-            // Function to initialize tab switching
             function initializeTabSwitching() {
                 const tabButtons = document.querySelectorAll('.results-table-container .tab-button');
                 
@@ -3763,24 +3620,20 @@
                     button.addEventListener('click', () => {
                         const namespace = button.getAttribute('data-tab');
                         
-                        // Update active states
                         tabButtons.forEach(btn => btn.classList.remove('active'));
                         button.classList.add('active');
                         
-                        // Reset sorting state
                         currentSortColumn = null;
                         currentSortDirection = null;
                         document.querySelectorAll('.sort-arrow').forEach(arrow => {
                             arrow.className = 'sort-arrow';
                         });
                         
-                        // Display results for selected namespace
                         displayNamespaceResults(namespace);
                     });
                 });
             }
 
-            // Function to create a table row
             function createTableRow(columns) {
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -3795,70 +3648,54 @@
                 return row;
             }
 
-            // Modal handling
             const modal = document.getElementById('full-results-modal');
             const closeModal = document.getElementById('close-modal');
             const showAllButton = document.getElementById('show-all-button');
 
-            // Track current namespace for both main table and modal
             let currentMainNamespace = 'all-results';
             let currentModalNamespace = 'all-results';
 
-            // Tab switching functionality for main table
             document.querySelectorAll('.tab-button').forEach(button => {
                 button.addEventListener('click', () => {
-                    // Remove active class from all buttons and contents
                     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
                     
-                    // Add active class to clicked button and corresponding content
                     button.classList.add('active');
                     const tabId = button.getAttribute('data-tab');
                     document.getElementById(`${tabId}-content`).classList.add('active');
 
-                    // Update current main namespace
                     currentMainNamespace = tabId;
 
-                    // Load namespace-specific results if not already loaded
                     if (tabId !== 'all-results') {
                         loadNamespaceResults(tabId);
                     }
                 });
             });
 
-            // Show all results button handler
             document.getElementById('show-all-button').addEventListener('click', function() {
                 const modal = document.getElementById('full-results-modal');
                 
-                // Show modal
                 modal.classList.add('active');
                 document.body.classList.add('modal-open');
 
-                // Reset sort arrows in the main table
                 document.querySelectorAll('.results-table-container .sort-arrow').forEach(arrow => {
                     arrow.className = 'sort-arrow';
                 });
 
-                // Get tab elements
                 const modalTabButtons = modal.querySelectorAll('.tab-button');
                 const modalTabContents = modal.querySelectorAll('.tab-content');
                 
-                // Get the headers from the main table
                 const mainTableHeaders = Array.from(document.querySelector('.results-table thead tr').children);
                 
-                // Copy headers to all modal tables
                 modal.querySelectorAll('.tab-content table thead tr').forEach(thead => {
-                    // Clear existing headers
                     thead.innerHTML = '';
                     
-                    // Copy headers from main table
                     mainTableHeaders.forEach(header => {
                         const clonedHeader = header.cloneNode(true);
                         thead.appendChild(clonedHeader);
                     });
                 });
 
-                // Initialize sorting for modal tables
                 modal.querySelectorAll('.tab-content table').forEach(table => {
                     table.querySelectorAll('.sortable-header').forEach(header => {
                         header.addEventListener('click', function() {
@@ -3866,7 +3703,6 @@
                             const column = parseInt(this.dataset.column);
                             const type = this.dataset.type;
                             
-                            // Reset all other arrows in this table
                             table.querySelectorAll('.sortable-header').forEach(h => {
                                 if (h !== header) {
                                     const arrow = h.querySelector('.sort-arrow');
@@ -3874,10 +3710,9 @@
                                 }
                             });
                             
-                            // Toggle sort direction
                             let direction;
                             const arrow = this.querySelector('.sort-arrow');
-                            if (!arrow) return; // Skip if no arrow element
+                            if (!arrow) return;
                             
                             const currentDirection = this.getAttribute('data-sort') || 'none';
                             const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
@@ -3885,7 +3720,6 @@
                             this.setAttribute('data-sort', newDirection);
                             arrow.className = `sort-arrow active ${newDirection}`;
                             
-                            // Get current rows and sort them
                             const rows = Array.from(tbody.querySelectorAll('tr'));
                             const sortedRows = rows.sort((rowA, rowB) => {
                                 if (!rowA.cells[column] || !rowB.cells[column]) return 0;
@@ -3894,11 +3728,9 @@
                                 const cellB = rowB.cells[column].textContent.trim();
                                 
                                 if (type === 'numeric') {
-                                    // Special handling for "inf" values in log(Odds Ratio) column
                                     let numA = cellA === "inf" ? Infinity : parseFloat(cellA) || 0;
                                     let numB = cellB === "inf" ? Infinity : parseFloat(cellB) || 0;
                                     
-                                    // If sorting by log(Odds Ratio) and values are equal, sort by p-value
                                     if (column === 3 && numA === numB) {
                                         const pValueA = parseFloat(rowA.cells[4]?.textContent.trim()) || 0;
                                         const pValueB = parseFloat(rowB.cells[4]?.textContent.trim()) || 0;
@@ -3913,26 +3745,22 @@
                                 }
                             });
                             
-                            // Clear and repopulate tbody
                             tbody.innerHTML = '';
                             sortedRows.forEach(row => tbody.appendChild(row));
                         });
                     });
                 });
 
-                // Function to populate modal table for a namespace
                 function populateModalTable(namespace) {
                     const nsName = namespace.toLowerCase().replace(' ', '-');
                     const tbody = modal.querySelector(`#modal-${nsName}-body`);
                     
-                    // Show loading state
                     tbody.innerHTML = Array(5).fill(`
                         <tr class="loading-row">
                             ${Array(mainTableHeaders.length).fill('<td class="loading-skeleton">&nbsp;</td>').join('')}
                         </tr>
                     `).join('');
 
-                    // Filter results for this namespace (or get all results)
                     let namespaceResults = nsName === 'all-results' 
                         ? allResults 
                         : allResults.filter(columns => {
@@ -3940,9 +3768,7 @@
                             return resultNs === nsName;
                         });
 
-                    // Sort by Odds Ratio and Statistical significance
                     namespaceResults.sort((a, b) => {
-                        // First sort by Odds Ratio (index 3) descending
                         const oddsRatioA = a[3] === "inf" ? Infinity : parseFloat(a[3]) || 0;
                         const oddsRatioB = b[3] === "inf" ? Infinity : parseFloat(b[3]) || 0;
                         const oddsRatioDiff = oddsRatioB - oddsRatioA;
@@ -3956,9 +3782,8 @@
                         return oddsRatioDiff;
                     });
 
-                    tbody.innerHTML = ''; // Clear loading skeleton
+                    tbody.innerHTML = '';
 
-                    // Display all results
                     if (namespaceResults.length > 0) {
                         namespaceResults.forEach(result => {
                             tbody.appendChild(createTableRow(result));
@@ -3974,61 +3799,49 @@
                     }
                 }
 
-                // Activate the same tab that's active in the main table
                 modalTabButtons.forEach(btn => {
                     const namespace = btn.dataset.namespace;
                     if (namespace === currentMainNamespace) {
-                        // Update active states
                         modalTabButtons.forEach(b => b.classList.remove('active'));
                         modalTabContents.forEach(content => content.classList.remove('active'));
                         
                         btn.classList.add('active');
                         modal.querySelector(`#modal-${namespace}-content`).classList.add('active');
                         
-                        // Update current modal namespace
                         currentModalNamespace = namespace;
                         
-                        // Populate the table
                         populateModalTable(namespace);
                     }
                 });
 
-                // Handle tab switching in modal
                 modalTabButtons.forEach(button => {
                     button.addEventListener('click', () => {
                         const namespace = button.dataset.namespace;
                         
-                        // Update active states
                         modalTabButtons.forEach(btn => btn.classList.remove('active'));
                         modalTabContents.forEach(content => content.classList.remove('active'));
                         
                         button.classList.add('active');
                         modal.querySelector(`#modal-${namespace}-content`).classList.add('active');
                         
-                        // Update current modal namespace
                         currentModalNamespace = namespace;
                         
-                        // Update table content
                         populateModalTable(namespace);
                     });
                 });
 
-                // Close button handler with tab sync
                 const closeHandler = () => {
                     modal.classList.remove('active');
                     document.body.classList.remove('modal-open');
 
-                    // Sync main table tab with modal's last active tab
                     const mainTabButton = document.querySelector(`.tab-button[data-tab="${currentModalNamespace}"]`);
                     if (mainTabButton) {
                         mainTabButton.click();
                     }
                 };
 
-                // Close button handler
                 modal.querySelector('.close-modal').addEventListener('click', closeHandler);
 
-                // Click outside to close
                 modal.addEventListener('click', (e) => {
                     if (e.target === modal) {
                         closeHandler();
@@ -4047,16 +3860,12 @@
             });
 
             document.addEventListener('DOMContentLoaded', function() {
-                // Load results when the page loads
                 loadResults();
 
-                // Initialize function buttons
                 initializeFunctionButtons();
 
-                // Initialize tab switching and other UI elements
                 initializeUI();
 
-                // Initialize plot tabs
                 const plotTabButtons = document.querySelectorAll('[data-plot-tab]');
                 const plotTabContents = document.querySelectorAll('.plot-tab-content');
 
@@ -4078,13 +3887,11 @@
 
                 const ancestorAnalysisButton = document.querySelector('.secondary-button:nth-child(1)');
                 ancestorAnalysisButton.addEventListener('click', () => {
-                    // Open the ancestor analysis modal instead of showing an alert
                     const modal = document.getElementById('ancestor-analysis-modal');
                     modal.classList.add('active');
                     document.body.classList.add('modal-open');
                 });
 
-                // Close button handler for ancestor analysis modal
                 const closeAncestorModal = document.getElementById('close-ancestor-modal');
                 closeAncestorModal.addEventListener('click', () => {
                     const modal = document.getElementById('ancestor-analysis-modal');
@@ -4092,7 +3899,6 @@
                     document.body.classList.remove('modal-open');
                 });
 
-                // Click outside to close ancestor analysis modal
                 document.getElementById('ancestor-analysis-modal').addEventListener('click', (e) => {
                     if (e.target === document.getElementById('ancestor-analysis-modal')) {
                         document.getElementById('ancestor-analysis-modal').classList.remove('active');
@@ -4100,19 +3906,15 @@
                     }
                 });
 
-                // Initialize ancestor analysis functionality
                 initializeAncestorAnalysis();
 
-                // Semantic Similarity Button Handler
                 const semanticSimilarityButton = document.querySelector('.secondary-button:nth-child(2)');
                 semanticSimilarityButton.addEventListener('click', () => {
-                    // Open the semantic similarity modal
                     const modal = document.getElementById('semantic-similarity-modal');
                     modal.classList.add('active');
                     document.body.classList.add('modal-open');
                 });
 
-                // Close button handler for semantic similarity modal
                 const closeSemanticModal = document.getElementById('close-semantic-modal');
                 closeSemanticModal.addEventListener('click', () => {
                     const modal = document.getElementById('semantic-similarity-modal');
@@ -4120,7 +3922,6 @@
                     document.body.classList.remove('modal-open');
                 });
 
-                // Click outside to close semantic similarity modal
                 document.getElementById('semantic-similarity-modal').addEventListener('click', (e) => {
                     if (e.target === document.getElementById('semantic-similarity-modal')) {
                         document.getElementById('semantic-similarity-modal').classList.remove('active');
@@ -4128,16 +3929,13 @@
                     }
                 });
 
-                // Initialize semantic similarity functionality
                 initializeSemanticSimilarity();
 
-                // Pathway Analysis Button Handler
                 const pathwayButtonMain = document.querySelector('.secondary-button:nth-child(3)');
                 pathwayButtonMain.addEventListener('click', () => {
                     alert('Pathway analysis is coming soon!');
             });
 
-            // Download Button Handler
             const downloadButton = document.querySelector('.download-button');
                 if (downloadButton) {
             downloadButton.addEventListener('click', () => {
@@ -4179,7 +3977,6 @@
                     </div>
                 `;
                 
-                // Add hover effect to option labels
                 const labels = modal.querySelectorAll('label');
                 labels.forEach(label => {
                     label.addEventListener('mouseover', () => {
@@ -4193,7 +3990,6 @@
                 document.body.appendChild(modal);
                         toggleModalState(true);
                 
-                // Handle save button click
                 const saveButton = modal.querySelector('.download-save-btn');
                 saveButton.addEventListener('click', async () => {
                     const selectedFormats = Array.from(modal.querySelectorAll('.format-checkbox:checked'))
@@ -4207,39 +4003,37 @@
                     try {
                         saveButton.classList.add('loading');
                         
-                        // Download files sequentially
-                        for (const format of selectedFormats) {
-                            const link = document.createElement('a');
-                            link.style.display = 'none';
-                            document.body.appendChild(link);
-                            
-                            const response = await fetch(`/download/${format}`);
-                            if (!response.ok) {
-                                throw new Error(`Download failed for ${format}`);
-                            }
-                            
-                            // Get the filename from the Content-Disposition header if available
-                            let filename = `results.${format}`;
-                            const contentDisposition = response.headers.get('Content-Disposition');
-                            if (contentDisposition) {
-                                const filenameMatch = contentDisposition.match(/filename="(.+?)"/);
-                                if (filenameMatch && filenameMatch[1]) {
-                                    filename = filenameMatch[1];
+                        async function downloadWithDelay(formats) {
+                            for (const format of formats) {
+                                const link = document.createElement('a');
+                                link.style.display = 'none';
+                                document.body.appendChild(link);
+                                const response = await fetch(`/download/${format}`);
+                                if (!response.ok) {
+                                    throw new Error(`Download failed for ${format}`);
                                 }
+                                let filename = `results.${format}`;
+                                const contentDisposition = response.headers.get('Content-Disposition');
+                                if (contentDisposition) {
+                                    const filenameMatch = contentDisposition.match(/filename="(.+?)"/);
+                                    if (filenameMatch && filenameMatch[1]) {
+                                        filename = filenameMatch[1];
+                                    }
+                                }
+                                const blob = await response.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                link.href = url;
+                                link.download = filename;
+                                link.click();
+                                window.URL.revokeObjectURL(url);
+                                document.body.removeChild(link);
+                                console.log(`[TaxaGO] Downloaded ${filename}`);
+                                await new Promise(res => setTimeout(res, 500));
                             }
-                            
-                            const blob = await response.blob();
-                            const url = window.URL.createObjectURL(blob);
-                            link.href = url;
-                            link.download = filename;
-                            link.click();
-                            
-                            window.URL.revokeObjectURL(url);
-                            document.body.removeChild(link);
                         }
-                        
+                        await downloadWithDelay(selectedFormats);
                         document.body.removeChild(modal);
-                                toggleModalState(false);
+                        toggleModalState(false);
                     } catch (error) {
                         console.error('Error downloading files:', error);
                         alert('Error downloading files. Please try again.');
@@ -4266,65 +4060,52 @@
                 }
         }
 
-        // Add this function to sort the results when they're first loaded
         function sortResultsByOddsRatioAndPValue(results) {
             return results.sort((a, b) => {
-                // First sort by Odds Ratio (index 3) descending
                 const oddsRatioA = a[3] === "inf" ? Infinity : parseFloat(a[3]) || 0;
                 const oddsRatioB = b[3] === "inf" ? Infinity : parseFloat(b[3]) || 0;
                 
-                // If Odds Ratio is different, sort by that
                 if (oddsRatioA !== oddsRatioB) {
-                    return oddsRatioB - oddsRatioA; // Descending order
+                    return oddsRatioB - oddsRatioA;
                 }
                 
-                // If Odds Ratio is equal (including both being Infinity), sort by p-value ascending
                 const pValueA = parseFloat(a[4]) || 0;
                 const pValueB = parseFloat(b[4]) || 0;
-                return pValueA - pValueB; // Ascending order for p-values
+                return pValueA - pValueB;
             });
         }
 
-        // Add function to handle modal open/close
         function toggleModalState(isOpen) {
             document.body.classList.toggle('modal-open', isOpen);
         }
 
-        // Function to load namespace-specific results
         async function loadNamespaceResults(namespace) {
             try {
                 const tbody = document.querySelector(`#${namespace}-body`);
                 const thead = document.querySelector(`#${namespace}-table thead tr`);
                 
-                // Show loading skeleton
                 tbody.innerHTML = Array(5).fill(0).map(() => `
                     <tr class="loading-row">
                         ${Array(9).fill('<td class="loading-skeleton">&nbsp;</td>').join('')}
                     </tr>
                 `).join('');
 
-                // Get the headers from the main table
                 const mainTableHeaders = Array.from(document.querySelector('.results-table thead tr').children);
                 
-                // Clear existing headers
                 thead.innerHTML = '';
                 
-                // Copy headers from main table
                 mainTableHeaders.forEach(header => {
                     thead.appendChild(header.cloneNode(true));
                 });
 
-                // Filter the existing allResults based on namespace only
                 let namespaceResults = allResults.filter(columns => {
                     const nsName = columns[2].toLowerCase().replace(' ', '-');
                     return namespace === nsName;
                 });
 
-                tbody.innerHTML = ''; // Clear loading skeleton
+                tbody.innerHTML = ''; 
 
-                // Display results
                 if (namespaceResults.length > 0) {
-                    // Display only top 10 results
                     for (let i = 0; i < Math.min(10, namespaceResults.length); i++) {
                         tbody.appendChild(createTableRow(namespaceResults[i]));
                     }
@@ -4342,7 +4123,6 @@
             }
         }
 
-        // Add CSS for tabs
         const style = document.createElement('style');
         style.textContent = `
             .tab-container {
@@ -4378,7 +4158,6 @@
         `;
         document.head.appendChild(style);
 
-        // Initialize sorting for modal tables
         modal.querySelectorAll('.sortable-header').forEach(header => {
             header.addEventListener('click', function() {
                 const table = this.closest('table');
@@ -4386,14 +4165,12 @@
                 const column = parseInt(this.dataset.column);
                 const type = this.dataset.type;
                 
-                // Reset all other arrows
                 table.querySelectorAll('.sortable-header').forEach(h => {
                     if (h !== header) {
                         h.querySelector('.sort-arrow').className = 'sort-arrow';
                     }
                 });
                 
-                // Toggle sort direction
                 let direction;
                 const arrow = this.querySelector('.sort-arrow');
                 const currentDirection = this.getAttribute('data-sort') || 'none';
@@ -4402,14 +4179,12 @@
                 this.setAttribute('data-sort', newDirection);
                 arrow.className = `sort-arrow active ${newDirection}`;
                 
-                // Get current rows and sort them
                 const rows = Array.from(tbody.querySelectorAll('tr'));
                 const sortedRows = rows.sort((rowA, rowB) => {
                     const cellA = rowA.cells[column].textContent.trim();
                     const cellB = rowB.cells[column].textContent.trim();
                     
                     if (type === 'numeric') {
-                        // Special handling for "inf" values in log(Odds Ratio) column
                         let numA = cellA === "inf" ? Infinity : parseFloat(cellA) || 0;
                         let numB = cellB === "inf" ? Infinity : parseFloat(cellB) || 0;
                         return newDirection === 'asc' ? numA - numB : numB - numA;
@@ -4420,68 +4195,53 @@
                     }
                 });
                 
-                // Clear and repopulate tbody
                 tbody.innerHTML = '';
                 sortedRows.forEach(row => tbody.appendChild(row));
             });
         });
 
-        // Add this to your existing JavaScript
         document.addEventListener('DOMContentLoaded', function() {
-            // Add full title data attributes to all sortable headers that don't have them
             document.querySelectorAll('.sortable-header').forEach(header => {
                 if (!header.hasAttribute('data-full-title')) {
-                    // Use the text content as the full title if not specified
                     header.setAttribute('data-full-title', header.textContent.replace(/▲|▼/, '').trim());
                 }
             });
         });
 
-        // Add this to the script section
         document.addEventListener('DOMContentLoaded', function() {
-            // Only keep the "New Analysis" button handler
             const newAnalysisButton = document.querySelector('button[onclick="clearDataAndRedirect()"]');
             if (newAnalysisButton) {
                 newAnalysisButton.removeAttribute('onclick');
                 newAnalysisButton.addEventListener('click', async function() {
                     try {
-                        // First clear the results
                         await fetch('/clear-results', { method: 'POST' });
                         
-                        // Then clear the data folder
                         await fetch('/clear-data-folder', { method: 'POST' });
                         
-                        // Redirect to home page
                         window.location.href = '/';
                     } catch (error) {
                         console.error('Error clearing data:', error);
-                        // Redirect anyway even if there's an error
                         window.location.href = '/';
                     }
                 });
             }
             
-            // Check if this is a single testing result and update the "Change Results" button accordingly
             const changeResultsButton = document.querySelector('button[onclick="window.location.href=\'/loading?subsequent=true&odds_ratio_threshold=1.0&n_protein_threshold=1\'"]');
             if (changeResultsButton) {
                 changeResultsButton.removeAttribute('onclick');
-                
-                // First, disable the button by default until we confirm it's multiple testing
+
                 changeResultsButton.disabled = true;
                 changeResultsButton.style.backgroundColor = 'var(--text-tertiary)';
                 changeResultsButton.style.opacity = '0.6';
                 changeResultsButton.style.cursor = 'not-allowed';
                 changeResultsButton.title = 'Change Results is not available for single testing';
                 
-                // Check if this is a single testing result
                 fetch('/check-testing-type')
                     .then(response => response.json())
                     .then(data => {
-                        console.log("Testing type check result:", data); // Add logging to debug
+                        console.log("Testing type check result:", data); 
                         
-                        // Only enable the button if explicitly NOT single testing
                         if (data.is_single_testing === false) {
-                            // Enable the button for multiple testing
                             changeResultsButton.disabled = false;
                             changeResultsButton.style.backgroundColor = '';
                             changeResultsButton.style.opacity = '';
@@ -4489,21 +4249,17 @@
                             changeResultsButton.title = 'Change which results file to display';
                             
                             changeResultsButton.addEventListener('click', function() {
-                                // Create and show the selection modal
                                 showResultsSelectionModal();
                             });
                         }
                     })
                     .catch(error => {
                         console.error('Error checking testing type:', error);
-                        // Keep the button disabled if there's an error
                     });
             }
         });
 
-        // Function to show the results selection modal
         async function showResultsSelectionModal() {
-            // Create modal element with the exact same structure as in loading.html
             const modal = document.createElement('div');
             modal.className = 'modal';
             modal.innerHTML = `
@@ -4516,7 +4272,6 @@
                 </div>
             `;
             
-            // Add the exact same styles as in loading.html
             const style = document.createElement('style');
             style.textContent = `
                 .modal {
@@ -4738,7 +4493,6 @@
             
             document.body.appendChild(modal);
             
-            // Show modal with animation exactly like in loading.html
             modal.style.display = 'flex';
             setTimeout(() => {
                 modal.classList.add('fade-in', 'show');
@@ -4746,24 +4500,19 @@
             
             toggleModalState(true);
             
-            // Load categories and files
             let selectedOption = null;
             const continueBtn = modal.querySelector('#continueBtn');
             const selectionList = modal.querySelector('#selectionList');
             
             try {
-                // Check if combined results were enabled in the original analysis
                 const combinedFilesResponse = await fetch('/get-combined-files');
                 const combinedFiles = await combinedFilesResponse.json();
                 const hasCombinedResults = combinedFilesResponse.ok && combinedFiles.length > 0;
                 
-                // Get single files
                 const singleFilesResponse = await fetch('/get-single-files');
                 const singleFiles = singleFilesResponse.ok ? await singleFilesResponse.json() : [];
                 
-                // If we have combined results, show both sections
                 if (hasCombinedResults) {
-                    // Create Combined Results section
                     const combinedGroup = document.createElement('div');
                     combinedGroup.className = 'category-group';
                     
@@ -4772,14 +4521,12 @@
                     combinedTitle.textContent = 'Combined Results';
                     combinedGroup.appendChild(combinedTitle);
                     
-                    // Sort files alphabetically by display name
                     combinedFiles.sort((a, b) => {
                         const displayNameA = a.replace("_GOEA_results.txt", "");
                         const displayNameB = b.replace("_GOEA_results.txt", "");
                         return displayNameA.localeCompare(displayNameB);
                     });
                     
-                    // Add each combined file as an option
                     combinedFiles.forEach(file => {
                         const item = document.createElement('div');
                         item.className = 'selection-item';
@@ -4796,7 +4543,6 @@
                         const label = document.createElement('label');
                         label.htmlFor = radio.id;
                         const rawName = file.replace("_GOEA_results.txt", "");
-                        // Replace underscores with spaces and capitalize first letter of each word
                         const displayName = rawName.split('_')
                             .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
                             .join(' ');
@@ -4818,7 +4564,6 @@
                     selectionList.appendChild(combinedGroup);
                 }
                 
-                // Create Single Results section
                 const singleGroup = document.createElement('div');
                 singleGroup.className = 'category-group';
                 
@@ -4828,14 +4573,12 @@
                 singleGroup.appendChild(singleTitle);
                 
                 if (singleFiles.length > 0) {
-                    // Sort files alphabetically by display name
                     singleFiles.sort((a, b) => {
                         const displayNameA = a.replace("_GOEA_results.txt", "");
                         const displayNameB = b.replace("_GOEA_results.txt", "");
                         return displayNameA.localeCompare(displayNameB);
                     });
                     
-                    // Add each single file as an option
                     singleFiles.forEach(file => {
                         const item = document.createElement('div');
                         item.className = 'selection-item';
@@ -4852,7 +4595,6 @@
                         const label = document.createElement('label');
                         label.htmlFor = radio.id;
                         const rawName = file.replace("_GOEA_results.txt", "");
-                        // Replace underscores with spaces and capitalize first letter of each word
                         const displayName = rawName.split('_')
                             .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
                             .join(' ');
@@ -4871,7 +4613,6 @@
                         singleGroup.appendChild(item);
                     });
                 } else {
-                    // No single files found
                     const noFiles = document.createElement('div');
                     noFiles.className = 'selection-item';
                     noFiles.style.fontStyle = 'italic';
@@ -4881,10 +4622,8 @@
                 
                 selectionList.appendChild(singleGroup);
                 
-                // Handle continue button click exactly as in loading.html
                 continueBtn.addEventListener('click', async () => {
                     if (selectedOption) {
-                        // Show loading container while copying file
                         const loadingDiv = document.createElement('div');
                         loadingDiv.className = 'loading-container';
                         loadingDiv.innerHTML = `
@@ -4895,7 +4634,6 @@
                         modal.style.display = 'none';
                         
                         try {
-                            // Copy the selected file to results.txt
                             const copyResponse = await fetch('/copy-results-file', {
                                 method: 'POST',
                                 headers: {
@@ -4908,10 +4646,8 @@
                                 throw new Error('Failed to copy results file');
                             }
                             
-                            // Store the selection
                             localStorage.setItem('selectedBackground', JSON.stringify(selectedOption));
                             
-                            // Reload the current page to show the new results
                             window.location.reload();
                         } catch (error) {
                             console.error('Error copying results file:', error);
@@ -4922,7 +4658,6 @@
                     }
                 });
                 
-                // Add close button functionality
                 const closeButton = document.createElement('span');
                 closeButton.className = 'close-modal';
                 closeButton.innerHTML = '&times;';
@@ -4939,7 +4674,6 @@
                     toggleModalState(false);
                 });
                 
-                // Click outside to close
                 modal.addEventListener('click', (event) => {
                     if (event.target === modal) {
                         document.body.removeChild(modal);
@@ -4956,20 +4690,16 @@
             }
         }
 
-        // Add this new function to initialize the ancestor analysis functionality
         function initializeAncestorAnalysis() {
-            // Store selected GO terms
             const selectedTerms = new Set();
             const selectedTermsList = document.getElementById('selected-terms-list');
             const runAnalysisButton = document.getElementById('run-ancestor-analysis');
             
-            // Toggle manual GO term entry
             document.getElementById('enter-go-term-btn').addEventListener('click', () => {
                 const manualEntry = document.getElementById('manual-go-entry');
                 manualEntry.style.display = manualEntry.style.display === 'none' ? 'block' : 'none';
             });
             
-            // Add GO term from manual entry
             document.getElementById('add-go-term-btn').addEventListener('click', () => {
                 const input = document.getElementById('go-term-input');
                 const errorMsg = document.getElementById('go-term-error');
@@ -4984,7 +4714,6 @@
                 }
             });
 
-            // Also allow pressing Enter to add a GO term
             document.getElementById('go-term-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -4992,19 +4721,15 @@
                 }
             });
             
-            // Clear all terms button handler
             document.getElementById('clear-all-terms-btn').addEventListener('click', () => {
                 clearAllSelectedTerms();
             });
             
-            // Select all terms button handler
             document.getElementById('select-all-terms-btn').addEventListener('click', () => {
                 selectAllTerms();
             });
             
-            // Select from results button handler
             document.getElementById('select-from-results-btn').addEventListener('click', () => {
-                // Create a temporary modal to select terms from results
                 const selectModal = document.createElement('div');
                 selectModal.className = 'modal active';
                 selectModal.innerHTML = `
@@ -5037,7 +4762,6 @@
                 
                 document.body.appendChild(selectModal);
                 
-                // Populate the table with results
                 const selectionBody = document.getElementById('term-selection-body');
                 allResults.forEach(result => {
                     const row = document.createElement('tr');
@@ -5055,7 +4779,6 @@
                     
                     selectionBody.appendChild(row);
                     
-                    // Add event listener to checkbox to automatically add/remove terms when checked/unchecked
                     const checkbox = row.querySelector('input[type="checkbox"]');
                     checkbox.addEventListener('change', function() {
                         if (this.checked) {
@@ -5066,17 +4789,14 @@
                     });
                 });
                 
-                // Handle confirm selection button
                 document.getElementById('confirm-selection').addEventListener('click', () => {
                     document.body.removeChild(selectModal);
                 });
                 
-                // Handle close button
                 selectModal.querySelector('.close-modal').addEventListener('click', () => {
                     document.body.removeChild(selectModal);
                 });
                 
-                // Handle click outside
                 selectModal.addEventListener('click', (e) => {
                     if (e.target === selectModal) {
                         document.body.removeChild(selectModal);
@@ -5084,7 +4804,6 @@
                 });
             });
             
-            // Function to add a selected term
             function addSelectedTerm(termId) {
                 if (selectedTerms.has(termId)) return;
                 
@@ -5093,21 +4812,18 @@
                 updateRunButtonState();
             }
             
-            // Function to remove a selected term
             function removeSelectedTerm(termId) {
                 selectedTerms.delete(termId);
                 updateSelectedTermsList();
                 updateRunButtonState();
             }
             
-            // Function to clear all selected terms
             function clearAllSelectedTerms() {
                 selectedTerms.clear();
                 updateSelectedTermsList();
                 updateRunButtonState();
             }
             
-            // Function to select all available terms
             function selectAllTerms() {
                 allResults.forEach(result => {
                     selectedTerms.add(result[0]);
@@ -5116,7 +4832,6 @@
                 updateRunButtonState();
             }
             
-            // Update the selected terms list display
             function updateSelectedTermsList() {
                 if (selectedTerms.size === 0) {
                     selectedTermsList.innerHTML = `<p style="color: var(--text-tertiary); font-style: italic;">No terms selected yet</p>`;
@@ -5125,7 +4840,6 @@
                 
                 selectedTermsList.innerHTML = '';
                 selectedTerms.forEach(term => {
-                    // Find term details if available in results
                     let termName = '';
                     let termNamespace = '';
                     
@@ -5154,38 +4868,29 @@
                     
                     selectedTermsList.appendChild(termElement);
                     
-                    // Add event listener to remove button
                     termElement.querySelector('.remove-term').addEventListener('click', function() {
                         removeSelectedTerm(this.getAttribute('data-term'));
                     });
                 });
             }
             
-            // Update run button state based on selection
             function updateRunButtonState() {
                 runAnalysisButton.disabled = selectedTerms.size < 2;
             }
             
-            // Run analysis button handler
             runAnalysisButton.addEventListener('click', async () => {
-                // Show loading state
                 runAnalysisButton.classList.add('loading');
                 
-                // Reset the fullscreen container to prevent showing stale data
                 const similarityContainer = document.getElementById('similarity-fullscreen-container');
                 if (similarityContainer.style.display === 'flex') {
-                    // If fullscreen is open, close it
                     similarityContainer.style.display = 'none';
                     document.body.style.overflow = 'auto';
                 }
-                // Clear the fullscreen content
                 document.getElementById('fullscreen-similarity-content').innerHTML = '';
                 
                 try {
-                    // Get the selected GO terms
                     const goTerms = Array.from(selectedTerms);
                     
-                    // Make an API call to run the taxago command
                     const response = await fetch('/run-ancestor-analysis', {
                         method: 'POST',
                         headers: {
@@ -5200,13 +4905,10 @@
                     
                     const result = await response.json();
                     
-                    // Show results section
                     document.getElementById('ancestor-analysis-results').style.display = 'block';
                     
-                    // Scroll to results
                     document.getElementById('ancestor-analysis-results').scrollIntoView({ behavior: 'smooth' });
                     
-                    // Display the results
                     document.getElementById('ancestor-graph-container').innerHTML = `
                         <div style="padding: 1rem; background-color: var(--card-background); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                             <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1rem;">
@@ -5245,7 +4947,6 @@
                         </div>
                     `;
                     
-                    // Fetch and render the Mermaid diagram
                     fetch('/ancestor-mermaid')
                         .then(response => {
                             if (!response.ok) {
@@ -5256,9 +4957,7 @@
                         .then(mermaidCode => {
                             const mermaidContainer = document.getElementById('mermaid-diagram');
                             
-                            // Check if the response is our special message about no common ancestors
                             if (mermaidCode.trim() === "No common ancestors found between the provided GO terms") {
-                                // Hide the download and enlarge options in the container
                                 const controlsContainer = document.querySelector('#ancestor-graph-container .fullscreen-button').closest('div');
                                 if (controlsContainer) {
                                     controlsContainer.style.display = 'none';
@@ -5283,21 +4982,17 @@
                             
                             mermaidContainer.innerHTML = `<pre class="mermaid" style="overflow: visible; max-width: none; width: auto;">${mermaidCode}</pre>`;
                             
-                            // Render the diagram
                             mermaid.run({
                                 nodes: document.querySelectorAll('.mermaid')
                             }).then(() => {
-                                // After successful rendering, ensure all links open in new tabs
                                 setLinksToOpenInNewTab();
                                 
-                                // Make sure the SVG is fully visible
                                 const svgElement = mermaidContainer.querySelector('svg');
                                 if (svgElement) {
                                     svgElement.style.maxWidth = 'none';
                                     svgElement.style.width = '100%';
                                     svgElement.style.height = 'auto';
                                     
-                                    // Add horizontal scrolling if needed
                                     mermaidContainer.style.overflowX = 'auto';
                                 }
                             }).catch(error => {
@@ -5326,7 +5021,6 @@
                 } catch (error) {
                     console.error('Error running ancestor analysis:', error);
                     
-                    // Show error in results
                     document.getElementById('ancestor-analysis-results').style.display = 'block';
                     document.getElementById('ancestor-graph-container').innerHTML = `
                         <div style="background-color: var(--card-background); padding: 2rem; border-radius: 0.5rem; text-align: center; height: 200px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
@@ -5334,12 +5028,10 @@
                         </div>
                     `;
                 } finally {
-                    // Hide loading state
                     runAnalysisButton.classList.remove('loading');
                 }
             });
 
-            // Reset the form when the modal is closed
             document.getElementById('close-ancestor-modal').addEventListener('click', resetAncestorAnalysisForm);
             document.getElementById('ancestor-analysis-modal').addEventListener('click', (e) => {
                 if (e.target === document.getElementById('ancestor-analysis-modal')) {
@@ -5347,41 +5039,27 @@
                 }
             });
 
-            // Function to reset the form
             function resetAncestorAnalysisForm() {
-                // Hide the manual GO term entry if it's open
                 document.getElementById('manual-go-entry').style.display = 'none';
                 
-                // Hide the results section if it's visible
                 document.getElementById('ancestor-analysis-results').style.display = 'none';
                 
-                // Clear any error messages
                 document.getElementById('go-term-error').style.display = 'none';
                 
-                // Clear the GO term input
                 document.getElementById('go-term-input').value = '';
-                
-                // Reset the selected terms (optional - comment out if you want to keep the selection)
-                // selectedTerms.clear();
-                // updateSelectedTermsList();
-                // updateRunButtonState();
             }
         }
 
-        // Add this new function to initialize the semantic similarity functionality
         function initializeSemanticSimilarity() {
-            // Store selected GO terms
             const selectedTerms = new Set();
             const selectedTermsList = document.getElementById('semantic-selected-terms-list');
             const runAnalysisButton = document.getElementById('run-semantic-similarity');
             
-            // Toggle manual GO term entry
             document.getElementById('semantic-enter-go-term-btn').addEventListener('click', () => {
                 const manualEntry = document.getElementById('semantic-manual-go-entry');
                 manualEntry.style.display = manualEntry.style.display === 'none' ? 'block' : 'none';
             });
             
-            // Add GO term from manual entry
             document.getElementById('semantic-add-go-term-btn').addEventListener('click', () => {
                 const input = document.getElementById('semantic-go-term-input');
                 const errorMsg = document.getElementById('semantic-go-term-error');
@@ -5396,7 +5074,6 @@
                 }
             });
 
-            // Also allow pressing Enter to add a GO term
             document.getElementById('semantic-go-term-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -5404,19 +5081,15 @@
                 }
             });
             
-            // Clear all terms button handler
             document.getElementById('semantic-clear-all-terms-btn').addEventListener('click', () => {
                 clearAllSelectedTerms();
             });
             
-            // Select all terms button handler
             document.getElementById('semantic-select-all-terms-btn').addEventListener('click', () => {
                 selectAllTerms();
             });
             
-            // Select from results button handler
             document.getElementById('semantic-select-from-results-btn').addEventListener('click', () => {
-                // Create a temporary modal to select terms from results
                 const selectModal = document.createElement('div');
                 selectModal.className = 'modal active';
                 selectModal.innerHTML = `
@@ -5449,7 +5122,6 @@
                 
                 document.body.appendChild(selectModal);
                 
-                // Populate the table with results
                 const selectionBody = document.getElementById('term-selection-body');
                 allResults.forEach(result => {
                     const row = document.createElement('tr');
@@ -5467,7 +5139,6 @@
                     
                     selectionBody.appendChild(row);
                     
-                    // Add event listener to checkbox to automatically add/remove terms when checked/unchecked
                     const checkbox = row.querySelector('input[type="checkbox"]');
                     checkbox.addEventListener('change', function() {
                         if (this.checked) {
@@ -5478,17 +5149,14 @@
                     });
                 });
                 
-                // Handle confirm selection button
                 document.getElementById('confirm-selection').addEventListener('click', () => {
                     document.body.removeChild(selectModal);
                 });
                 
-                // Handle close button
                 selectModal.querySelector('.close-modal').addEventListener('click', () => {
                     document.body.removeChild(selectModal);
                 });
                 
-                // Handle click outside
                 selectModal.addEventListener('click', (e) => {
                     if (e.target === selectModal) {
                         document.body.removeChild(selectModal);
@@ -5496,7 +5164,6 @@
                 });
             });
             
-            // Function to add a selected term
             function addSelectedTerm(termId) {
                 if (selectedTerms.has(termId)) return;
                 
@@ -5505,21 +5172,18 @@
                 updateRunButtonState();
             }
             
-            // Function to remove a selected term
             function removeSelectedTerm(termId) {
                 selectedTerms.delete(termId);
                 updateSelectedTermsList();
                 updateRunButtonState();
             }
             
-            // Function to clear all selected terms
             function clearAllSelectedTerms() {
                 selectedTerms.clear();
                 updateSelectedTermsList();
                 updateRunButtonState();
             }
             
-            // Function to select all available terms
             function selectAllTerms() {
                 allResults.forEach(result => {
                     selectedTerms.add(result[0]);
@@ -5528,7 +5192,6 @@
                 updateRunButtonState();
             }
             
-            // Update the selected terms list display
             function updateSelectedTermsList() {
                 if (selectedTerms.size === 0) {
                     selectedTermsList.innerHTML = `<p style="color: var(--text-tertiary); font-style: italic;">No terms selected yet</p>`;
@@ -5537,7 +5200,6 @@
                 
                 selectedTermsList.innerHTML = '';
                 selectedTerms.forEach(term => {
-                    // Find term details if available in results
                     let termName = '';
                     let termNamespace = '';
                     
@@ -5566,41 +5228,31 @@
                     
                     selectedTermsList.appendChild(termElement);
                     
-                    // Add event listener to remove button
                     termElement.querySelector('.remove-term').addEventListener('click', function() {
                         removeSelectedTerm(this.getAttribute('data-term'));
                     });
                 });
             }
             
-            // Update run button state based on selection
             function updateRunButtonState() {
                 runAnalysisButton.disabled = selectedTerms.size < 2;
             }
             
-            // Run analysis button handler
             runAnalysisButton.addEventListener('click', async () => {
-                // Show loading state
                 runAnalysisButton.classList.add('loading');
                 
-                // Reset the fullscreen container to prevent showing stale data
                 const similarityContainer = document.getElementById('similarity-fullscreen-container');
                 if (similarityContainer.style.display === 'flex') {
-                    // If fullscreen is open, close it
                     similarityContainer.style.display = 'none';
                     document.body.style.overflow = 'auto';
                 }
-                // Clear the fullscreen content
                 document.getElementById('fullscreen-similarity-content').innerHTML = '';
                 
                 try {
-                    // Get the selected GO terms
                     const goTerms = Array.from(selectedTerms);
                     
-                    // Get the selected similarity method
                     const similarityMethod = document.querySelector('input[name="similarity-method"]:checked').value;
                     
-                    // Make an API call to run the semantic similarity analysis
                     const response = await fetch('/run-semantic-similarity', {
                         method: 'POST',
                         headers: {
@@ -5618,16 +5270,12 @@
                     
                     const result = await response.json();
                     
-                    // Show results section
                     document.getElementById('semantic-similarity-results').style.display = 'block';
                     
-                    // Scroll to results
                     document.getElementById('semantic-similarity-results').scrollIntoView({ behavior: 'smooth' });
                     
-                    // Display the results
                     const resultsContainer = document.getElementById('similarity-results-container');
                     
-                    // Create a heatmap or table to display similarity scores
                     resultsContainer.innerHTML = `
                         <div style="background-color: var(--card-background); padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -5664,7 +5312,6 @@
                                                                  result.similarityScores[`${term2}-${term1}`] || 
                                                                  (term1 === term2 ? 1 : 0);
                                                     
-                                                    // Color gradient based on score (0 to 1)
                                                     const intensity = Math.min(Math.max(score, 0), 1);
                                                     const backgroundColor = term1 === term2 ? 
                                                         'var(--primary-color-light)' : 
@@ -5682,35 +5329,28 @@
                         </div>
                     `;
                     
-                    // Add event listener for the download button in the small table
                     const smallDownloadButton = document.getElementById('download-small-similarity-csv');
-                    // Remove any existing event listeners by cloning and replacing the button
                     if (smallDownloadButton) {
                         const newSmallDownloadButton = smallDownloadButton.cloneNode(true);
                         smallDownloadButton.parentNode.replaceChild(newSmallDownloadButton, smallDownloadButton);
                         
-                        // Add fresh event listener that gets the current table
                         newSmallDownloadButton.addEventListener('click', function() {
-                            // Always get the current table when clicked
                             const currentTable = document.querySelector('.similarity-table');
                             downloadSimilarityCSVFromTable(currentTable);
                         });
                     }
                     
-                    // Add event listener for the fullscreen button
                     const fullscreenButton = document.getElementById('toggle-similarity-fullscreen');
                     if (fullscreenButton) {
                         const newFullscreenButton = fullscreenButton.cloneNode(true);
                         fullscreenButton.parentNode.replaceChild(newFullscreenButton, fullscreenButton);
                         
-                        // Add fresh event listener
                         newFullscreenButton.addEventListener('click', toggleSimilarityFullscreen);
                     }
                     
                 } catch (error) {
                     console.error('Error running semantic similarity analysis:', error);
                     
-                    // Show error in results
                     document.getElementById('semantic-similarity-results').style.display = 'block';
                     document.getElementById('similarity-results-container').innerHTML = `
                         <div style="background-color: var(--card-background); padding: 2rem; border-radius: 0.5rem; text-align: center; min-height: 200px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
@@ -5718,12 +5358,10 @@
                         </div>
                     `;
                 } finally {
-                    // Hide loading state
                     runAnalysisButton.classList.remove('loading');
                 }
             });
 
-            // Reset the form when the modal is closed
             document.getElementById('close-semantic-modal').addEventListener('click', resetSemanticSimilarityForm);
             document.getElementById('semantic-similarity-modal').addEventListener('click', (e) => {
                 if (e.target === document.getElementById('semantic-similarity-modal')) {
@@ -5731,27 +5369,17 @@
                 }
             });
 
-            // Function to reset the form
             function resetSemanticSimilarityForm() {
-                // Hide the manual GO term entry if it's open
                 document.getElementById('semantic-manual-go-entry').style.display = 'none';
                 
-                // Hide the results section if it's visible
                 document.getElementById('semantic-similarity-results').style.display = 'none';
                 
-                // Clear any error messages
                 document.getElementById('semantic-go-term-error').style.display = 'none';
                 
-                // Clear the GO term input
                 document.getElementById('semantic-go-term-input').value = '';
                 
-                // Reset the similarity method to default (Resnik)
                 document.querySelector('input[name="similarity-method"][value="resnik"]').checked = true;
                 
-                // Reset the selected terms (optional)
-                // selectedTerms.clear();
-                // updateSelectedTermsList();
-                // updateRunButtonState();
             }
         }
     </script>

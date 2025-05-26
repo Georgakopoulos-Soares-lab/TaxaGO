@@ -1175,7 +1175,7 @@ async fn copy_results_file(data: web::Json<CopyFileRequest>) -> impl Responder {
             } else if data.file_type == "combined_file" {
                 let mut lines: Vec<&str> = content.lines().collect();
                 if !lines.is_empty() {
-                    lines[0] = "GO ID\tName\tNamespace\tlog(Odds Ratio)\tStat. Sig.\tHetergnt\tSpecies %\tN w/\tN in tax";
+                    lines[0] = "GO ID\tName\tNamespace\tlog(Odds Ratio)\tStat. Sig.";
                 }
                 lines.join("\n")
             } else {

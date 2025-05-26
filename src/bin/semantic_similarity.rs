@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use dirs::home_dir;
 use daggy::NodeIndex;
 use std::error::Error;
+use petgraph::algo::toposort;
 
 use TaxaGO::parsers::obo_parser::*;
 use TaxaGO::parsers::background_parser::*;
@@ -132,6 +133,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         .iter()
         .map(|(&go_id, &node_idx)| (node_idx, go_id))
         .collect();
+
+    let topo_result = toposort(&ontology_graph, None).unwrap();
+
+    let mut propagation_order: Vec<GOTermID> = topo_result
+        .iter()
+        .filter_map(|&node_idx| node_index_to_go_id.get(&node_idx).copied())
+        .collect();
+    
+    propagation_order.reverse();
     
     println!("Reading background populations from: {}\n", &cli_args.background_dir);
     
@@ -141,13 +151,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                                                         .collect();
     let categories: Vec<EvidenceCategory> = vec![
         EvidenceCategory::Experimental,
-        EvidenceCategory::Experimental,
         EvidenceCategory::Phylogenetic,
         EvidenceCategory::Computational,
         EvidenceCategory::Author,
         EvidenceCategory::Curator,
-        EvidenceCategory::Electronic
-        ];
+        EvidenceCategory::Electronic];
+
     let mut background_population = match BackgroundPop::read_background_pop(
         &taxon_ids, 
         &cli_args.background_dir,
@@ -206,6 +215,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Calculating semantic similarity using {} method \n", cli_args.method);
     
     for &taxon_id in &taxon_ids {        
+        println!("Processing for Taxon ID: {}\n", taxon_id);
+    
         let term_pairs = generate_term_pairs(
             &go_terms,
             taxon_id,
@@ -213,9 +224,22 @@ fn main() -> Result<(), Box<dyn Error>> {
             &ontology_graph,
             &go_id_to_node_index,
             &node_index_to_go_id,
+            &propagation_order,
             &cli_args.method
         );
-        write_similarity_to_tsv(&term_pairs, &go_terms, taxon_id, &cli_args.output_dir);
+        
+        if term_pairs.is_empty() && !go_terms.is_empty() {
+            println!("No term pairs generated for taxon {}. This might happen if terms are not found or IC values are missing for IC-based methods.", taxon_id);
+        }
+
+        write_similarity_to_tsv(
+            &term_pairs, 
+            &go_terms, 
+            taxon_id, 
+            &cli_args.method, 
+            &cli_args.output_dir
+        )
+        .map_err(|e| format!("Failed to write similarity TSV for taxon {}: {}", taxon_id, e))?;
     }
     
     println!("All semantic similarity calculations completed successfully!\n");

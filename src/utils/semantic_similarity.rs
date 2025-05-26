@@ -8,6 +8,8 @@ use crate::parsers::{
     obo_parser::*,
 };
 use crate::utils::common_ancestor::*;
+use std::collections::VecDeque;
+use daggy::Walker;
 
 pub type InformationContent = f64;
 #[derive(Debug)]
@@ -18,6 +20,68 @@ pub struct TermPair {
     pub ic_term2: f64,
     pub mica: (u32, f64),
     pub similarity: f64,
+}
+
+impl TermPair {
+    pub fn new_for_wang(term1: u32, term2: u32, wang_similarity_score: f64) -> Self {
+        Self {
+            term1,
+            term2,
+            ic_term1: 0.0,
+            ic_term2: 0.0,
+            mica: (0, 0.0),
+            similarity: wang_similarity_score,
+        }
+    }
+
+    pub fn new_for_ic(
+        term1: u32,
+        term2: u32,
+        ic_term1: f64,
+        ic_term2: f64,
+        mica: (u32, f64),
+        method: &str, 
+    ) -> Self {
+        let mut pair = Self {
+            term1,
+            term2,
+            ic_term1,
+            ic_term2,
+            mica,
+            similarity: 0.0,
+        };
+        pair.similarity = match method.to_lowercase().as_str() {
+            "resnik" => pair.mica.1, 
+            "lin" => {
+                if pair.ic_term1 == 0.0 || pair.ic_term2 == 0.0 || (pair.ic_term1 + pair.ic_term2) == 0.0 { 0.0 }
+                else { (2.0 * pair.mica.1) / (pair.ic_term1 + pair.ic_term2) }
+            }
+            "jiang-conrath" => {
+                let distance = pair.ic_term1 + pair.ic_term2 - 2.0 * pair.mica.1;
+                1.0 / (1.0 + distance.max(0.0))
+            }
+            _ => {
+                eprintln!("Warning: Unsupported IC-based method '{}' in TermPair::new_for_ic, defaulting to 0.0", method);
+                0.0
+            }
+        };
+        pair
+    }
+}
+
+
+pub const IS_A_WEIGHT: f64 = 0.8;
+pub const PART_OF_WEIGHT: f64 = 0.6;
+
+pub fn get_edge_weight(relationship: &Relationship) -> f64 {
+    match relationship {
+        Relationship::IsA => IS_A_WEIGHT,
+        Relationship::PartOf => PART_OF_WEIGHT,
+        Relationship::Regulates => 0.0,
+        Relationship::PositivelyRegulates => 0.0,
+        Relationship::NegativelyRegulates => 0.0,
+        Relationship::OccursIn => 0.0,
+    }
 }
 
 pub fn parse_single_go_term(term: &str) -> Result<u32, String> {
@@ -115,61 +179,6 @@ pub fn calculate_information_content(
         .collect()
 }
 
-impl TermPair {
-    pub fn resnik_similarity(&self) -> f64 {
-        self.mica.1
-    }
-    
-    pub fn lin_similarity(&self) -> f64 {
-        if self.ic_term1 == 0.0 || self.ic_term2 == 0.0 {
-            return 0.0;
-        }
-        
-        (2.0 * self.mica.1) / (self.ic_term1 + self.ic_term2)
-    }
-    
-    pub fn jiang_conrath_similarity(&self) -> f64 {
-        let distance = self.ic_term1 + self.ic_term2 - 2.0 * self.mica.1;
-        1.0 / (1.0 + distance.max(0.0))  
-    }
-    
-    pub fn calculate_similarity(&mut self, method: &str) -> f64 {
-        let similarity = match method.to_lowercase().as_str() {
-            "resnik" => self.resnik_similarity(),
-            "lin" => self.lin_similarity(),
-            "jiang-conrath" => self.jiang_conrath_similarity(),
-            _ => {
-                println!("Warning: Unsupported method '{}', defaulting to Resnik", method);
-                self.resnik_similarity()
-            }
-        };
-        
-        self.similarity = similarity;
-        similarity
-    }
-    
-    
-    pub fn new(
-        term1: u32, 
-        term2: u32, 
-        ic_term1: f64, 
-        ic_term2: f64, 
-        mica: (u32, f64), 
-        method: &str) -> Self {
-            let mut pair = Self {
-                term1,
-                term2,
-                ic_term1,
-                ic_term2,
-                mica,
-                similarity: 0.0,
-            };
-        
-        pair.calculate_similarity(method);
-        pair
-    }
-}
-
 pub fn find_mica_for_pair(
     term1: u32,
     term2: u32,
@@ -219,102 +228,298 @@ pub fn find_mica_for_pair(
     }
 }
 
+
 pub fn generate_term_pairs(
-    go_terms: &FxHashSet<u32>,
+    go_terms: &FxHashSet<u32>, 
     taxon_id: TaxonID,
     ic_results: &FxHashMap<TaxonID, FxHashMap<u32, f64>>,
     ontology_graph: &OntologyGraph,
     go_id_to_node_index: &FxHashMap<u32, NodeIndex>,
     node_index_to_go_id: &FxHashMap<NodeIndex, u32>,
+    global_rev_topo_order: &[GOTermID], 
     method: &str,
 ) -> Vec<TermPair> {
-    let terms: Vec<u32> = go_terms.iter().cloned().collect();
+    let terms_vec: Vec<u32> = go_terms.iter().cloned().collect();
     let mut pairs = Vec::new();
-    
-    let ic_values = match ic_results.get(&taxon_id) {
-        Some(values) => values,
-        None => {
-            println!("Warning: No IC values found for taxon ID: {}\n", taxon_id);
-            return pairs;
+
+    let method_lower = method.to_lowercase();
+
+    if method_lower == "wang" {
+        println!("Calculating Wang's similarity for term pairs...");
+        for i in 0..terms_vec.len() {
+            for j in i..terms_vec.len() {
+                let term1 = terms_vec[i];
+                let term2 = terms_vec[j];
+
+                match wang_similarity(
+                    term1,
+                    term2,
+                    ontology_graph,
+                    go_id_to_node_index,
+                    node_index_to_go_id,
+                    global_rev_topo_order,
+                ) {
+                    Ok(sim_score) => {
+                        pairs.push(TermPair::new_for_wang(term1, term2, sim_score));
+                    }
+                    Err(e) => {
+                        eprintln!("Error calculating Wang's similarity for GO:{:07} and GO:{:07}: {}", term1, term2, e);
+                        pairs.push(TermPair::new_for_wang(term1, term2, 0.0));
+                    }
+                }
+            }
         }
-    };
-    
-    println!("Generating all pairwise term combinations for taxon {}\n", taxon_id);
-    
-    for i in 0..terms.len() {
-        for j in i..terms.len() {
-            let term1 = terms[i];
-            let term2 = terms[j];
-            
-            let ic_term1 = ic_values.get(&term1).copied().unwrap_or(f64::INFINITY);
-            let ic_term2 = ic_values.get(&term2).copied().unwrap_or(f64::INFINITY);
-            
-            let mica = find_mica_for_pair(
-                term1, term2,
-                ontology_graph,
-                go_id_to_node_index,
-                node_index_to_go_id,
-                ic_values
-            ).unwrap_or((0, 0.0));
-            
-            pairs.push(TermPair::new(
-                term1,
-                term2,
-                ic_term1,
-                ic_term2,
-                mica,
-                method
-            ));
-            
+    } else {
+        let ic_values_for_taxon = match ic_results.get(&taxon_id) {
+            Some(values) => values,
+            None => {
+                eprintln!("Warning: No IC values found for taxon ID: {} for method {}. Returning empty pairs.", taxon_id, method);
+                return pairs;
+            }
+        };
+
+        println!("Calculating {} similarity for term pairs using IC...", method);
+        for i in 0..terms_vec.len() {
+            for j in i..terms_vec.len() {
+                let term1 = terms_vec[i];
+                let term2 = terms_vec[j];
+
+                let ic_term1 = ic_values_for_taxon.get(&term1).copied().unwrap_or(0.0);
+                let ic_term2 = ic_values_for_taxon.get(&term2).copied().unwrap_or(0.0);
+
+                let mica = find_mica_for_pair(
+                    term1, term2,
+                    ontology_graph,
+                    go_id_to_node_index,
+                    node_index_to_go_id,
+                    ic_values_for_taxon,
+                ).unwrap_or((0, 0.0));
+
+                pairs.push(TermPair::new_for_ic(
+                    term1, term2, ic_term1, ic_term2, mica, &method_lower,
+                ));
+            }
         }
     }
-    
     pairs
+}
+
+pub fn calculate_s_values(
+    term_id: GOTermID,
+    ontology_graph: &OntologyGraph,
+    go_id_to_node_index: &FxHashMap<GOTermID, NodeIndex>,
+    node_index_to_go_id: &FxHashMap<NodeIndex, GOTermID>,
+    topo_order: &[GOTermID],
+) -> Result<FxHashMap<GOTermID, f64>, String> {
+    let term_a_node_idx = match go_id_to_node_index.get(&term_id) {
+        Some(&idx) => idx,
+        None => return Err(format!("Term GO:{:07} not found in ontology", term_id)),
+    };
+
+    let mut ancestors: FxHashSet<GOTermID> = FxHashSet::default();
+    let mut ancestor_traversal_queue = VecDeque::new();
+    ancestor_traversal_queue.push_back(term_a_node_idx);
+    ancestors.insert(term_id);
+    let mut head = 0;
+    while head < ancestor_traversal_queue.len() {
+        let current_node_idx = ancestor_traversal_queue[head];
+        head += 1;
+        let mut parents = ontology_graph.parents(current_node_idx);
+        while let Some((edge_idx, parent_node_idx)) = parents.walk_next(ontology_graph) {
+            if let Some(relationship) = ontology_graph.edge_weight(edge_idx) {
+                match relationship {
+                    Relationship::IsA | Relationship::PartOf => {
+                        if let Some(parent_go_id) = node_index_to_go_id.get(&parent_node_idx) {
+                            if ancestors.insert(*parent_go_id) {
+                                ancestor_traversal_queue.push_back(parent_node_idx);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let mut s_values: FxHashMap<GOTermID, f64> = FxHashMap::default();
+    for &ancestor_id_in_dag_a in &ancestors {
+        s_values.insert(ancestor_id_in_dag_a, 0.0);
+    }
+    s_values.insert(term_id, 1.0);
+
+    for &current_go_id in topo_order.iter() {
+        if !ancestors.contains(&current_go_id) {
+            continue;
+        }
+
+        if current_go_id == term_id {
+            continue;
+        }
+
+        let current_node_idx = match go_id_to_node_index.get(&current_go_id) {
+            Some(idx) => *idx,
+            None => continue, 
+        };
+        
+        let mut max_s_contrib_for_current_go_id: f64 = 0.0;
+
+        let mut children_walker = ontology_graph.children(current_node_idx);
+        while let Some((edge_to_child_idx, child_node_idx)) = children_walker.walk_next(ontology_graph) {
+            if let Some(child_go_id_in_ontology) = node_index_to_go_id.get(&child_node_idx) {
+                if ancestors.contains(child_go_id_in_ontology) {
+                    if let Some(s_value_of_child) = s_values.get(child_go_id_in_ontology) {
+                        if let Some(relationship) = ontology_graph.edge_weight(edge_to_child_idx) {
+                            match relationship {
+                                Relationship::IsA | Relationship::PartOf => {
+                                    let weight: f64 = get_edge_weight(relationship);
+                                    max_s_contrib_for_current_go_id = max_s_contrib_for_current_go_id.max(*s_value_of_child * weight);
+                                }
+                                _ => {} 
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        s_values.insert(current_go_id, max_s_contrib_for_current_go_id);
+    }
+
+    Ok(s_values)
+}
+
+pub fn calculate_semantic_value(
+    s_values: &FxHashMap<GOTermID, f64>,
+) -> f64 {
+    s_values.values().sum()
+}
+
+
+pub fn wang_similarity(
+    term1_id: GOTermID,
+    term2_id: GOTermID,
+    ontology_graph: &OntologyGraph,
+    go_id_to_node_index: &FxHashMap<GOTermID, NodeIndex>,
+    node_index_to_go_id: &FxHashMap<NodeIndex, GOTermID>,
+    global_rev_topo_order: &[GOTermID], 
+) -> Result<f64, String> {
+    if term1_id == term2_id {
+        return Ok(1.0); 
+    }
+
+    let s_values_term1 = calculate_s_values(
+        term1_id,
+        ontology_graph,
+        go_id_to_node_index,
+        node_index_to_go_id,
+        global_rev_topo_order,
+    )?;
+
+    let s_values_term2 = calculate_s_values(
+        term2_id,
+        ontology_graph,
+        go_id_to_node_index,
+        node_index_to_go_id,
+        global_rev_topo_order,
+    )?;
+
+    let sv_term1 = calculate_semantic_value(&s_values_term1);
+
+    let sv_term2 = calculate_semantic_value(&s_values_term2);
+
+    if sv_term1 == 0.0 || sv_term2 == 0.0 {
+        return Ok(0.0);
+    }
+
+    let mut sum_common_s_values = 0.0;
+
+    for (ancestor_t_id, s_value_for_t_in_term1) in &s_values_term1 {
+        if let Some(s_value_for_t_in_term2) = s_values_term2.get(ancestor_t_id) {
+            sum_common_s_values += s_value_for_t_in_term1 + s_value_for_t_in_term2;
+        }
+    }
+
+    let denominator = sv_term1 + sv_term2;
+    if denominator == 0.0 {
+        return Ok(0.0);
+    }
+
+    let similarity = sum_common_s_values / denominator;
+
+    Ok(similarity)
 }
 
 pub fn write_similarity_to_tsv(
     term_pairs: &[TermPair],
-    go_terms: &FxHashSet<u32>,
+    go_terms: &FxHashSet<GOTermID>,
     taxon_id: TaxonID,
+    method: &str,
     output_dir: &str,
-) {
+) -> Result<(), String> {
     let output_path = Path::new(output_dir);
-    fs::create_dir_all(output_path).unwrap();
+    fs::create_dir_all(output_path)
+        .map_err(|e| format!("Failed to create output directory {}: {}", output_dir, e))?;
 
-    let filename = format!("{}/similarity_taxon_{}.tsv", output_dir, taxon_id);
-    println!("Writing similarity matrix to {}\n", filename);
+    let method_filename_part = method
+        .to_lowercase()
+        .replace(|c: char| !c.is_alphanumeric() && c != '_', "_")
+        .replace('-', "_");
 
-    let mut file = File::create(&filename).unwrap();
-   
-    let terms: Vec<String> = go_terms.iter()
-        .map(|&id| format!("GO:{:07}", id))
-        .collect();
+    let filename = format!(
+        "{}/similarity_{}_taxon_{}.tsv",
+        output_dir, method_filename_part, taxon_id
+    );
+    println!("Writing {} similarity matrix to {}", method, filename);
 
-    let mut similarity_map: FxHashMap<(u32, u32), f64> = FxHashMap::default();
+    let mut file = File::create(&filename)
+        .map_err(|e| format!("Failed to create output file {}: {}", filename, e))?;
+
+    let mut sorted_go_ids: Vec<GOTermID> = go_terms.iter().cloned().collect();
+    sorted_go_ids.sort_unstable();
+
+
+    let mut similarity_map: FxHashMap<(GOTermID, GOTermID), f64> = FxHashMap::default();
     for pair in term_pairs {
         similarity_map.insert((pair.term1, pair.term2), pair.similarity);
-        similarity_map.insert((pair.term2, pair.term1), pair.similarity);
-    }
-
-    write!(file, "\t").unwrap();
-    for term in &terms {
-        write!(file, "{}\t", term).unwrap();
-    }
-    writeln!(file).unwrap();
-
-    for (_, row_term_str) in terms.iter().enumerate() {
-        let row_term = parse_single_go_term(&row_term_str).unwrap();
-        
-        write!(file, "{}\t", row_term_str).unwrap();
-        
-        for (_, col_term_str) in terms.iter().enumerate() {
-            let col_term = parse_single_go_term(&col_term_str).unwrap();
-            
-            let similarity = similarity_map.get(&(row_term, col_term)).copied().unwrap_or(0.0);
-            
-            write!(file, "{:.6}\t", similarity).unwrap();
+        if pair.term1 != pair.term2 {
+            similarity_map.insert((pair.term2, pair.term1), pair.similarity);
         }
-        writeln!(file).unwrap();
     }
 
+    write!(file, "\t")
+        .map_err(|e| format!("Failed to write to file {}: {}", filename, e))?;
+
+    for (i, go_id) in sorted_go_ids.iter().enumerate() {
+        write!(file, "GO:{:07}", go_id)
+            .map_err(|e| format!("Failed to write to file {}: {}", filename, e))?;
+        if i < sorted_go_ids.len() - 1 {
+            write!(file, "\t")
+                .map_err(|e| format!("Failed to write to file {}: {}", filename, e))?;
+        }
+    }
+    writeln!(file)
+        .map_err(|e| format!("Failed to write to file {}: {}", filename, e))?;
+
+    for row_go_id in &sorted_go_ids {
+        write!(file, "GO:{:07}\t", row_go_id)
+            .map_err(|e| format!("Failed to write to file {}: {}", filename, e))?;
+
+        for (j, col_go_id) in sorted_go_ids.iter().enumerate() {
+            let similarity = similarity_map
+                .get(&(*row_go_id, *col_go_id))
+                .copied()
+                .unwrap_or(0.0); 
+
+            write!(file, "{:.6}", similarity)
+                .map_err(|e| format!("Failed to write to file {}: {}", filename, e))?;
+            if j < sorted_go_ids.len() - 1 {
+                write!(file, "\t")
+                    .map_err(|e| format!("Failed to write to file {}: {}", filename, e))?;
+            }
+        }
+        writeln!(file)
+            .map_err(|e| format!("Failed to write to file {}: {}", filename, e))?;
+    }
+
+    println!("Successfully wrote similarity matrix to {}", filename);
+    Ok(())
 }
