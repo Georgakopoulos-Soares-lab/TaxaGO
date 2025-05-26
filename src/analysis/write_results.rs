@@ -16,14 +16,19 @@ use crate::analysis::{
 };
 
 pub fn clean_directory(dir_path: &PathBuf) -> io::Result<()> {
-    if dir_path.exists() {
+    if dir_path.exists() && dir_path.is_dir() { 
         for entry in fs::read_dir(dir_path)? {
             let entry = entry?;
             let path = entry.path();
-            if path.is_file() {
-                fs::remove_file(path)?;
-            } else if path.is_dir() {
-                fs::remove_dir_all(path)?;
+
+            if path.is_dir() {
+                if let Some(dir_name) = path.file_name() {
+                    if let Some(name_str) = dir_name.to_str() {
+                        if name_str == "combined_taxonomy_results" || name_str == "single_taxon_results" {
+                            fs::remove_dir_all(&path)?;
+                        }
+                    }
+                }
             }
         }
     }

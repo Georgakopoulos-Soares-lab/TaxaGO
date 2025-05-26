@@ -264,7 +264,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         eprintln!("Failed to initialize Rayon global thread pool: {:?}", e);
     }; 
     println!("\nCleaning previous results");
-    // Handling the result deletion!!!!!
     clean_directory(&cli_args.output_dir)?;
 
     fs::create_dir_all(&cli_args.output_dir)?;

@@ -104,11 +104,11 @@ struct CliArgs {
     #[arg(
         short = 'm',
         long = "method",
-        value_name = "METHOD",
-        help = "Method to calculate semantic similarity between two GO terms. [available: resnik, lin, jiang-conrath, wang]",
-        default_value = "resnik",
+        value_enum,
+        help = "Method to calculate semantic similarity between two GO terms.",
+        default_value_t = Method::Resnik,
     )]
-    method: String,
+    method: Method,
 
     #[arg(
         short = 'p',
@@ -212,8 +212,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Finding Most Informative Common Ancestor (MICA)\n");
     
-    println!("Calculating semantic similarity using {} method \n", cli_args.method);
-    
     for &taxon_id in &taxon_ids {        
         println!("Processing for Taxon ID: {}\n", taxon_id);
     
@@ -225,7 +223,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             &go_id_to_node_index,
             &node_index_to_go_id,
             &propagation_order,
-            &cli_args.method
+            cli_args.method
         );
         
         if term_pairs.is_empty() && !go_terms.is_empty() {
@@ -236,7 +234,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             &term_pairs, 
             &go_terms, 
             taxon_id, 
-            &cli_args.method, 
+            cli_args.method, 
             &cli_args.output_dir
         )
         .map_err(|e| format!("Failed to write similarity TSV for taxon {}: {}", taxon_id, e))?;

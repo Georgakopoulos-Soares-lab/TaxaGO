@@ -10,8 +10,31 @@ use crate::parsers::{
 use crate::utils::common_ancestor::*;
 use std::collections::VecDeque;
 use daggy::Walker;
+use clap::ValueEnum;
+use std::fmt;
 
 pub type InformationContent = f64;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum)] 
+pub enum Method {
+    Resnik,
+    Lin,
+    JiangConrath,
+    Wang,
+}
+
+impl fmt::Display for Method {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Method::Resnik => write!(f, "Resnik"),
+            Method::Lin => write!(f, "Lin"),
+            Method::JiangConrath => write!(f, "Jiang-Conrath"),
+            Method::Wang => write!(f, "Wang"),
+        }
+    }
+}
+
+
 #[derive(Debug)]
 pub struct TermPair {
     pub term1: u32,
@@ -27,8 +50,8 @@ impl TermPair {
         Self {
             term1,
             term2,
-            ic_term1: 0.0,
-            ic_term2: 0.0,
+            ic_term1: 0.0, 
+            ic_term2: 0.0, 
             mica: (0, 0.0),
             similarity: wang_similarity_score,
         }
@@ -40,7 +63,7 @@ impl TermPair {
         ic_term1: f64,
         ic_term2: f64,
         mica: (u32, f64),
-        method: &str, 
+        method: Method,
     ) -> Self {
         let mut pair = Self {
             term1,
@@ -50,24 +73,26 @@ impl TermPair {
             mica,
             similarity: 0.0,
         };
-        pair.similarity = match method.to_lowercase().as_str() {
-            "resnik" => pair.mica.1, 
-            "lin" => {
-                if pair.ic_term1 == 0.0 || pair.ic_term2 == 0.0 || (pair.ic_term1 + pair.ic_term2) == 0.0 { 0.0 }
-                else { (2.0 * pair.mica.1) / (pair.ic_term1 + pair.ic_term2) }
+        pair.similarity = match method { 
+            Method::Resnik => pair.mica.1,
+            Method::Lin => {
+                if pair.ic_term1 == 0.0 || pair.ic_term2 == 0.0 || (pair.ic_term1 + pair.ic_term2) == 0.0 {
+                    0.0
+                } else {
+                    (2.0 * pair.mica.1) / (pair.ic_term1 + pair.ic_term2)
+                }
             }
-            "jiang-conrath" => {
+            Method::JiangConrath => {
                 let distance = pair.ic_term1 + pair.ic_term2 - 2.0 * pair.mica.1;
-                1.0 / (1.0 + distance.max(0.0))
-            }
-            _ => {
-                eprintln!("Warning: Unsupported IC-based method '{}' in TermPair::new_for_ic, defaulting to 0.0", method);
-                0.0
-            }
+                1.0 / (1.0 + distance.max(0.0)) 
+            },
+            Method::Wang => {0.0}
+
         };
         pair
     }
 }
+
 
 
 pub const IS_A_WEIGHT: f64 = 0.8;
@@ -237,67 +262,87 @@ pub fn generate_term_pairs(
     go_id_to_node_index: &FxHashMap<u32, NodeIndex>,
     node_index_to_go_id: &FxHashMap<NodeIndex, u32>,
     global_rev_topo_order: &[GOTermID], 
-    method: &str,
+    method: Method,
 ) -> Vec<TermPair> {
     let terms_vec: Vec<u32> = go_terms.iter().cloned().collect();
     let mut pairs = Vec::new();
 
-    let method_lower = method.to_lowercase();
+    match method {
+        Method::Wang => {
+            println!("Calculating Wang's similarity for term pairs...");
+            for i in 0..terms_vec.len() {
+                for j in i..terms_vec.len() { // Calculate for each pair including self-comparison
+                    let term1 = terms_vec[i];
+                    let term2 = terms_vec[j];
 
-    if method_lower == "wang" {
-        println!("Calculating Wang's similarity for term pairs...");
-        for i in 0..terms_vec.len() {
-            for j in i..terms_vec.len() {
-                let term1 = terms_vec[i];
-                let term2 = terms_vec[j];
-
-                match wang_similarity(
-                    term1,
-                    term2,
-                    ontology_graph,
-                    go_id_to_node_index,
-                    node_index_to_go_id,
-                    global_rev_topo_order,
-                ) {
-                    Ok(sim_score) => {
-                        pairs.push(TermPair::new_for_wang(term1, term2, sim_score));
-                    }
-                    Err(e) => {
-                        eprintln!("Error calculating Wang's similarity for GO:{:07} and GO:{:07}: {}", term1, term2, e);
-                        pairs.push(TermPair::new_for_wang(term1, term2, 0.0));
+                    match wang_similarity(
+                        term1,
+                        term2,
+                        ontology_graph,
+                        go_id_to_node_index,
+                        node_index_to_go_id,
+                        global_rev_topo_order,
+                    ) {
+                        Ok(sim_score) => {
+                            pairs.push(TermPair::new_for_wang(term1, term2, sim_score));
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "Error calculating Wang's similarity for GO:{:07} and GO:{:07}: {}",
+                                term1, term2, e
+                            );
+                            pairs.push(TermPair::new_for_wang(term1, term2, 0.0)); // Default to 0.0 on error
+                        }
                     }
                 }
             }
         }
-    } else {
-        let ic_values_for_taxon = match ic_results.get(&taxon_id) {
-            Some(values) => values,
-            None => {
-                eprintln!("Warning: No IC values found for taxon ID: {} for method {}. Returning empty pairs.", taxon_id, method);
-                return pairs;
-            }
-        };
+        Method::Resnik | Method::Lin | Method::JiangConrath => {
+            let ic_values_for_taxon = match ic_results.get(&taxon_id) {
+                Some(values) => values,
+                None => {
+                    eprintln!(
+                        "Warning: No IC values found for taxon ID: {}. Returning empty pairs.",
+                        taxon_id
+                    );
+                    return pairs;
+                }
+            };
 
-        println!("Calculating {} similarity for term pairs using IC...", method);
-        for i in 0..terms_vec.len() {
-            for j in i..terms_vec.len() {
-                let term1 = terms_vec[i];
-                let term2 = terms_vec[j];
+            for i in 0..terms_vec.len() {
+                for j in i..terms_vec.len() {
+                    let term1 = terms_vec[i];
+                    let term2 = terms_vec[j];
 
-                let ic_term1 = ic_values_for_taxon.get(&term1).copied().unwrap_or(0.0);
-                let ic_term2 = ic_values_for_taxon.get(&term2).copied().unwrap_or(0.0);
+                    let ic_term1 = ic_values_for_taxon.get(&term1).copied().unwrap_or_else(|| {
+                        if go_id_to_node_index.contains_key(&term1) { f64::INFINITY } else { 0.0 }
+                    });
+                    let ic_term2 = ic_values_for_taxon.get(&term2).copied().unwrap_or_else(|| {
+                        if go_id_to_node_index.contains_key(&term2) { f64::INFINITY } else { 0.0 }
+                    });
 
-                let mica = find_mica_for_pair(
-                    term1, term2,
-                    ontology_graph,
-                    go_id_to_node_index,
-                    node_index_to_go_id,
-                    ic_values_for_taxon,
-                ).unwrap_or((0, 0.0));
+                    let mica_result = find_mica_for_pair(
+                        term1,
+                        term2,
+                        ontology_graph,
+                        go_id_to_node_index,
+                        node_index_to_go_id,
+                        ic_values_for_taxon,
+                    );
 
-                pairs.push(TermPair::new_for_ic(
-                    term1, term2, ic_term1, ic_term2, mica, &method_lower,
-                ));
+                    let mica = mica_result.unwrap_or_else(|| {
+                        if term1 == term2 {
+                             (term1, ic_term1)
+                        } else {
+                            (0, 0.0) 
+                        }
+                    });
+
+
+                    pairs.push(TermPair::new_for_ic(
+                        term1, term2, ic_term1, ic_term2, mica, method,
+                    ));
+                }
             }
         }
     }
@@ -452,14 +497,14 @@ pub fn write_similarity_to_tsv(
     term_pairs: &[TermPair],
     go_terms: &FxHashSet<GOTermID>,
     taxon_id: TaxonID,
-    method: &str,
+    method: Method,
     output_dir: &str,
 ) -> Result<(), String> {
     let output_path = Path::new(output_dir);
     fs::create_dir_all(output_path)
         .map_err(|e| format!("Failed to create output directory {}: {}", output_dir, e))?;
 
-    let method_filename_part = method
+    let method_filename_part = format!("{}", method) 
         .to_lowercase()
         .replace(|c: char| !c.is_alphanumeric() && c != '_', "_")
         .replace('-', "_");
@@ -475,7 +520,6 @@ pub fn write_similarity_to_tsv(
 
     let mut sorted_go_ids: Vec<GOTermID> = go_terms.iter().cloned().collect();
     sorted_go_ids.sort_unstable();
-
 
     let mut similarity_map: FxHashMap<(GOTermID, GOTermID), f64> = FxHashMap::default();
     for pair in term_pairs {
@@ -504,12 +548,13 @@ pub fn write_similarity_to_tsv(
             .map_err(|e| format!("Failed to write to file {}: {}", filename, e))?;
 
         for (j, col_go_id) in sorted_go_ids.iter().enumerate() {
-            let similarity = similarity_map
-                .get(&(*row_go_id, *col_go_id))
-                .copied()
-                .unwrap_or(0.0); 
+            let similarity = if row_go_id == col_go_id {
+                similarity_map.get(&(*row_go_id, *col_go_id)).copied().unwrap_or(1.0)
+            } else {
+                similarity_map.get(&(*row_go_id, *col_go_id)).copied().unwrap_or(0.0)
+            };
 
-            write!(file, "{:.6}", similarity)
+            write!(file, "{:.6}", similarity) 
                 .map_err(|e| format!("Failed to write to file {}: {}", filename, e))?;
             if j < sorted_go_ids.len() - 1 {
                 write!(file, "\t")
