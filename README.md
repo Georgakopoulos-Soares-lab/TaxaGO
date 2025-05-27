@@ -1,6 +1,9 @@
-# TaxaGO
+# <img src="/logo.svg" alt="TaxaGO Logo" width="200"/>
 
-TaxaGO is a powerful command-line tool written in Rust that performs Gene Ontology Enrichment Analysis (GOEA) across multiple taxonomic levels. It supports both cross-taxonomic and single-taxon GOEA for a wide range of species.
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Rust](https://img.shields.io/badge/Rust-1.65+-orange.svg)](https://www.rust-lang.org/)
+
+</div>
 
 ## Features
 
