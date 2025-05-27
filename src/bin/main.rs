@@ -14,7 +14,7 @@ use futures::{StreamExt, TryStreamExt};
 use std::collections::HashMap;
 use TaxaGO::utils::download;
 use lazy_static::lazy_static;
-use std::env::{var, home_dir};
+use std::env::var;
 use std::path::PathBuf;
 
 #[derive(Deserialize)]
@@ -2217,7 +2217,7 @@ lazy_static! {
     static ref DEMO_PATH: String = {
         let cargo_home = var("CARGO_HOME")
             .unwrap_or_else(|_| {
-                home_dir()
+                dirs::home_dir()
                     .expect("Could not determine home directory")
                     .join(".cargo")
                     .to_string_lossy()
