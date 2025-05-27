@@ -368,7 +368,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let enrichment_results = match cli_args.propagate_counts {
         PropagationMethod::Elim => {
             println!("Performing elim algorithm on propagated counts\n");
-            
             analysis.elim_analysis(
                 &taxon_ids,
                 cli_args.significance_threshold,
@@ -389,14 +388,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         },
         PropagationMethod::Weight => {
             println!("Performing weight algorithm with propagated counts\n");
-            // For now, falling back to classic with propagated counts
-            analysis.classic(
-                &taxon_ids,          
-                &background_population.go_term_count,
-                &study_population.go_term_count,
-                &background_population.taxon_protein_count,
-                &study_population.taxon_protein_count,
-            )
+            analysis.weight(
+                &taxon_ids, 
+                &study_population, 
+                &background_population, 
+                &level_to_go_term, 
+                &ontology_graph, 
+                &go_id_to_node_index, 
+                &node_index_to_go_id)
         },
         PropagationMethod::None => {
             println!("Performing classic analysis without count propagation\n");
