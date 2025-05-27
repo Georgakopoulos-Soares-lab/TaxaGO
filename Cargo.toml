@@ -12,7 +12,6 @@ path = "src/bin/taxago.rs"
 name = "taxago-interactive"
 path = "src/bin/main.rs"
 
-
 [[bin]]
 name = "common-ancestors"
 path = "src/bin/common_ancestor.rs"

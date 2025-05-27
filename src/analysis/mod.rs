@@ -7,3 +7,4 @@ pub mod elim_algorithm;
 pub mod count_propagation;
 pub mod phylogenetic_meta_analysis;
 pub mod enrichment_plots;
+pub mod weight_algorithm;
