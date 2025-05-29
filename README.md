@@ -1,170 +1,143 @@
-# <img src="/logo.svg" alt="TaxaGO Logo" width="200"/>
+<p align="center">
+  <img src="logo.svg" alt="TaxaGO Logo" width="500"/>
+</p>
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Rust](https://img.shields.io/badge/Rust-1.65+-orange.svg)](https://www.rust-lang.org/)
+---
 
-</div>
+# TaxaGO: a novel, high-performance, multi-taxonomic Gene Ontology Enrichment Analysis tool
 
-## Features
-
-- **GOEA at Taxonomic level**: Perform enrichment analysis across different taxonomic levels (e.g. Kingdom, Family etc.)
-- **Single-taxon Analysis**: Conduct GOEA for individual species 
-- **Common Ancestor Analysis**: Identify shared ancestors between specified GO terms
-- **High Performance**: Built with Rust for optimal speed and memory efficiency
-- **Wide Species Support**: Compatible with 19,077 UniProtKB reference proteomes
-- **Flexible Input**: Accepts either a directory with FASTA files containing UniProtKB protein accessions for each input species or a .csv where each column represent a different species.
-- **Statistical Rigor**: Implements either Fisher's exact test of Hypergeometric test for enrichment analysis
-- **Easy Integration**: Can be easily integrated into bioinformatics pipelines
-
-## Prerequisites
-
-Before installing TaxaGO, ensure you have the following:
-
-- Rust
-- Cargo package manager
-- Git (for cloning the repository)
-- 4GB RAM minimum (8GB recommended)
-- Unix-like operating system (Linux, macOS) or Windows
-- NPM (UPDATE)
-- Mermaid (UPDATE)
-- 
-
-## Installation
-
-Follow these steps to install TaxaGO:
-
-```bash
-# Clone the repository
-git clone https://github.com/Georgakopoulos-Soares-lab/TaxaGO
-
-# Navigate to the repository directory
-cd TaxaGO
-
-# Install using Cargo
-cargo install --path .
-
-# Verify installation
-taxago --help
-```
-
-## Example usage
-
-Simple GOEA for multiple species
-```bash
-taxago --study-pop example_study_pop.csv --out-dir results
-```
-
-Taxonomic GOEA at the Phylum level
-```bash
-taxago --group-results --taxonomic-level phylum --study-pop example_study_pop.csv --out-dir results 
-```
-
-### Common Ancestor Analysis
-```bash
-common_ancestor --terms GO:0016070,GO:0140187 --graph results
-```
-
-### Available Commands
-
-#### Main Commands
-- `taxago`: Perform GOEA analysis
-- `common_ancestor`: Identify common ancestors between GO terms
-
-#### Options for taxago 
-- `--obo`: Path to the Gene Ontology file in OBO format. (default: $HOME/.cargo/taxago_assets/go.obo)
-- `--study-pop`: Directory containing study popultion for each taxon in FASTA format or CSV file with the study population for each species. (required)
-- `--background-pop`: Directory containing background populations. (default: $HOME/.cargo/taxago_assets/background_pop)
-- `--out-dir`: Directory to write results for each taxon and the combined results for the taxonomic level (if specified). (required)
-- `--propagate-counts`: Propagates GO term counts upwards the Ontology graph (from child to parent). (must be specified to propagate the counts)
-- `--statistical-test`: Statistical test to use (fisher or hypergeometric). (default: fisher)
-- `--min-protein-count`: Minimum protein count a GO Term must have to be processed. (default: 5)
-- `--min-score`: Minimum score (log(odds ratio)) a GO Term must have to be written in the results. Keeps GO terms with score ≥ threshold. (default: 2.0)
-- `--significance-threshold`: P-value / Q-value threshold to determine significant results. (default: 0.05)
-- `--adjustment-method`: Method to adjust p-values for multiple test correction (bonferroni or bh or by or no). (default: bonferroni)
-- `--group-results`: Combine results from all taxa into a single output. (must be specified to group the results)
-- `--taxonomic-level`: Desired taxonomic level for result combination (superkingdom, kingdom, phylum, class, order, family, genus). (default: kingdom)
-- `--lineage-percentage`: Percentage of species inside the desired taxonomic level in which the GO term must be found in (from 0.0 to 1.0). (default: 0.25)
-- `--pm-iterations`: Number of maximum iterations the Paule-Mandel estimator can reach when calculating the τ² estimate. (default: 1000)
-- `--pm-tolerance`: Minimum acceptable tolerance between two τ² estimates. (default: 1e-6)
-
-#### Options for common_ancestor
-- `--obo`: Path to the Gene Ontology file in OBO format. (default: $HOME/.cargo/taxago_assets/go.obo)
-- `--terms`: Comma-separated list of GO terms (e.g., GO:0016070,GO:0140187). (required)
-- `--graph`: Path to write the ancestor graph between the input terms. (default: current path)
-
-## Documentation
-
-### Input File Formats
-1. **CSV file with the study population (proteins meant for the analysis for each unique species) (`study_pop.csv`):**
-
-| Taxon ID 1 | Taxon ID 2 | Taxon ID 3 | Taxon ID 4 | Taxon ID 5 | ... | Taxon ID N |
-|------------|------------|------------|------------|------------|-----|------------|
-| PROTEIN 1  | PROTEIN 1  | PROTEIN 1  | PROTEIN 1  | PROTEIN 1  | ... | PROTEIN 1  |
-| PROTEIN 2  | PROTEIN 2  | PROTEIN 2  | PROTEIN 2  | PROTEIN 2  | ... | PROTEIN 2  |
-| PROTEIN 3  | PROTEIN 3  | PROTEIN 3  | PROTEIN 3  | PROTEIN 3  | ... | PROTEIN 3  |
-| ...        | ...        | ...        | ...        | ...        | ... | ...        |
-| PROTEIN K  | PROTEIN K  | PROTEIN K  | PROTEIN K  | PROTEIN K  | ... | PROTEIN K  |
-
-2. **Directory containing FASTA files for each species used in the GOEA, where each FASTA is of this format:**
-```text
->TaxonID
-PROTEIN 1
-PROTEIN 2
-PROTEIN 3
-PROTEIN 4
-...
-PROTEIN K
-```
-
-### Output Format
-
-The tool generates results in CSV format with the following columns:
-
-Single taxon results:
-
-| GO Term ID | Name | Namespace | log(Odds Ratio) | Statistical significance | N Study with term | N Study without term | N Background with term | N Background without term |
-|------------|------|-----------|---------|------------|------------|-------------|-----------|-----------|
-| GO:0042391 | Regulation of membrane potential | Biological Process | 4.328 | 5.53201e-23 | 21 | 60 | 51 | 11045 |
-| GO:0015075 | Monoatomic ion transmembrane transporter activity | Molecular Function | 2.005 | 2.39047e-4 | 20 | 61 | 469 | 10627 |
-| GO:0098916 | Anterograde trans-synaptic signaling | Biological Process | 4.180 | 1.90007e-25 | 24 | 57 | 71 | 11025 |
-| GO:0004888 | Transmembrane signaling receptor activity | Molecular Function | 2.798 | 2.10769e-20 | 37 | 44 | 541 | 10555 |
-| ... | ... | ... | ... | ... | ... | ... | ... | ... |
-
-Taxonomy results:
-
-| GO Term ID | Name | Namespace | log(Odds Ratio) | Statistical significance | Heterogeneity | Species Percentage | N with GO term| N in taxonomy |
-|------------|------|-----------|---------|------------|----------------|------------|----------|------------|
-| GO:0015770 | Sucrose transport | Biological Process | 2.205 | 9.01783e-8 | 3.59790e-1 | 25.160 | 157 | 624 |
-| GO:0043652 | Engulfment of apoptotic cell | Biological Process | 2.541 | 3.27587e-8 | 4.67309e-1 | 27.244 | 170 | 624 |
-| GO:0004703 | G protein-coupled receptor kinase activity | Molecular Function | 2.056 | 3.74576e-8 | 1.20615e0 | 76.603 | 478 | 624 |
-| GO:0004993 | G protein-coupled serotonin receptor activity | Molecular Function | 2.295 | 4.17601e-9 | 0.00000e0 | 98.237 | 613 | 624 |
-| ... | ... | ... | ... | ... | ... | ... | ... | ... |
+<p align="left">
+  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
+  <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/Rust-1.87+-orange.svg" alt="Rust Version"></a>
+  <img src="https://img.shields.io/badge/Version-v1.0.0-green.svg" alt="TaxaGO Version"></a>
+  </p>
 
 
-### Example Workflow
+## Table of Contents
 
-1. **Prepare Input Data**
-   - Create a CSV file with protein UniProtKB identifiers
-   - Column name must be the TaxonID
-   - One protein per line
-   - Supported formats: UniProt IDs
+1.  [Graphical Abstract](#abstract)
+2.  [Key Features](#key-features)
+3.  [Installation](#installation)
+    * [Prerequisites](#prerequisites)
+    * [Required Assets](#required-assets)
+    * [From Source](#from-source)
+4.  [Usage](#usage)
+    * [Phylogenetic GO Enrichment Analysis](#taxago)
+    * [Semantic Similarity](#semantic-similarity)
+    * [Common Ancestor Analysis](#common-ancestors)
+    * [Interactive Interface](#taxago-interactive)
+5.  [Input File Formats](#input-file-formats)
+    * [OBO File](#obo-file)
+    * [Study Population](#study-population)
+    * [Background Population](#background-population)
+    * [Lineage File](#lineage-file)
+    * [Variance-Covariance (VCV) Matrix](#variance-covariance-vcv-matrix)
+6.  [Output File Formats](#output-file-formats)
+7.  [Interpreting Results](#interpreting-results)
+8.  [Contributing](#contributing)
+9. [License](#license)
+10. [Citation](#citation)
+11. [Contact](#contact)
 
-2. **Run Analysis**
-   ```bash
-   taxago \
-   --group-results \
-   --taxonomic-level phylum \
-   --study-pop input_study_pop.csv \
-   --out-dir results
-   ```
+## 1. Graphical Abstract
 
-3. **Interpret Results**
-   - Review significant GO terms
+<p align="center">
+  <img src="abstract.png" alt="TaxaGO Logo" width="1000"/>
+</p>
 
-## Contact
+## 2. Key Features
 
-For support or questions:
-- izg5139@psu.edu
-- left.bochalis@gmail.com
-- antonpapg@gmail.com 
+* **Single-species GOEA :** Performs standard Gene Ontology Enrichment Analysis for a single species or for multiple species at once.
+* **Phylogenetically-aware meta-analysis:** Unifying enrichment scores across different taxonomic levels, considering the evolutionary relationships between species.
+* **Advanced GO hierarchy handling:** Implementing various count propagation algorithms (Classic, Elim, Weight) to refine enrichment signals.
+* **Comprehensive GO toolkit:** Including semantic similarity calculations and common ancestor analysis to further explore GO term relationships.
+* **User-friendly interfaces:** Offers a locally hosted interactive user interface for easier data input, parameter tuning and results exploration.
+* **High Performance:** Designed for speed and can leverage multiple CPU cores to efficiently handle GOEA across multiple species and/or taxonomic levels simultaneously.
 
+## 3. Installation
+
+### Prerequisites
+
+* **Rust Toolchain:** Version 1.87.0 or later is recommended. Install from the original [Rust website](https://www.rust-lang.org/tools/install).
+* **Mermaid CLI (`mmdc`):** Required **only** for the `common-ancestors` tool to generate PDF outputs from Mermaid diagrams. Installation from the official [Mermaid CLI repository](https://github.com/mermaid-js/mermaid-cli).
+* **Jemalloc:** TaxaGO uses `jemallocator` for potentially better memory allocation performance.
+
+### Required Assets
+
+TaxaGO uses several data files for its operations. We provide a pre-compiled `taxagp_assets.tar.gz` containing the ontology information, pre-processed background populations for 12,131 species with their corresponding taxonomic and phylogenetic information. The pre-compiled file can be downloaded from [Zenodo](test).
+
+If you want to use your own data, here is a brief description of each one:
+* **`go.obo`**: The Gene Ontology OBO file, can be downloaded from the [Gene Ontology Consortium](http://geneontology.org/docs/download-ontology/).
+* **`background_pop/`**: A directory containing pre-processed background population files. Each file should be named `{taxon_id}_background.txt` (e.g., `9606_background.txt`).
+* **`lineage.txt`**: A tab-separated file mapping NCBI Taxon IDs to their full taxonomic lineage.
+* **`vcv.dmat`**: A Variance-Covariance matrix displaying the evolutionary relationship between species. 
+See [Input File Formats](#input-file-formats) for additional details.
+
+### From Source
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/Georgakopoulos-Soares-lab/TaxaGO
+    cd TaxaGO
+    ```
+2.  **Download `taxago_assets.tar.gz` from Zenodo.**
+
+3.  **Move `taxago_assets.tar.gz` inside the cloned repository**
+
+4.  **Install TaxaGO:**
+    ```bash
+    cargo install --path .
+    ```
+
+5.  **Once installed, the following executables will be available in your system's PATH:**
+    * `taxago`: Main executable for the GOEA analyses.
+    * `semantic-similarity`: Tool for calculating GO term semantic similarity.
+    * `common-ancestors`: Tool for finding and visualizing common GO ancestors.
+    * `taxago-interactive`: Interactive user-interface executable.
+
+## 4. Usage
+
+## 5. Input File Formats
+
+## 6. Output File Formats
+
+## 7. Interpreting Results
+
+## 8. Contributing
+
+We warmly welcome contributions to TaxaGO! Whether it's reporting a bug, suggesting a new feature, improving documentation, or submitting code changes, your help is greatly appreciated and valued.
+
+To ensure a smooth and effective collaboration process, please consider the following guidelines:
+
+**Ways to Contribute:**
+
+* **Reporting Bugs:** If you encounter a bug, please open an issue on our [GitHub Issues page](https://github.com/Georgakopoulos-Soares-lab/TaxaGO/issues). Describe the bug in detail, including steps to reproduce it, the expected behavior, and the actual behavior. Include your operating system, Rust version.
+* **Suggesting Enhancements or New Features:** We are always open to new ideas! Please open an issue on GitHub to suggest an enhancement or new feature. Provide a clear and detailed explanation of the feature and why it would be beneficial to TaxaGO.
+* **Improving Documentation:** Good documentation is key. If you find areas that are unclear, incorrect, or could be improved, please let us know by opening an issue or submitting a pull request with your suggested changes.
+* **Submitting Code Changes (Pull Requests):**
+    1.  **Fork the repository** on GitHub.
+    2.  **Create a new branch** for your feature or bug fix: `git checkout -b feature/your-feature-name` or `git checkout -b fix/your-bug-fix-name`.
+    3.  **Make your changes.** Ensure your code adheres to the existing style and that you add relevant tests.
+    4.  **Test your changes thoroughly.**
+    5.  **Commit your changes** with a clear and descriptive commit message: `git commit -m "feat: Add new feature X"`.
+    6.  **Push your branch** to your forked repository: `git push origin feature/your-feature-name`.
+    7.  **Open a Pull Request (PR)** against the `main` branch of the `Georgakopoulos-Soares-lab/TaxaGO`repository.
+    8.  Clearly describe the changes in your PR, why they were made, and reference any related issues.
+
+We look forward to your contributions and to making TaxaGO a better tool together!
+
+## 9. License
+
+This project is licensed under the **GNU GPL v3**.
+
+See the [LICENSE.txt](LICENSE.txt) file for further details.
+
+## 10. Citation
+
+The citation will be placed here after publication.
+
+## 11. Contact
+For any questions or support, please contact:
+* izg5139@psu.edu
+* left.bochalis@gmail.com
+* antonpapg@gmail.com
