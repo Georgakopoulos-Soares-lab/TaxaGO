@@ -15,29 +15,29 @@
 
 ## Table of Contents
 
-1.  [Graphical Abstract](#abstract)
-2.  [Key Features](#key-features)
-3.  [Installation](#installation)
+1.  [Graphical Abstract](#1-graphical-abstract)
+2.  [Key Features](#2-key-features)
+3.  [Installation](#3-installation)
     * [Prerequisites](#prerequisites)
     * [Required Assets](#required-assets)
     * [From Source](#from-source)
-4.  [Usage](#usage)
+4.  [Usage](#4-usage)
     * [Phylogenetic GO Enrichment Analysis](#taxago)
     * [Semantic Similarity](#semantic-similarity)
     * [Common Ancestor Analysis](#common-ancestors)
     * [Interactive Interface](#taxago-interactive)
-5.  [Input File Formats](#input-file-formats)
+5.  [Input File Formats](#4-input-file-formats)
     * [OBO File](#obo-file)
     * [Study Population](#study-population)
     * [Background Population](#background-population)
     * [Lineage File](#lineage-file)
     * [Variance-Covariance (VCV) Matrix](#variance-covariance-vcv-matrix)
-6.  [Output File Formats](#output-file-formats)
-7.  [Interpreting Results](#interpreting-results)
-8.  [Contributing](#contributing)
-9. [License](#license)
-10. [Citation](#citation)
-11. [Contact](#contact)
+6.  [Output File Formats](#6-output-file-formats)
+7.  [Interpreting Results](#7-interpreting-results)
+8.  [Contributing](#8-contributing)
+9.  [License](#9-license)
+10. [Citation](#10-citation)
+11. [Contact](#11-contact)
 
 ## 1. Graphical Abstract
 
@@ -75,27 +75,223 @@ See [Input File Formats](#input-file-formats) for additional details.
 
 ### From Source
 
-1.  **Clone the repository:**
+1.  **Install prerequisites.**
+
+2.  **Clone the repository:**
     ```bash
     git clone https://github.com/Georgakopoulos-Soares-lab/TaxaGO
     cd TaxaGO
     ```
-2.  **Download `taxago_assets.tar.gz` from Zenodo.**
+3.  **Download `taxago_assets.tar.gz` from Zenodo.**
 
-3.  **Move `taxago_assets.tar.gz` inside the cloned repository**
+4.  **Move `taxago_assets.tar.gz` inside the cloned repository.**
 
-4.  **Install TaxaGO:**
+5.  **Install TaxaGO:**
     ```bash
     cargo install --path .
     ```
+    After installation a `taxago_assets` directory will be created in the `$CARGO_HOME` (specified during Rust installation).
 
-5.  **Once installed, the following executables will be available in your system's PATH:**
+6.  **Once installed, the following executables will be available in your system's PATH:**
     * `taxago`: Main executable for the GOEA analyses.
     * `semantic-similarity`: Tool for calculating GO term semantic similarity.
     * `common-ancestors`: Tool for finding and visualizing common GO ancestors.
     * `taxago-interactive`: Interactive user-interface executable.
 
 ## 4. Usage
+
+TaxaGO provides a suite of tools for Gene Ontology Enrichment Analysis. The main executables are `taxago`, `semantic-similarity`, `common-ancestors`, and `taxago-interactive`.
+
+### Gene Ontology Enrichment Analysis: taxago
+
+The `taxago` executable is the primary tool for performing Gene Ontology Enrichment Analysis across single species or taxonomic levels.
+
+### Synopsis:
+
+```bash
+taxago [OPTIONS] --study <FILE_OR_DIR> --dir <DIRECTORY>
+```
+### Options:
+
+**Input Files**
+- `-o, --obo <FILE>`: Gene Ontology file in OBO format  
+  **Default:** `$CARGO_HOME/taxago_assets/go.obo`
+
+- `-s, --study <FILE_OR_DIRECTORY>`: **Required.** Study population data. Accepts FASTA format (single file for one species, or directory of files for multi-species analysis) or a CSV file containing study populations for one or multiple species
+
+- `-b, --background <DIRECTORY>`: Background population data. Either a single file for custom background or a directory containing background population files for multiple species. Background files must be pre-processed 
+  **Default:** `$CARGO_HOME/taxago_assets/background_pop`
+
+**Analysis Parameters**
+- `-e, --evidence <CATEGORY>`: Evidence code categories to include from background associations  
+  **Options:** `all`, `experimental`, `phylogenetic`, `computational`, `author`, `curator`, `automatic`  
+  **Default:** `all`
+
+- `-p, --propagate-counts <METHOD>`: Method for propagating GO term counts up the ontology hierarchy  
+  **Options:** `none`, `classic`, `elim`, `weight`  
+  **Default:** `none`
+
+- `-t, --test <TEST>`: Statistical test for enrichment analysis  
+  **Options:** `fishers`, `hypergeometric`  
+  **Default:** `fishers`
+
+**Filtering Thresholds**
+- `-m, --min-prot <COUNT>`: Minimum number of proteins required for a GO term to be analyzed. GO terms with associations less than this number will be excluded
+  **Default:** `5`
+
+- `-r, --min-score <SCORE>`: Minimum log(Odds Ratio) threshold for GO terms to be reported or further analyzed. GO terms with observed log(Odds Ratio) less than this will be excluded.
+  **Default:** `0.2`
+
+- `-a, --alpha <THRESHOLD>`: Statistical significance threshold. Refers to either the corrected or uncorrected p-value
+  **Default:** `0.05`
+
+- `-c, --correction-method <METHOD>`: Multiple testing correction method  
+  **Options:** `none`, `bonferroni`, `benjamini-hochberg`, `benjamini-yekutieli`  
+  **Default:** `bonferroni`
+
+**Meta-Analysis Options**
+- `-g, --group-results <LEVEL>`: Group results by taxonomic level to be subjected to  phylogenetic meta-analysis. 
+   **Requires** `--vcv-matrix`
+
+- `-l, --lineage-percentage <PERCENTAGE>`: Minimum percentage (range 0.0 to 1.0) of species within a taxonomic group where a GO term must be found enriched 
+  **Default:** `0.25` (25%)
+
+- `--vcv-matrix <FILE>`: Variance-covariance matrix file for phylogenetic meta-analysis
+
+- `--permutations <COUNT>`: Number of permutations for phylogenetic meta-analysis  
+  **Default:** `1000`
+
+**Output Options**
+- `-d, --dir <DIRECTORY>`: **Required.** Output directory for results (individual taxon results and combined analysis). Previous results will be overwritten
+
+- `--save-plots <FORMAT>`: Format for saving enrichment plots. `interactive`: HTML format, `static`: PDF format
+  **Options:** `none`, `interactive`, `static`, `both`  
+  **Default:** `interactive`
+
+**System Options**
+- `--cores <NUMBER>`: Number of CPU cores to use for parallel processing  
+  **Default:** All available cores
+
+- `-h, --help`: Display help information
+- `-V, --version`: Display version information
+
+### Example:
+
+```bash
+taxago -s ./my_study_data/ -d ./taxago_results/ -g kingdom --vcv-matrix ./assets/vcv_matrix.dmat -p classic -c benjamini-hochberg -a 0.01 --save-plots both
+```
+
+This command runs TaxaGO using study data from `./my_study_data/`, outputs results to `./taxago_results/`, combines results at the kingdom level using the VCV matrix from `./assets/vcv_matrix.dmat`, uses the classic count propagation, Benjamini-Hochberg for p-value correction with an alpha of 0.01, and saves both interactive HTML and static plots.
+
+### Semantic Similarity: semantic-similarity
+
+Calculates semantic similarity between GO terms.
+
+### Synopsis:
+
+```bash
+semantic-similarity [OPTIONS] --terms <GO_TERMS_OR_FILE>
+```
+
+### Options:
+
+**Input Files**
+- `-o, --obo <OBO_FILE>`: Gene Ontology file in OBO format  
+  **Default:** `$CARGO_HOME/taxago_assets/go.obo`
+
+- `-t, --terms <GO_TERMS_OR_FILE>`: **Required.** GO terms to analyze. Either comma-separated terms (e.g., `GO:0016070,GO:0140187`) or path to a file containing one term per line
+
+- `-b, --background <BACKGROUND_DIR>`: Directory containing background population files  
+  **Default:** `$CARGO_HOME/taxago_assets/background_pop`
+
+**Analysis Parameters**
+- `-i, --ids <TAXON_IDS>`: Comma-separated list of taxonomic IDs to analyze (e.g., `9606,10090`)  
+  **Default:** `9606` (Homo Sapiens)
+
+- `-m, --method <METHOD>`: Semantic similarity calculation method  
+  **Options:** `resnik`, `lin`, `jiang-conrath`, `wang`  
+  **Default:** `resnik`
+
+- `-p, --propagate-counts`: Propagate GO term counts up the ontology hierarchy.
+  **Default:** Disabled
+
+**Output Options**
+- `-d, --dir <RESULTS_DIR>`: Directory for output files  
+  **Default:** `./` (current directory)
+
+- `-h, --help`: Display help information
+
+### Example:
+
+```bash
+semantic-similarity -t "GO:0008150,GO:0005575" -i 9606 -m lin -d ./similarity_results/ --propagate-counts
+```
+
+This calculates Lin semantic similarity for GO:0008150 and GO:0005575 in taxon 9606, using propagated counts, and saves results to `./similarity_results/`.
+
+### Common Ancestor Analysis: common-ancestors
+
+Finds and visualizes common ancestors of specified GO terms.
+
+### Synopsis:
+
+```bash
+common-ancestors [OPTIONS] --terms <GO_TERMS>
+```
+
+### Options:
+
+**Input Options**
+- `-o, --obo <OBO_FILE>`: Gene Ontology file in OBO format  
+  **Default:** `$CARGO_HOME/taxago_assets/go.obo`
+
+- `-t, --terms <GO_TERMS>`: **Required.** Comma-separated list of GO terms (e.g., `GO:0016070,GO:0140187`)
+
+**Output Options**
+- `-d, --dir <RESULTS_DIR>`: Output directory for results (generates Mermaid .mmd and .pdf files)  
+  **Default:** `./` (current directory)
+
+- `-h, --help`: Display help information
+
+### Example:
+
+```bash
+common-ancestors -t "GO:0044237,GO:0006412" -d ./ancestor_analysis/
+```
+
+This command analyzes common ancestors for GO:0044237 and GO:0006412 and outputs the Mermaid graph and PDF to the `./ancestor_analysis/` directory.
+
+### Interactive Interface: taxago-interactive
+
+Launches a web-based interactive user interface for TaxaGO.
+
+### Synopsis:
+
+```bash
+taxago-interactive
+```
+
+### Usage:
+
+1. Run the executable:
+   ```bash
+   taxago-interactive
+   ```
+
+2. A browser window will be opened with the interactive interface. If not, please open your web browser and navigate to `http://127.0.0.1:8080`.
+
+The interactive interface allows you to:
+
+- Upload study population data (CSV or FASTA).
+- Upload custom background population files.
+- Upload a custom Gene Ontology (OBO) file.
+- Configure analysis parameters (statistical test, count propagation, multiple testing correction, thresholds).
+- Configure and run Phylogenetic Meta-Analysis (PMA) including VCV matrix upload.
+- Filter by evidence codes.
+- Initiate the analysis and view results, including interactive plots.
+- Download results in various formats.
+- Perform Common Ancestor and Semantic Similarity analyses through the UI.
+
 
 ## 5. Input File Formats
 
