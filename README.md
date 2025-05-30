@@ -12,7 +12,6 @@
   <img src="https://img.shields.io/badge/Version-v1.0.0-green.svg" alt="TaxaGO Version"></a>
   </p>
 
-
 ## Table of Contents
 
 1.  [Graphical Abstract](#1-graphical-abstract)
@@ -292,12 +291,291 @@ The interactive interface allows you to:
 - Download results in various formats.
 - Perform Common Ancestor and Semantic Similarity analyses through the UI.
 
-
 ## 5. Input File Formats
+
+TaxaGO utilizes several specific file formats for its input data. If you are using the pre-compiled assets, these files are already included and formatted. If providing your own data, please adhere to the following formats:
+
+### OBO File (`go.obo`)
+
+* **Description**: The Gene Ontology OBO file contains the structure and definitions of GO terms.
+* **Format**: Standard OBO format as provided by the [Gene Ontology Consortium](https://owlcollab.github.io/oboformat/doc/obo-syntax.html).
+* **Parsing Details**: The parser extracts GO term ID, name, namespace, definition, obsolescence status, and the relationships: `is_a`, `part_of`, `regulates`, `positively_regulates`, `negatively_regulates`, and `occurs_in`. Obsolete terms are ignored.
+
+### Study Population
+
+The study population represents the set of proteins/genes of interest for your analysis. TaxaGO can accept study population data in two formats:
+
+1.  **CSV File**
+    * **Description**: A single CSV file can provide study populations for multiple species.
+    * **Format**:
+        * The header row must contain NCBI Taxon IDs for each species.
+        * Subsequent rows list protein identifiers (UniProt entry names) belonging to the study set for the corresponding taxon ID in that column.
+        * If a species does not have a protein for a given row, the cell can be left empty.
+    * **Example**:
+        ```csv
+        9606,10090,7227
+        P12345,Q67890,R13579
+        P24680,,S24680
+        P36912,Q79135,
+        ```
+    * **Note**: A CSV file can be used even for single species analysis.
+
+2.  **FASTA Files**
+
+    * **Description**: Provide one FASTA-like file per species, or a directory containing multiple such files.
+
+    * **Format**:
+        * The file should begin with a header line starting with `>` followed immediately by the NCBI Taxon ID of the species.
+        * Subsequent lines should list the protein identifiers (e.g., UniProt accessions), one per line.
+        * The parser expects the Taxon ID to be the first line and proteins to follow. If a line does not start with `>` and is not empty, it's treated as a protein.
+
+    * **Example (`9606_study.fasta`):**
+        ```fasta
+        >9606
+        P12345
+        P24680
+        P36912
+        ```
+
+    * **Note on Directory Input**: If a directory path is provided for the study population, TaxaGO will attempt to parse all `.fa` and `.fasta` files within that directory, assuming each file corresponds to a single species and follows the format above.
+
+### Background Population
+
+* **Description**: These files provide the background set of proteins and their GO annotations for each species. Each file is specific to one species.
+
+* **Location**: Typically stored in a directory (e.g., `background_pop/` provided via the `-b` option). The background population parser can also accept singe files, if the user intends perform single species GOEA using TaxaGO.
+
+* **Naming Convention**: Files must be named `{taxon_id}_background.txt` (e.g., `9606_background.txt`).
+
+* **Format**: Tab-separated values with three columns per line:
+    1.  Protein Identifier (UniProt entry name).
+    2.  GO Term ID (e.g., `GO:0005575`).
+    3.  Evidence Code (e.g., `EXP`, `IEA`).
+    * The parser can filter annotations based on evidence code categories (Experimental, Phylogenetic, Computational, Author, Curator, Electronic).
+
+* **Example (`9606_background.txt`):**
+    ```tsv
+    P12345	GO:0005575	EXP
+    P12345	GO:0008150	IEA
+    P98765	GO:0003677	IDA
+    ```
+
+### Lineage File
+
+* **Description**: A tab-separated file mapping NCBI Taxon IDs to their full taxonomic lineage. This file is used only when phylogenetic meta-analysis is performed.
+
+* **Format**:
+    * The file should have a header row, which is skipped during parsing.
+    * Each subsequent line should contain:
+        1.  NCBI Taxon ID.
+        2.  Species Name.
+        3.  Lineage information, starting from Genus up to Superkingdom, each level separated by a tab. The expected order is: Genus, Family, Order, Class, Phylum, Kingdom, Superkingdom.
+
+* **Example**:
+    ```tsv
+    Tax_ID	Species	Genus	Family	Order	Class	Phylum	Kingdom	Superkingdom
+    9606	Homo_sapiens	Homo	Hominidae	Primates	Mammalia	Chordata	Metazoa	Eukaryota
+    10090	Mus_musculus	Mus	Muridae	Rodentia	Mammalia	ChordataMetazoa	Eukaryota
+    ```
+
+### Variance-Covariance (VCV) Matrix
+
+* **Description**: A matrix representing the evolutionary relationships (phylogenetic distances) between species. This is required for the phylogenetic meta-analysis feature.
+
+* **Format**: A CSV (Comma Separated Values) file.
+    * The first column must be named `taxa` and contain the NCBI Taxon IDs of the species.
+    * Subsequent columns should also be named with NCBI Taxon IDs.
+    * The matrix should be symmetrical, with values representing the variance or covariance between the species in the corresponding row and column.
+
+* **Example:**
+    ```csv
+    taxa,9606,10090,7227
+    9606,0.0,0.15,0.65
+    10090,0.15,0.0,0.70
+    7227,0.65,0.70,0.0
+    ```
+
+* **Note**: TaxaGO provides three precomputed VCV matrix, one for each of the three main cellular Superkingdoms. The user can create a custom VCV matrix from a Newick (`.nwk`) phylogenetic tree containing branch lengths using the [`create_vcv.R`](helper_scripts/create_vcv.R) script.
 
 ## 6. Output File Formats
 
+TaxaGO generates several output files depending on the analysis performed and options selected. All results are typically saved within the directory specified by the `--dir` or `-d` option.
+
+### Main GOEA Results (`taxago` executable)
+
+When running the `taxago` executable, results are organized into subdirectories within your specified output directory:
+
+1.  **Single Taxon Results:**
+
+    * **Location**: `<output_dir>/single_taxon_results/`
+
+    * **Filename**: `{species_name}_GOEA_results.txt` (e.g., `Homo_sapiens_GOEA_results.txt`).
+
+    * **Format**: Tab-separated values (TSV) file with the following columns:
+        * `GO Term ID`: The GO identifier (e.g., `GO:0005575`).
+        * `Name`: The descriptive name of the GO term.
+        * `Namespace`: The GO namespace (e.g., `Biological Process`, `Molecular Function`, `Cellular Component`).
+        * `log(Odds Ratio)`: The calculated enrichment score for the term, formatted to 3 decimal places.
+        * `Statistical significance`: The p-value (or adjusted p-value if correction was applied), formatted in scientific notation to 5 decimal places.
+
+    * Only non-obsolete GO terms meeting the significance and odds ratio thresholds are included.
+
+2.  **Combined Taxonomy Results (if `-g` option is used):**
+
+    * **Location**: `<output_dir>/combined_taxonomy_results/`
+
+    * **Filename**: `{taxonomy_level_name}_GOEA_results.txt` (e.g., `Metazoa_GOEA_results.txt`).
+
+    * **Format**: Same TSV format as single taxon results:
+        * `GO Term ID`: The GO identifier (e.g., `GO:0005575`).
+        * `Name`: The descriptive name of the GO term.
+        * `Namespace`: The GO namespace (e.g., `Biological Process`, `Molecular Function`, `Cellular Component`).
+        * `log(Odds Ratio)`: The calculated enrichment score obtained from the phylogenetic meta-analysis, formatted to 3 decimal places.
+        * `Statistical significance`: The p-value (or adjusted p-value if correction was applied), obtained using permutation testing within the phylogenetic meta-analysis component, formatted in scientific notation to 5 decimal places.
+
+    * These files are generated if results are grouped by a taxonomic level using the `-g` option.
+
+3.  **Enrichment Plots (if `--save-plots` is not `none`):**
+
+    * **Location**:
+        * For single taxon analysis: `<output_dir>/single_taxon_results/plots/{Namespace}/`
+        * For combined taxonomy analysis: `<output_dir>/combined_taxonomy_results/plots/{Namespace}/`
+        * Where `{Namespace}` can be `Biological_Process`, `Molecular_Function`, or `Cellular_Component`.
+
+    * **Filenames**:
+        * `{taxon_name}_bar_plot.{html|pdf}`
+        * `{taxon_name}_bubble_plot.{html|svg}`
+        * `{taxon_name}_network_plot.{html|svg}`
+        * The extension depends on the `--save-plots` option (`interactive` for HTML, `static` for PDF/SVG, `both` for both).
+
+    * **Plot Details**:
+
+        * **Bar Plot**: Displays the top 20 most statistically significant GO terms sorted by their log(Odds Ratio). Bar color intensity corresponds to the -log10(Statistical significance).
+
+        * **Bubble Plot**: Shows enriched GO terms where the x-axis is log(Odds Ratio), y-axis is -log10(Statistical significance), and bubble size corresponds to the number of proteins in the study set associated with the term (or number of species for combined results).
+
+        * **Network Plot**: Visualizes relationships between enriched GO terms. Nodes represent GO terms (colored by log(Odds Ratio), sized by number of associated proteins/species) and edges represent Jaccard similarity based on shared proteins (Jaccard index >= 0.25). Up to 4 largest communities are plotted using the Fruchterman-Reingold layout algorithm.
+
+### Semantic Similarity Results (`semantic-similarity` executable)
+
+* **Location**: User-specified output directory (`-d` option).
+
+* **Filename**: `similarity_{method}_taxon_{taxon_id}.tsv` (e.g., `similarity_resnik_taxon_9606.tsv`).
+
+* **Format**: A tab-separated values (TSV) matrix.
+    * The first row (header) and first column contain the GO Term IDs provided for comparison.
+    * Each cell `(TermA, TermB)` in the matrix contains the calculated semantic similarity score between TermA and TermB using the specified method. Scores are typically formatted to 6 decimal places.
+
+### Common Ancestor Analysis Results (`common-ancestors` executable)
+
+* **Location**: User-specified output directory (`-d` option), or `results/` if run via the interactive interface.
+
+* **Filenames**:
+    * `common_ontology_graph.mmd`: A text file in Mermaid Markdown format describing the GO term hierarchy leading to common ancestors.
+    * `common_ontology_graph.pdf`: A PDF rendering of the Mermaid graph. This file is only generated if the `mmdc` (Mermaid CLI) tool is installed and accessible in the system's PATH.
+
+* **Content**: The graph displays the input GO terms and their ancestors up to the root(s), highlighting the first common ancestor(s). Nodes are styled based on their namespace and whether they are input terms or common ancestors. Edges represent different types of relationships (e.g., `is_a`, `part_of`).
+
+### Interactive Interface Downloads (`taxago-interactive` executable)
+
+When using the `taxago-interactive` web interface, the displayed results table (either single taxon or combined taxonomy) can be downloaded in various formats via the "Download Results" button.
+
+* **Location**: Downloads to the user's browser default download location.
+
+* **Filename**: Based on the original species or taxonomy level name (e.g., `Homo_sapiens.csv`, `Metazoa.json`).
+
+* **Formats**:
+    * **CSV**: Contains the results table with a header row.
+        * Header: `GO Term ID, Name, Namespace, log(Odds Ratio), Statistical significance`.
+    * **TSV**: Same content as CSV, but tab-delimited.
+    * **JSON**: An array of JSON objects, where each object represents an enriched GO term and its associated data fields.
+
 ## 7. Interpreting Results
+
+Understanding the output of TaxaGO involves interpreting statistical values and visualizations. Here's a guide to help you make sense of your Gene Ontology Enrichment Analysis (GOEA) results.
+
+### Main Enrichment Results (TSV Files)
+
+The core output of a TaxaGO analysis is a tab-separated values (TSV) file for each species or combined taxonomic group. Each row represents a Gene Ontology (GO) term that was found to be enriched. The key columns are:
+
+* **`GO Term ID`**: The unique identifier for the GO term (e.g., `GO:0005575`). You can use this ID to look up more information on databases like [QuickGO](https://www.ebi.ac.uk/QuickGO/) or [AmiGO](http://amigo.geneontology.org/).
+
+* **`Name`**: The human-readable name of the GO term (e.g., "cellular_component").
+
+* **`Namespace`**: Indicates the domain of ontology the term belongs to:
+    * `Biological Process`: Refers to a series of molecular events or a biological pathway.
+    * `Molecular Function`: Describes the biochemical activity of a gene product (TaxaGO supports only proteins).
+    * `Cellular Component`: Refers to the part of a cell where a gene product (TaxaGO supports only proteins) acts.
+
+* **`log(Odds Ratio)`**: This value indicates the strength and direction of enrichment.
+    * A **positive log(Odds Ratio)** suggests that the GO term is over-represented (enriched) in your study population compared to the background population. Larger positive values indicate stronger enrichment.
+    * The `--min-score` parameter (default: 0.2) filters results based on this value.
+
+* **`Statistical significance`**: This is the p-value (or adjusted p-value if multiple testing correction was applied) associated with the enrichment score.
+    * A **lower p-value** indicates stronger statistical evidence against the null hypothesis (i.e., that the term is not enriched).
+    * Terms with p-values below your chosen significance threshold (alpha, default: 0.05, potentially adjusted) are generally considered significantly enriched.
+
+**Important Considerations:**
+
+* **Multiple Testing Correction (`-c` and `-a` options)**: If you enabled a correction method (e.g., Bonferroni, Benjamini-Hochberg), the reported p-values are adjusted to account for testing many GO terms simultaneously. This helps to control the false discovery rate.
+
+* **Count Propagation (`-p` option)**: If you used a count propagation method (`classic`, `elim`, `weight`), the enrichment scores reflect this hierarchical adjustment.
+    * **Classic**: Counts for a term include counts from all its child terms.
+    * **Elim**: Aims to remove less specific significant terms if their significance is primarily due to their more specific significant children.
+    * **Weight**: Adjusts the contribution of proteins to parent terms based on the significance of their association with child terms.
+
+* **Phylogenetic Meta-Analysis Results (`-g` and `--vcv-matrix` options)**: If you performed a combined analysis across a taxonomic level with a VCV matrix, the `log(Odds Ratio)` and `Statistical significance` in the combined results file represent a meta-analyzed score that considers the evolutionary relationships between the species within that group. This provides a unified enrichment score for the taxonomic group.
+
+### Enrichment Plots
+
+If `--save-plots` was enabled, TaxaGO generates various plots to help visualize enrichment results. These are typically found in a `plots` subdirectory within your single taxon or combined taxonomy results folders.
+
+1.  **Bar Plot (`*_bar_plot.{html|pdf}`)**
+    * **What it shows**: The top 20 most significantly enriched GO terms.
+    * **Interpretation**:
+        * Each bar represents a GO term.
+        * The **length of the bar** corresponds to the `log(Odds Ratio)` (enrichment strength).
+        * The **color of the bar** typically represents the `-log10(Statistical significance)`, with more intense colors indicating higher significance (lower p-values).
+        * This plot is useful for quickly identifying the most prominent and statistically robust enrichments.
+
+2.  **Bubble Plot (`*_bubble_plot.{html|svg}`)**
+    * **What it shows**: A scatter plot where each bubble is a GO term.
+    * **Interpretation**:
+        * **X-axis**: `log(Odds Ratio)`.
+        * **Y-axis**: `-log10(Statistical significance)`. Terms higher up are more significant.
+        * **Bubble Size**: Proportional to a size statistic, such as the number of proteins from your study set annotated to that GO term (for single species analysis) or the number of species within a taxonomic group where the term is enriched (for combined results).
+        * This plot helps identify terms that are both highly significant and have a strong enrichment score, while also giving a sense of the number of genes/species contributing to the enrichment. Top 10 significant terms are annotated.
+
+3.  **Network Plot (`*_network_plot.{html|svg}`)**
+    * **What it shows**: Relationships between enriched GO terms based on shared proteins/genes. Up to 4 largest connected components (communities) are typically plotted.
+    * **Interpretation**:
+        * **Nodes**: Represent enriched GO terms.
+            * *Node Color*: Corresponds to the `log(Odds Ratio)`.
+            * *Node Size*: Proportional to the size statistic (similar to the bubble plot).
+        * **Edges**: Connect GO terms that share a significant number of proteins (Jaccard index based, default threshold 0.25).
+            * *Edge Width*: Represents the strength of the Jaccard similarity.
+        * This plot helps to identify clusters of functionally related GO terms, suggesting broader biological themes or pathways that are over-represented in your study set. The Fruchterman-Reingold algorithm is used for layout.
+
+### Semantic Similarity Results (TSV File)
+
+* **Output**: A matrix of similarity scores between pairs of GO terms.
+* **Interpretation**:
+    * Scores range differently depending on the method (`Resnik`, `Lin`, `Jiang-Conrath`, `Wang`).
+    * Generally, **higher scores indicate greater semantic similarity** between two GO terms, meaning they are more closely related in function or cellular context based on the GO hierarchy and/or annotation statistics.
+    * Self-similarity (e.g., GO:A vs GO:A) is typically the maximum possible score (often 1.0 for normalized methods like Wang or Lin, or the term's Information Content for Resnik).
+    * **Wang's method** is based on the graph structure of the GO, considering the types of relationships (only `is_a` and `part_of`) and their weights.
+    * **Resnik, Lin, and Jiang-Conrath** are Information Content (IC)-based methods. IC is derived from the frequency of a term's usage in annotations; rarer terms have higher IC. They rely on finding the Most Informative Common Ancestor (MICA).
+
+### Common Ancestor Analysis Results (Mermaid Graph & PDF)
+
+* **Output**: A visual representation of the GO hierarchy connecting the input GO terms through their common ancestors.
+* **Interpretation**:
+    * The graph helps you trace the relationships between the selected GO terms.
+    * Nodes are GO terms, styled by namespace and highlighting input terms and the "first common ancestor(s)".
+    * Edges represent relationships like `is_a` (black), `part_of` (magenta), `regulates` (blue), etc., with distinct colors/styles.
+    * Identifying the common ancestors, especially the Most Informative Common Ancestor (MICA) or the first common one displayed, can reveal the shared biological context or the closest point of functional convergence between the terms.
+
+By combining the statistical outputs with these visualizations and understanding the underlying methods, you can gain deeper insights into the biological significance of your protein lists.
 
 ## 8. Contributing
 
@@ -324,7 +602,7 @@ We look forward to your contributions and to making TaxaGO a better tool togethe
 
 ## 9. License
 
-This project is licensed under the **GNU GPL v3**.
+This project is licensed under the [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0.en.html).
 
 See the [LICENSE.txt](LICENSE.txt) file for further details.
 
