@@ -15,28 +15,39 @@
 ## Table of Contents
 
 1.  [Graphical Abstract](#1-graphical-abstract)
-2.  [Key Features](#2-key-features)
-3.  [Installation](#3-installation)
+2.  [Benchmark Results](#2-benchmark-results)
+3.  [TaxaGO Case Study](#3-taxago-case-study)
+4.  [Key Features](#4-key-features)
+5.  [Installation](#5-installation)
     * [Prerequisites](#prerequisites)
     * [Required Assets](#required-assets)
     * [From Source](#from-source)
-4.  [Usage](#4-usage)
-    * [Phylogenetic GO Enrichment Analysis](#taxago)
-    * [Semantic Similarity](#semantic-similarity)
-    * [Common Ancestor Analysis](#common-ancestors)
-    * [Interactive Interface](#taxago-interactive)
-5.  [Input File Formats](#4-input-file-formats)
+6.  [Usage](#6-usage)
+    * [Gene Ontology Enrichment Analysis](#gene-ontology-enrichment-analysis)
+    * [Semantic Similarity Analysis](#semantic-similarity-analysis)
+    * [Common Ancestor Analysis](#common-ancestor-analysis)
+    * [Interactive Interface](#interactive-interface)
+7.  [Input File Formats](#7-input-file-formats)
     * [OBO File](#obo-file)
     * [Study Population](#study-population)
     * [Background Population](#background-population)
     * [Lineage File](#lineage-file)
     * [Variance-Covariance (VCV) Matrix](#variance-covariance-vcv-matrix)
-6.  [Output File Formats](#6-output-file-formats)
-7.  [Interpreting Results](#7-interpreting-results)
-8.  [Contributing](#8-contributing)
-9.  [License](#9-license)
-10. [Citation](#10-citation)
-11. [Contact](#11-contact)
+8.  [Output File Formats](#8-output-file-formats)
+    * [Main Enrichment Results](#main-enrichment-results)
+    * [Semantic Similarity Results](#semantic-similarity-results)
+    * [Common Ancestor Analysis Results](#common-ancestor-analysis-results)
+    * [Interactive Interface Downloads](#interactive-interface-downloads)
+9.  [Interpreting Results](#9-interpreting-results)
+    * [Main Enrichment Results](#main-enrichment-results)
+    * [Enrichment Plots](#enrichment-plots)
+    * [Semantic Similarity Analysis Results](#semantic-similarity-analysis-results)
+    * [Common Ancestor Analysis Results](#common-ancestor-analysis-results)
+10.  [Helper scripts](#10-helper-scripts)    
+11.  [Contributing](#11-contributing)
+12.  [License](#12-license)
+13.  [Citation](#13-citation)
+14.  [Contact](#14-contact)
 
 ## 1. Graphical Abstract
 
@@ -44,7 +55,13 @@
   <img src="abstract.png" alt="TaxaGO Logo" width="1000"/>
 </p>
 
-## 2. Key Features
+## 2. Benchmark Results
+
+
+## 3. TaxaGO Case Study
+
+
+## 4. Key Features
 
 * **Single-species GOEA :** Performs standard Gene Ontology Enrichment Analysis for a single species or for multiple species at once.
 * **Phylogenetically-aware meta-analysis:** Unifying enrichment scores across different taxonomic levels, considering the evolutionary relationships between species.
@@ -53,7 +70,7 @@
 * **User-friendly interfaces:** Offers a locally hosted interactive user interface for easier data input, parameter tuning and results exploration.
 * **High Performance:** Designed for speed and can leverage multiple CPU cores to efficiently handle GOEA across multiple species and/or taxonomic levels simultaneously.
 
-## 3. Installation
+## 5. Installation
 
 ### Prerequisites
 
@@ -97,11 +114,11 @@ See [Input File Formats](#input-file-formats) for additional details.
     * `common-ancestors`: Tool for finding and visualizing common GO ancestors.
     * `taxago-interactive`: Interactive user-interface executable.
 
-## 4. Usage
+## 6. Usage
 
 TaxaGO provides a suite of tools for Gene Ontology Enrichment Analysis. The main executables are `taxago`, `semantic-similarity`, `common-ancestors`, and `taxago-interactive`.
 
-### Gene Ontology Enrichment Analysis: taxago
+### Gene Ontology Enrichment Analysis
 
 The `taxago` executable is the primary tool for performing Gene Ontology Enrichment Analysis across single species or taxonomic levels.
 
@@ -182,7 +199,7 @@ taxago -s ./my_study_data/ -d ./taxago_results/ -g kingdom --vcv-matrix ./assets
 
 This command runs TaxaGO using study data from `./my_study_data/`, outputs results to `./taxago_results/`, combines results at the kingdom level using the VCV matrix from `./assets/vcv_matrix.dmat`, uses the classic count propagation, Benjamini-Hochberg for p-value correction with an alpha of 0.01, and saves both interactive HTML and static plots.
 
-### Semantic Similarity: semantic-similarity
+### Semantic Similarity Analysis
 
 Calculates semantic similarity between GO terms.
 
@@ -228,7 +245,7 @@ semantic-similarity -t "GO:0008150,GO:0005575" -i 9606 -m lin -d ./similarity_re
 
 This calculates Lin semantic similarity for GO:0008150 and GO:0005575 in taxon 9606, using propagated counts, and saves results to `./similarity_results/`.
 
-### Common Ancestor Analysis: common-ancestors
+### Common Ancestor Analysis
 
 Finds and visualizes common ancestors of specified GO terms.
 
@@ -260,7 +277,7 @@ common-ancestors -t "GO:0044237,GO:0006412" -d ./ancestor_analysis/
 
 This command analyzes common ancestors for GO:0044237 and GO:0006412 and outputs the Mermaid graph and PDF to the `./ancestor_analysis/` directory.
 
-### Interactive Interface: taxago-interactive
+### Interactive Interface
 
 Launches a web-based interactive user interface for TaxaGO.
 
@@ -291,11 +308,11 @@ The interactive interface allows you to:
 - Download results in various formats.
 - Perform Common Ancestor and Semantic Similarity analyses through the UI.
 
-## 5. Input File Formats
+## 7. Input File Formats
 
 TaxaGO utilizes several specific file formats for its input data. If you are using the pre-compiled assets, these files are already included and formatted. If providing your own data, please adhere to the following formats:
 
-### OBO File (`go.obo`)
+### OBO File
 
 * **Description**: The Gene Ontology OBO file contains the structure and definitions of GO terms.
 * **Format**: Standard OBO format as provided by the [Gene Ontology Consortium](https://owlcollab.github.io/oboformat/doc/obo-syntax.html).
@@ -382,7 +399,7 @@ The study population represents the set of proteins/genes of interest for your a
 
 * **Description**: A matrix representing the evolutionary relationships (phylogenetic distances) between species. This is required for the phylogenetic meta-analysis feature.
 
-* **Format**: A CSV (Comma Separated Values) file.
+* **Format**: A CSV file.
     * The first column must be named `taxa` and contain the NCBI Taxon IDs of the species.
     * Subsequent columns should also be named with NCBI Taxon IDs.
     * The matrix should be symmetrical, with values representing the variance or covariance between the species in the corresponding row and column.
@@ -397,15 +414,15 @@ The study population represents the set of proteins/genes of interest for your a
 
 * **Note**: TaxaGO provides three precomputed VCV matrix, one for each of the three main cellular Superkingdoms. The user can create a custom VCV matrix from a Newick (`.nwk`) phylogenetic tree containing branch lengths using the [`create_vcv.R`](helper_scripts/create_vcv.R) script.
 
-## 6. Output File Formats
+## 8. Output File Formats
 
 TaxaGO generates several output files depending on the analysis performed and options selected. All results are typically saved within the directory specified by the `--dir` or `-d` option.
 
-### Main GOEA Results (`taxago` executable)
+### Main Enrichment Results
 
 When running the `taxago` executable, results are organized into subdirectories within your specified output directory:
 
-1.  **Single Taxon Results:**
+1.  **Single Species Results**
 
     * **Location**: `<output_dir>/single_taxon_results/`
 
@@ -420,7 +437,7 @@ When running the `taxago` executable, results are organized into subdirectories 
 
     * Only non-obsolete GO terms meeting the significance and odds ratio thresholds are included.
 
-2.  **Combined Taxonomy Results (if `-g` option is used):**
+2.  **Combined Taxonomy Results**
 
     * **Location**: `<output_dir>/combined_taxonomy_results/`
 
@@ -435,7 +452,7 @@ When running the `taxago` executable, results are organized into subdirectories 
 
     * These files are generated if results are grouped by a taxonomic level using the `-g` option.
 
-3.  **Enrichment Plots (if `--save-plots` is not `none`):**
+3.  **Enrichment Plots:**
 
     * **Location**:
         * For single taxon analysis: `<output_dir>/single_taxon_results/plots/{Namespace}/`
@@ -456,7 +473,7 @@ When running the `taxago` executable, results are organized into subdirectories 
 
         * **Network Plot**: Visualizes relationships between enriched GO terms. Nodes represent GO terms (colored by log(Odds Ratio), sized by number of associated proteins/species) and edges represent Jaccard similarity based on shared proteins (Jaccard index >= 0.25). Up to 4 largest communities are plotted using the Fruchterman-Reingold layout algorithm.
 
-### Semantic Similarity Results (`semantic-similarity` executable)
+### Semantic Similarity Analysis Results
 
 * **Location**: User-specified output directory (`-d` option).
 
@@ -466,7 +483,7 @@ When running the `taxago` executable, results are organized into subdirectories 
     * The first row (header) and first column contain the GO Term IDs provided for comparison.
     * Each cell `(TermA, TermB)` in the matrix contains the calculated semantic similarity score between TermA and TermB using the specified method. Scores are typically formatted to 6 decimal places.
 
-### Common Ancestor Analysis Results (`common-ancestors` executable)
+### Common Ancestor Analysis Results
 
 * **Location**: User-specified output directory (`-d` option), or `results/` if run via the interactive interface.
 
@@ -476,7 +493,7 @@ When running the `taxago` executable, results are organized into subdirectories 
 
 * **Content**: The graph displays the input GO terms and their ancestors up to the root(s), highlighting the first common ancestor(s). Nodes are styled based on their namespace and whether they are input terms or common ancestors. Edges represent different types of relationships (e.g., `is_a`, `part_of`).
 
-### Interactive Interface Downloads (`taxago-interactive` executable)
+### Interactive Interface Downloads
 
 When using the `taxago-interactive` web interface, the displayed results table (either single taxon or combined taxonomy) can be downloaded in various formats via the "Download Results" button.
 
@@ -490,11 +507,11 @@ When using the `taxago-interactive` web interface, the displayed results table (
     * **TSV**: Same content as CSV, but tab-delimited.
     * **JSON**: An array of JSON objects, where each object represents an enriched GO term and its associated data fields.
 
-## 7. Interpreting Results
+## 9. Interpreting Results
 
 Understanding the output of TaxaGO involves interpreting statistical values and visualizations. Here's a guide to help you make sense of your Gene Ontology Enrichment Analysis (GOEA) results.
 
-### Main Enrichment Results (TSV Files)
+### Main Enrichment Results
 
 The core output of a TaxaGO analysis is a tab-separated values (TSV) file for each species or combined taxonomic group. Each row represents a Gene Ontology (GO) term that was found to be enriched. The key columns are:
 
@@ -556,7 +573,7 @@ If `--save-plots` was enabled, TaxaGO generates various plots to help visualize 
             * *Edge Width*: Represents the strength of the Jaccard similarity.
         * This plot helps to identify clusters of functionally related GO terms, suggesting broader biological themes or pathways that are over-represented in your study set. The Fruchterman-Reingold algorithm is used for layout.
 
-### Semantic Similarity Results (TSV File)
+### Semantic Similarity Results
 
 * **Output**: A matrix of similarity scores between pairs of GO terms.
 * **Interpretation**:
@@ -566,7 +583,7 @@ If `--save-plots` was enabled, TaxaGO generates various plots to help visualize 
     * **Wang's method** is based on the graph structure of the GO, considering the types of relationships (only `is_a` and `part_of`) and their weights.
     * **Resnik, Lin, and Jiang-Conrath** are Information Content (IC)-based methods. IC is derived from the frequency of a term's usage in annotations; rarer terms have higher IC. They rely on finding the Most Informative Common Ancestor (MICA).
 
-### Common Ancestor Analysis Results (Mermaid Graph & PDF)
+### Common Ancestor Analysis Results
 
 * **Output**: A visual representation of the GO hierarchy connecting the input GO terms through their common ancestors.
 * **Interpretation**:
@@ -577,7 +594,76 @@ If `--save-plots` was enabled, TaxaGO generates various plots to help visualize 
 
 By combining the statistical outputs with these visualizations and understanding the underlying methods, you can gain deeper insights into the biological significance of your protein lists.
 
-## 8. Contributing
+## 10. Helper Scripts
+
+For users who wish to generate their own asset files or customize the inputs for TaxaGO beyond the pre-compiled `taxago_assets.tar.gz`, we provide several helper scripts. These scripts facilitate the creation of essential input files like the lineage file, background populations, and VCV matrices.
+
+### `download_goa_info.py`
+
+* **Purpose**: This Python script automates the download of necessary metadata files from UniProt and EBI FTP servers. It specifically fetches:
+    * `proteome2taxid`: Mapping from proteome IDs to NCBI Taxonomy IDs, from EBI.
+    * `README`: The UniProt knowledgebase reference proteomes README file with relevant information about current reference proteomes.
+    * The script then processes the downloaded UniProt `README` file to extract and format relevant species and taxonomy information into a new file named `processed_README`.
+* **Inputs**: None (downloads directly from specified FTP URLs).
+* **Outputs**:
+    * `proteome2taxid` (raw downloaded file)
+    * `README` (raw downloaded UniProt README)
+    * `processed_README` (tab-separated metadata extracted from the UniProt README, used by other helper scripts)
+* **Usage**:
+    ```bash
+    python download_goa_info.py
+    ```
+    Ensure you have an active internet connection. The script will download files to the directory where it is executed.
+
+### `pre_process_background.py`
+
+* **Purpose**: This Python script processes raw Gene Ontology Annotation (GOA) files to generate the formatted background population files required by TaxaGO. It filters annotations based on database source (UniProtKB), relation type (excluding 'NOT'), and object type (protein). It then outputs a simplified, tab-separated file for each taxon.
+* **Inputs**:
+    * `processed_README`: The metadata file generated by `download_goa_info.py`.
+    * `proteome2taxid`: The proteome-to-TaxID mapping file, also from `download_goa_info.py`.
+    * `background_pop/`: A directory containing the raw `.goa` files for the species you wish to process. These files typically need to be downloaded separately from sources like EBI-GOA.
+* **Outputs**:
+    * Creates a directory named `final_background_pop/` (or as specified by the `outdir` variable in the script).
+    * Within `final_background_pop/`, it generates files named `{taxon_id}_background.txt` (e.g., `9606_background.txt`), containing the filtered protein-GO term associations. These are the files TaxaGO expects in its background population directory.
+* **Usage**:
+    1.  Ensure `processed_README` and `proteome2taxid` are in the same directory as the script.
+    2.  Create a directory named `background_pop` (or update the `background_pop` Path object in the script) and populate it with your raw `.goa` files.
+    3.  Run the script:
+        ```bash
+        python pre_process_background.py
+        ```
+
+### `create_lineage.ipynb`
+
+* **Purpose**: This Jupyter Notebook (Python script) constructs the `lineage.txt` file, which provides the full taxonomic lineage for NCBI Taxon IDs. It integrates information from UniProt metadata, GOA metadata, and an NCBI ranked lineage dump file. The script handles merging, cleaning, and formatting this data, including filling missing taxonomic ranks.
+* **Inputs**:
+    * `UniProt_metadata.txt`: This should be the `processed_README` file generated by `download_goa_info.py`. You might need to rename it or adjust the filename in the notebook.
+    * `GOA_metadata.txt`: This should be the `proteome2taxid` file downloaded by `download_goa_info.py`. Adjust the filename in the notebook if necessary.
+    * `rankedlineage.dmp`: The NCBI taxonomy ranked lineage dump file. This file needs to be downloaded separately from the NCBI taxonomy FTP site (usually found within `taxdump.tar.gz`).
+* **Outputs**:
+    * `lineage.txt`: A tab-separated file containing `Tax_ID`, `Species`, `Genus`, `Family`, `Order`, `Class`, `Phylum`, `Kingdom`, and `Superkingdom` for each taxon. This file is used by TaxaGO for phylogenetic meta-analysis if custom lineages are needed.
+* **Usage**:
+    1.  Ensure the input files (`UniProt_metadata.txt`, `GOA_metadata.txt`, `rankedlineage.dmp`) are available in the notebook's working directory or provide correct paths.
+    2.  Run the cells in the Jupyter Notebook sequentially.
+
+### `create_vcv.R`
+
+* **Purpose**: This R script generates a VCV matrix from a phylogenetic tree provided in Newick format. The VCV matrix quantifies the evolutionary relationships between species and is essential for TaxaGO's phylogenetic meta-analysis feature.
+* **Inputs**:
+    * A phylogenetic tree file in Newick format (e.g., `my_tree.nwk`). This file should contain branch lengths.
+* **Outputs**:
+    * A VCV matrix saved in CSV format. The output file will have Taxon IDs as both row and column headers, and the first column will be named `taxa`.
+* **Usage**:
+    ```bash
+    Rscript create_vcv.R -i path/to/your/tree.nwk -o path/to/output/vcv_matrix.csv
+    ```
+    * Replace `path/to/your/tree.nwk` with the actual path to your Newick tree file.
+    * Replace `path/to/output/vcv_matrix.csv` with the desired path for the output VCV matrix.
+    * The script requires the `ape` and `optparse` R packages, which it attempts to install if not already present.
+
+By using these helper scripts, you can prepare custom datasets tailored to your specific research needs for use with TaxaGO.
+
+## 11. Contributing
 
 We warmly welcome contributions to TaxaGO! Whether it's reporting a bug, suggesting a new feature, improving documentation, or submitting code changes, your help is greatly appreciated and valued.
 
@@ -600,17 +686,17 @@ To ensure a smooth and effective collaboration process, please consider the foll
 
 We look forward to your contributions and to making TaxaGO a better tool together!
 
-## 9. License
+## 12. License
 
 This project is licensed under the [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0.en.html).
 
 See the [LICENSE.txt](LICENSE.txt) file for further details.
 
-## 10. Citation
+## 13. Citation
 
 The citation will be placed here after publication.
 
-## 11. Contact
+## 14. Contact
 For any questions or support, please contact:
 * izg5139@psu.edu
 * left.bochalis@gmail.com
