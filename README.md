@@ -57,9 +57,20 @@
 
 ## 2. Benchmark Results
 
+TaxaGO was benchmarked against three other widely used Gene Ontology Enrichment Analysis (GOEA) tools:
+* [GOATools](https://github.com/tanghaibao/goatools)
+* [topGO](https://bioconductor.org/packages/devel/bioc/html/topGO.html)
+* [clusterProfiler](https://bioconductor.org/packages/devel/bioc/html/clusterProfiler.html)
+
+The data, scripts and benchmark results can be found in the dedicated [TaxaGO benchmark GitHub repository](https://github.com/Georgakopoulos-Soares-lab/TaxaGO_benchmarks).
 
 ## 3. TaxaGO Case Study
 
+We conducted a case study to demonstrate the application of TaxaGO. We focused on analyzing the Gene Ontology Enrichment patterns of Chordata quasi-prime peptides as they are detailed in the manuscript:
+
+Bochalis, E., Patsakis, M., Chantzi, N., Mouratidis, I., Chartoumpekis, D., & Georgakopoulos-Soares, I. (2025). *Unraveling diversity by isolating peptide sequences specific to distinct taxonomic groups*. bioRxiv, 2025.02.05.636664. doi: [10.1101/2025.02.05.636664](https://doi.org/10.1101/2025.02.05.636664)
+
+The data and detailed scripts for this case study can be found in the dedicated [TaxaGO case study GitHub repository](https://github.com/Georgakopoulos-Soares-lab/TaxaGO_case_study).
 
 ## 4. Key Features
 
@@ -509,11 +520,11 @@ When using the `taxago-interactive` web interface, the displayed results table (
 
 ## 9. Interpreting Results
 
-Understanding the output of TaxaGO involves interpreting statistical values and visualizations. Here's a guide to help you make sense of your Gene Ontology Enrichment Analysis (GOEA) results.
+Understanding the output of TaxaGO involves interpreting statistical values and visualizations. Here's a guide to help you make sense of your Gene Ontology Enrichment Analysis results.
 
 ### Main Enrichment Results
 
-The core output of a TaxaGO analysis is a tab-separated values (TSV) file for each species or combined taxonomic group. Each row represents a Gene Ontology (GO) term that was found to be enriched. The key columns are:
+The core output of a TaxaGO analysis is a tab-separated values (TSV) file for each species or combined taxonomic group. Each row represents a Gene Ontology term that was found to be enriched. The key columns are:
 
 * **`GO Term ID`**: The unique identifier for the GO term (e.g., `GO:0005575`). You can use this ID to look up more information on databases like [QuickGO](https://www.ebi.ac.uk/QuickGO/) or [AmiGO](http://amigo.geneontology.org/).
 
