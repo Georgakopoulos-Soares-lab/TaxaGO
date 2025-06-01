@@ -12,15 +12,6 @@ pub struct GOResult {
     namespace: String,
     odds_ratio: f64,
     statistical_significance: f64,
-    n_study_with_term: Option<i32>,
-    n_study_without_term: Option<i32>,
-    n_background_with_term: Option<i32>,
-    n_background_without_term: Option<i32>,
-    heterogeneity: Option<f64>,
-    species_percentage: Option<f64>,
-    n_with: Option<i32>,
-    n_in_tax: Option<i32>,
-    is_combined: bool,
 }
 
 pub struct DownloadManager {
@@ -59,31 +50,6 @@ impl DownloadManager {
                 wtr.write_record(&header_fields)?;
                 
                 for result in &results {
-                    if result.is_combined {
-                        wtr.write_record(&[
-                            &result.go_term,
-                            &result.name,
-                            &result.namespace,
-                            &format!("{:.3}", result.odds_ratio),
-                            &result.statistical_significance.to_string(),
-                            &result.heterogeneity.unwrap_or(0.0).to_string(),
-                            &result.species_percentage.unwrap_or(0.0).to_string(),
-                            &result.n_with.unwrap_or(0).to_string(),
-                            &result.n_in_tax.unwrap_or(0).to_string(),
-                        ])?;
-                    } else if result.n_study_with_term.is_some() && result.n_study_without_term.is_some() && result.n_background_with_term.is_some() && result.n_background_without_term.is_some() {
-                        wtr.write_record(&[
-                            &result.go_term,
-                            &result.name,
-                            &result.namespace,
-                            &format!("{:.3}", result.odds_ratio),
-                            &result.statistical_significance.to_string(),
-                            &result.n_study_with_term.unwrap_or(0).to_string(),
-                            &result.n_study_without_term.unwrap_or(0).to_string(),
-                            &result.n_background_with_term.unwrap_or(0).to_string(),
-                            &result.n_background_without_term.unwrap_or(0).to_string(),
-                        ])?;
-                    } else {
                         wtr.write_record(&[
                             &result.go_term,
                             &result.name,
@@ -91,7 +57,6 @@ impl DownloadManager {
                             &format!("{:.3}", result.odds_ratio),
                             &result.statistical_significance.to_string(),
                         ])?;
-                    }
                 }
                 
                 let content = wtr.into_inner()?;
@@ -103,41 +68,14 @@ impl DownloadManager {
                 writeln!(content, "{}", original_header)?;
                 
                 for result in &results {
-                    if result.is_combined {
-                        writeln!(content, "{}\t{}\t{}\t{:.3}\t{}\t{}\t{}\t{}\t{}",
-                            result.go_term,
-                            result.name,
-                            result.namespace,
-                            result.odds_ratio,
-                            result.statistical_significance,
-                            result.heterogeneity.unwrap_or(0.0),
-                            result.species_percentage.unwrap_or(0.0),
-                            result.n_with.unwrap_or(0),
-                            result.n_in_tax.unwrap_or(0)
-                        )?;
-                    } else if result.n_study_with_term.is_some() && result.n_study_without_term.is_some() && result.n_background_with_term.is_some() && result.n_background_without_term.is_some() {
-                        writeln!(content, "{}\t{}\t{}\t{:.3}\t{}\t{}\t{}\t{}\t{}",
-                            result.go_term,
-                            result.name,
-                            result.namespace,
-                            result.odds_ratio,
-                            result.statistical_significance,
-                            result.n_study_with_term.unwrap_or(0),
-                            result.n_study_without_term.unwrap_or(0),
-                            result.n_background_with_term.unwrap_or(0),
-                            result.n_background_without_term.unwrap_or(0)
-                        )?;
-                    } else {
-                        writeln!(content, "{}\t{}\t{}\t{:.3}\t{}",
-                            result.go_term,
-                            result.name,
-                            result.namespace,
-                            result.odds_ratio,
-                            result.statistical_significance
-                        )?;
-                    }
+                    writeln!(content, "{}\t{}\t{}\t{:.3}\t{}",
+                        result.go_term,
+                        result.name,
+                        result.namespace,
+                        result.odds_ratio,
+                        result.statistical_significance)?;
                 }
-                
+            
                 Ok((output_filename, content))
             }
             "json" => {
@@ -251,70 +189,18 @@ impl DownloadManager {
         
         if lines.is_empty() {
             return Err(anyhow::anyhow!("Results file is empty"));
-        }
-        
-        let header = lines[0];
-        let is_combined = header.contains("Hetergnt") || header.contains("Species %");
-        
+        }    
+            
         for line in lines.iter().skip(1) { 
             let fields: Vec<&str> = line.split('\t').collect();
-            
-            if is_combined && fields.len() >= 9 {
-                let odds_ratio: f64 = fields[3].parse().unwrap_or(0.0);
-                results.push(GOResult {
-                    go_term: fields[0].to_string(),
-                    name: fields[1].to_string(),
-                    namespace: fields[2].to_string(),
-                    odds_ratio: (odds_ratio * 1000.0).round() / 1000.0, 
-                    statistical_significance: fields[4].parse().unwrap_or(0.0),
-                    n_study_with_term: None,
-                    n_study_without_term: None,
-                    n_background_with_term: None,
-                    n_background_without_term: None,
-                    heterogeneity: Some(fields[5].parse().unwrap_or(0.0)),
-                    species_percentage: Some(fields[6].parse().unwrap_or(0.0)),
-                    n_with: Some(fields[7].parse().unwrap_or(0)),
-                    n_in_tax: Some(fields[8].parse().unwrap_or(0)),
-                    is_combined: true,
-                });
-            } else if !is_combined && fields.len() >= 9 {
-                let odds_ratio: f64 = fields[3].parse().unwrap_or(0.0);
-                results.push(GOResult {
-                    go_term: fields[0].to_string(),
-                    name: fields[1].to_string(),
-                    namespace: fields[2].to_string(),
-                    odds_ratio: (odds_ratio * 1000.0).round() / 1000.0, 
-                    statistical_significance: fields[4].parse().unwrap_or(0.0),
-                    n_study_with_term: Some(fields[5].parse().unwrap_or(0)),
-                    n_study_without_term: Some(fields[6].parse().unwrap_or(0)),
-                    n_background_with_term: Some(fields[7].parse().unwrap_or(0)),
-                    n_background_without_term: Some(fields[8].parse().unwrap_or(0)),
-                    heterogeneity: None,
-                    species_percentage: None,
-                    n_with: None,
-                    n_in_tax: None,
-                    is_combined: false,
-                });
-            } else if fields.len() == 5 {
-                let odds_ratio: f64 = fields[3].parse().unwrap_or(0.0);
+            let odds_ratio: f64 = fields[3].parse().unwrap_or(0.0);
                 results.push(GOResult {
                     go_term: fields[0].to_string(),
                     name: fields[1].to_string(),
                     namespace: fields[2].to_string(),
                     odds_ratio: (odds_ratio * 1000.0).round() / 1000.0,
-                    statistical_significance: fields[4].parse().unwrap_or(0.0),
-                    n_study_with_term: None,
-                    n_study_without_term: None,
-                    n_background_with_term: None,
-                    n_background_without_term: None,
-                    heterogeneity: None,
-                    species_percentage: None,
-                    n_with: None,
-                    n_in_tax: None,
-                    is_combined: false,
-                });
+                    statistical_significance: fields[4].parse().unwrap_or(0.0)});
         }
-    }
 
         results.sort_by(|a, b| {
             let odds_ratio_cmp = b.odds_ratio.partial_cmp(&a.odds_ratio).unwrap_or(std::cmp::Ordering::Equal);
