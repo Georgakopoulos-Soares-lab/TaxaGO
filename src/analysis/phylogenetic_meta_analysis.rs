@@ -109,31 +109,6 @@ pub fn svd_transform(
 
     nalgebra_to_ndarray2(&mDnew_nalgebra)
 }
-// pub fn svd_transform(
-//     vcv_matrix: &DataFrame
-// ) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>>{
-    
-//     let array= vcv_matrix.to_ndarray::<Float64Type>(IndexOrder::C).unwrap();
-    
-//     let svdcomp = array.svd(true, true).unwrap();
-//     let u = &svdcomp.0;
-//     let d = &svdcomp.1;
-
-//     let n = d.len();
-//     let mut sqrt_d_diag: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> = Array2::zeros((n, n));
-//     for i in 0..n {
-//         sqrt_d_diag[[i, i]] = d[i].sqrt();
-//     }
-    
-//     let binding = u.clone().unwrap();
-//     let ut = &binding.t();
-//     let tnew = u.clone().unwrap().dot(&sqrt_d_diag).dot(ut);
-    
-//     let mDnew: ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> = tnew.inv().unwrap();
-
-//     mDnew
-
-// }
 
 pub fn phylogenetic_meta_analysis_calculation(
     log_odds_array: &Array1<f64>,

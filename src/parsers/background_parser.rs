@@ -1,11 +1,12 @@
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Result, Error, ErrorKind};
-use std::path::Path;
+use std::io::{BufRead, BufReader, Result as IoResult, Error as IoError, ErrorKind};
+use std::path::PathBuf;
 use std::sync::Arc;
 use rayon::prelude::*;
 use crate::parsers::study_parser::*;
 use compact_str::CompactString;
+use thiserror::Error;
 
 pub type TaxonID = u32;
 pub type GOTermID = u32;
@@ -34,9 +35,42 @@ pub enum EvidenceCategory {
     Electronic
 }
 
+#[derive(Debug, Error)]
+pub enum BackgroundParserError {
+    #[error("Background data file not found: {file_path}")]
+    FileNotFound {
+        file_path: PathBuf,
+    },
+
+    #[error("Line {line_number} in file '{file_path}' must have exactly 3 columns, but found {columns_found}. Line content (truncated): '{line_content_snippet}'")]
+    InvalidColumnCount {
+        line_number: usize,
+        file_path: PathBuf,
+        columns_found: usize,
+        line_content_snippet: String,
+    },
+
+
+    #[error("Unknown evidence category code '{category_code}' found at line {line_number} in file '{file_path}'.")]
+    UnknownEvidenceCategory {
+        category_code: CompactString,
+        line_number: usize,
+        file_path: PathBuf,
+    },
+
+    #[error("I/O error processing '{file_path}': {kind} - {message}")]
+    FileProcessingIoError {
+        file_path: PathBuf,
+        kind: std::io::ErrorKind,
+        message: String,
+    },
+}
+
 pub fn map_code_to_category(
-    code: &CompactString
-) -> Result<EvidenceCategory> {
+    code: &CompactString,
+    line_number: usize,
+    file_path: &PathBuf,
+) -> Result<EvidenceCategory, BackgroundParserError> {
     match code.as_str() {
         "EXP" | "IDA" | "IPI" | "IMP" | "IGI" | "IEP" | "HTP" | "HDA" | "HMP" | "HGI" | "HEP" => Ok(EvidenceCategory::Experimental),
         "IBA" | "IBD" | "IKR" | "IRD" => Ok(EvidenceCategory::Phylogenetic),
@@ -44,16 +78,17 @@ pub fn map_code_to_category(
         "TAS" | "NAS" => Ok(EvidenceCategory::Author),
         "IC" | "ND" => Ok(EvidenceCategory::Curator),
         "IEA" => Ok(EvidenceCategory::Electronic),
-        _ => Err(Error::new(
-            ErrorKind::InvalidData,
-            format!("Unrecognized evidence code: {}", code)
-        ))
+        _ => Err(BackgroundParserError::UnknownEvidenceCategory { 
+            category_code: code.clone(),
+            line_number,
+            file_path: file_path.clone(),
+        }),
     }
 }
 
 pub fn map_input_to_category(
     cli_input: String
-) -> Result<Vec<EvidenceCategory>> {
+) -> IoResult<Vec<EvidenceCategory>> {
     let parts: Vec<String> = cli_input
         .to_lowercase()
         .split(',')
@@ -83,7 +118,7 @@ pub fn map_input_to_category(
                 "author" => EvidenceCategory::Author,
                 "curator" => EvidenceCategory::Curator,
                 "electronic" => EvidenceCategory::Electronic,
-                _ => return Err(Error::new(
+                _ => return Err(IoError::new(
                     ErrorKind::InvalidInput,
                     format!("Unrecognized evidence category: {}. Valid categories are: experimental, phylogenetic, computational, author, curator, automatic, or all.", trimmed_part)
                 ))
@@ -93,7 +128,7 @@ pub fn map_input_to_category(
         }
         
         if categories.is_empty() {
-            return Err(Error::new(
+            return Err(IoError::new(
                 ErrorKind::InvalidInput,
                 "No valid evidence categories provided. Valid categories are: experimental, phylogenetic, computational, author, curator, automatic, or all."
             ));
@@ -108,7 +143,7 @@ impl BackgroundPop {
         taxon_ids: &FxHashSet<TaxonID>, 
         dir: &str,
         categories: &Vec<EvidenceCategory>
-    ) -> Result<Option<Self>> {
+    ) -> IoResult<Option<Self>> {
         
         let (taxon_protein_count, protein_to_go, go_term_count, go_term_to_protein_set) = taxon_ids
             .par_iter()
@@ -116,16 +151,16 @@ impl BackgroundPop {
                 let taxon_background_file_path = format!("{}/{}_background.txt", dir, taxon_id);
                 
                 match process_single_taxon(
-                    &taxon_background_file_path,
+                    &PathBuf::from(&taxon_background_file_path),
                     categories
                 ) {
                     Ok(Some(data)) => (taxon_id, Some(data)),
                     Ok(None) => {
-                        eprintln!("No data found for taxon {}", taxon_id);
+                        eprintln!("[INFO] No data processed or found for taxon {} from file: {}", taxon_id, taxon_background_file_path);
                         (taxon_id, None)
                     },
                     Err(err) => {
-                        eprintln!("Error processing taxon {}: {}", taxon_id, err);
+                        eprintln!("[ERROR] Error processing taxon {} from file {}: {}", taxon_id, taxon_background_file_path, err);
                         (taxon_id, None)
                     }
                 }
@@ -203,20 +238,29 @@ impl BackgroundPop {
 }
 
 fn process_single_taxon(
-    taxon_background_path: impl AsRef<Path>,
+    taxon_background_path: &PathBuf,
     categories: &Vec<EvidenceCategory>
-) -> Result<Option<(usize, ProteinToGO, GOTermCount, GOTermToProteinSet)>> {
+) -> Result<Option<(usize, ProteinToGO, GOTermCount, GOTermToProteinSet)>, BackgroundParserError> {
     
-    if !taxon_background_path.as_ref().is_file() {
+    if !taxon_background_path.is_file() {
         return Ok(None);
     }
 
-    let file = match File::open(taxon_background_path.as_ref()) {
+    let file = match File::open(taxon_background_path) {
         Ok(f) => f,
-        Err(e) => return Err(Error::new(
-            ErrorKind::Other,
-            format!("Failed to open file: {}", e)
-        ))
+        Err(e) => {
+            return Err(if e.kind() == std::io::ErrorKind::NotFound {
+                BackgroundParserError::FileNotFound {
+                    file_path: taxon_background_path.to_path_buf(),
+                }
+            } else {
+                BackgroundParserError::FileProcessingIoError {
+                    file_path: taxon_background_path.to_path_buf(),
+                    kind: e.kind(),
+                    message: e.to_string(),
+                }
+            });
+        }
     };
 
     let reader = BufReader::with_capacity(128 * 1024, file);
@@ -225,52 +269,65 @@ fn process_single_taxon(
     let mut go_term_counts: FxHashMap<GOTermID, usize> = FxHashMap::default();
     let mut go_term_to_protein_set: FxHashMap<GOTermID, FxHashSet<Protein>> = FxHashMap::default();
 
-    for line_result in reader.lines() {
+    for (line_idx, line_result) in reader.lines().enumerate() {
+        let line_number = line_idx + 1;
         let line = match line_result {
             Ok(l) => l,
-            Err(e) => return Err(Error::new(
-                ErrorKind::Other,
-                format!("Error reading line: {}", e)
-            ))
+            Err(e) => {
+                return Err(BackgroundParserError::FileProcessingIoError {
+                    file_path: taxon_background_path.to_path_buf(),
+                    kind: e.kind(),
+                    message: e.to_string(),
+                });
+            }
         };
         let parts: Vec<&str> = line.split('\t').collect();
 
-        if parts.len() < 3 {
-            continue;
+        if parts.len() != 3 {
+            return Err(BackgroundParserError::InvalidColumnCount {
+                line_number,
+                file_path: taxon_background_path.to_path_buf(),
+                columns_found: parts.len(),
+                line_content_snippet: line.chars().take(70).collect(),
+            });
         }
 
-        let code = CompactString::new(parts[2]);
-        let category = map_code_to_category(&code)?;
+        let code_str = CompactString::new(parts[2]);
+        let category = map_code_to_category(&code_str, line_number, taxon_background_path)?; 
 
-        if categories.contains(&category){
-            let protein_str = CompactString::new(parts[0]);
-            let protein_id = Arc::new(protein_str.clone());
+        if categories.contains(&category) {
+            let protein_compact_str = CompactString::new(parts[0]);
+            let protein_arc = Arc::new(protein_compact_str.clone());
+            
             if let Some(go_str) = parts[1].strip_prefix("GO:") {
-                if let Ok(go_id) = go_str.parse::<u32>() {
+                if let Ok(go_id) = go_str.parse::<GOTermID>() {
                     protein_to_go_map
-                        .entry(protein_str)
+                        .entry(protein_compact_str)
                         .or_insert_with(FxHashSet::default)
                         .insert(go_id);
-    
-                    let is_new_association = go_term_to_protein_set
+        
+                    let is_new_association_for_go_term = go_term_to_protein_set
                         .entry(go_id)
                         .or_insert_with(FxHashSet::default)
-                        .insert(Arc::clone(&protein_id));
+                        .insert(Arc::clone(&protein_arc)); 
                     
-                    if is_new_association {
+                    if is_new_association_for_go_term {
                         *go_term_counts.entry(go_id).or_insert(0) += 1;
                     }
-    
                 }
             }
         }
     }
 
-    Ok(Some((
-        protein_to_go_map.len(), 
-        protein_to_go_map, 
-        go_term_counts,
-        go_term_to_protein_set
-    )))
+   if protein_to_go_map.is_empty() {
+         Ok(None)
+    } else {
+        Ok(Some((
+            protein_to_go_map.len(),
+            protein_to_go_map, 
+            go_term_counts,
+            go_term_to_protein_set
+        )))
+    }
 }
 

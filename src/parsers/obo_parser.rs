@@ -3,13 +3,15 @@ use rustc_hash::FxHashMap;
 use std::fs::File;
 use std::io::{BufReader, BufRead, Error};
 use std::mem;
+use std::path::PathBuf;
 use ucfirst::ucfirst;
 use daggy::{Dag, NodeIndex, Walker};
 use regex::Regex;
 use lazy_static::lazy_static;
 use strum_macros::EnumIter; 
+use thiserror::Error;
 
-use super::background_parser::GOTermID;
+use super::background_parser::*;
 
 pub type OboMap = FxHashMap<u32, OboTerm>;
 pub type OntologyGraph = Dag<u32, Relationship, u32>;
@@ -54,6 +56,21 @@ pub enum Relationship {
     Regulates,
     PositivelyRegulates,
     NegativelyRegulates,   
+}
+
+#[derive(Error, Debug)]
+pub enum OboParserError {
+    #[error("OBO file not found at path: '{filepath}'. Please ensure the file exists and the path is correct.")]
+    FileNotFound { filepath: String }, 
+    
+    #[error("OBO I/O Error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Invalid file extension for file '{filename}'. Expected '.obo', but found '.{extension_found}'.")]
+    InvalidFileExtension {
+        filename: String, 
+        extension_found: String 
+    }
 }
 
 lazy_static! {
@@ -103,7 +120,31 @@ pub fn parse_relationship(input: &str, regex: &Regex) -> Option<(u32, Relationsh
     Some((id, relationship))
 }
 
-pub fn parse_obo_file(obo_file_path: &str) -> Result<OboMap, Error> {
+pub fn parse_obo_file(obo_file_path: &PathBuf) -> Result<OboMap, OboParserError> {
+
+    if !obo_file_path.exists() {
+        return Err(OboParserError::FileNotFound { 
+            filepath: obo_file_path.display().to_string() 
+        });
+    }
+
+    match obo_file_path.extension().and_then(std::ffi::OsStr::to_str) {
+        Some(ext) if ext.eq_ignore_ascii_case("obo") => {
+        }
+        Some(ext) => {
+            return Err(OboParserError::InvalidFileExtension {
+                filename: obo_file_path.display().to_string(),
+                extension_found: ext.to_string(),
+            });
+        }
+        None => {
+            return Err(OboParserError::InvalidFileExtension {
+                filename: obo_file_path.display().to_string(),
+                extension_found: "No extension".to_string(),
+            });
+        }
+    }
+
     let mut obo_terms: FxHashMap<u32, OboTerm> = FxHashMap::with_capacity_and_hasher(
         41_000, 
         rustc_hash::FxBuildHasher::default()
@@ -111,14 +152,13 @@ pub fn parse_obo_file(obo_file_path: &str) -> Result<OboMap, Error> {
 
     let obo = File::open(obo_file_path)?;
     let reader = BufReader::with_capacity(3000 * 1024, obo);
-    let lines = reader.lines();
 
     let mut new_term = false;
     let mut current_term = OboTerm::new();
     let mut current_id: u32 = 0;
     let mut obsolete_term: bool = false;
 
-    for line in lines {
+    for line in reader.lines() {
         let line = line?;
         
         if line == "[Term]" {
@@ -128,7 +168,7 @@ pub fn parse_obo_file(obo_file_path: &str) -> Result<OboMap, Error> {
             current_id = 0; 
 
         } else if new_term {
-            match line {
+            match line.trim() {
                 line if line.starts_with("id: ") => {
                     let id: u32 = line.split("GO:")
                         .nth(1)

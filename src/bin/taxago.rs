@@ -2,9 +2,9 @@
 static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 use clap::{Parser, ValueEnum, ArgGroup};
-use std::error::Error;
 use std::fs;
 use std::env::var;
+use std::process::ExitCode;
 use rustc_hash::{FxHashMap, FxHashSet};
 use daggy::NodeIndex;
 use lazy_static::lazy_static;
@@ -121,7 +121,7 @@ struct CliArgs {
         help = "Directory containing background populations.",
         default_value_t = DEFAULT_BACKGROUND.to_string(),
     )]
-    background_dir: String,
+    background_pop: String,
 
     #[arg(
         short = 'e',
@@ -244,7 +244,7 @@ struct CliArgs {
     save_plots: PlotType,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> ExitCode{
     let cli_args: CliArgs = CliArgs::parse();
     
     let cargo_home = var("CARGO_HOME")
@@ -264,14 +264,37 @@ fn main() -> Result<(), Box<dyn Error>> {
         eprintln!("Failed to initialize Rayon global thread pool: {:?}", e);
     }; 
     println!("\nCleaning previous results");
-    clean_directory(&cli_args.output_dir)?;
+    clean_directory(&cli_args.output_dir).unwrap_or_else(|e| {
+        eprintln!("Error cleaning output directory: {}", e);
+    });
 
-    fs::create_dir_all(&cli_args.output_dir)?;
+    fs::create_dir_all(&cli_args.output_dir).unwrap_or_else(|e| {
+        eprintln!("Error creating output directory: {}", e);
+    });
+    
+    let obo_file = PathBuf::from(&cli_args.obo_file);
 
-    println!("\nReading ontology information from: {}\n\nBuilding ontology graph\n", &cli_args.obo_file);
+    println!("\nReading ontology information from: {}", &obo_file.to_string_lossy());
 
-    let ontology = parse_obo_file(&cli_args.obo_file)?;
-    let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
+     let ontology = match parse_obo_file(&obo_file) {
+        Ok(parsed_ontology) => parsed_ontology,
+        Err(e) => {
+            eprintln!("\nError processing OBO file '{}':", cli_args.obo_file);
+            eprintln!("{}", e);
+            return ExitCode::FAILURE; 
+        }
+    };
+    
+    println!("Successfully parsed OBO file with {} GO terms\n", ontology.len());
+
+    let (ontology_graph, go_id_to_node_index) = match build_ontology_graph(&ontology) {
+        Ok(graph_data) => graph_data,
+        Err(e) => {
+            eprintln!("\nError building ontology graph from OBO file '{}':", cli_args.obo_file);
+            eprintln!("{}", e);
+            return ExitCode::FAILURE;
+        }
+    };
 
     let node_index_to_go_id: FxHashMap<NodeIndex, GOTermID> = go_id_to_node_index.iter()
             .map(|(go_term, node_index)| (*node_index, go_term.clone()))
@@ -286,43 +309,60 @@ fn main() -> Result<(), Box<dyn Error>> {
         &root_go_ids
     );
     
-    println!("Reading background populations from: {}\n", &cli_args.background_dir);
-
-    let taxon_ids: FxHashSet<TaxonID> = collect_taxon_ids(&cli_args.study_pop)?;
-    let categories: Vec<EvidenceCategory> = map_input_to_category(cli_args.evidence_categories)?;
-    
-    let mut background_population = match BackgroundPop::read_background_pop(
-        &taxon_ids, 
-        &cli_args.background_dir,
-        &categories
-    )? {
-        Some(background_pop) => {
-            println!("Successfully loaded background population for {} taxa\n", &taxon_ids.len());
-            background_pop
-        },
-        None => {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "No background population data could be loaded\n"
-            )));
+    println!("Reading background populations from: {}\n", &cli_args.background_pop);
+    let taxon_ids: FxHashSet<TaxonID> = match collect_taxon_ids(&PathBuf::from(&cli_args.study_pop)) {
+        Ok(taxon_ids) => taxon_ids,
+        Err(e) => {
+            eprintln!("\nError collecting taxon IDs from study population '{}':", cli_args.study_pop);
+            eprintln!("{}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+    let categories: Vec<EvidenceCategory> = match map_input_to_category(cli_args.evidence_categories.clone()) {
+        Ok(categories) => categories,
+        Err(e) => {
+            eprintln!("\nError parsing evidence categories '{}':", cli_args.evidence_categories);
+            eprintln!("{}", e);
+            return ExitCode::FAILURE;
         }
     };
 
-    println!("Reading study populations from: {}\n", &cli_args.study_pop);
+    let mut background_population = match BackgroundPop::read_background_pop(
+        &taxon_ids, 
+        &cli_args.background_pop,
+        &categories
+    ) {
+        Ok(Some(background_pop)) => {
+            println!("Successfully loaded background population for {} taxa\n", &taxon_ids.len());
+            background_pop
+        },
+        Ok(None) => {
+            eprintln!("Error: No background population data could be loaded from directory '{}'", cli_args.background_pop);
+            return ExitCode::FAILURE;
+        },
+        Err(e) => {
+            eprintln!("Error reading background population: {}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+
+    println!("Reading study populations from: {}\n", &cli_args.study_pop.clone());
     
     let mut study_population = match StudyPop::read_study_pop(
-        &cli_args.study_pop, 
+        &PathBuf::from(&cli_args.study_pop), 
         &background_population.protein_to_go
-    )? {
-        Some(study_pop) => {
+    ){
+        Ok(Some(study_pop)) => {
             println!("Successfully loaded study population for {} taxa\n", &taxon_ids.len());
             study_pop
         },
-        None => {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "No study population data could be loaded\n"
-            )));
+        Ok(None) => {
+            eprintln!("Error: No study population data could be loaded from '{}'", cli_args.study_pop);
+            return ExitCode::FAILURE;
+        },
+        Err(e) => {
+            eprintln!("Error reading study population: {}", e);
+            return ExitCode::FAILURE;
         }
     };
 
@@ -334,12 +374,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     if should_propagate{
         println!("Propagating counts up the Ontology graph\n");
         
-        let ancestor_cache: GOAncestorCache = GOAncestorCache::new(
+        let ancestor_cache: GOAncestorCache = match GOAncestorCache::new(
             &ontology_graph, 
             &ontology, 
             &go_id_to_node_index,
-            &node_index_to_go_id
-        )?;
+            &node_index_to_go_id) {
+                Ok(cache) => cache,
+                Err(e) => {
+                    eprintln!("\nError creating GO ancestor cache: {}", e);
+                    return ExitCode::FAILURE;
+                }};
+
         study_population.propagate_counts(
             &taxon_ids, 
             &ancestor_cache
@@ -416,20 +461,38 @@ fn main() -> Result<(), Box<dyn Error>> {
         cli_args.min_odds_ratio
     );
         
-    let taxid_species_map = taxid_to_species(
-        DEFAULT_LINEAGE.to_string()
-    )?;
+    let taxid_species_map = match taxid_to_species(DEFAULT_LINEAGE.to_string()) {
+        Ok(map) => map,
+        Err(e) => {
+            eprintln!("\nError reading taxonomic lineage information from '{}':", DEFAULT_LINEAGE.to_string());
+            eprintln!("{}", e);
+            return ExitCode::FAILURE;
+        }
+    };
 
-    write_single_taxon_results(
-        &significant_species_results, 
+    match write_single_taxon_results(
+        &significant_species_results,
         &ontology,
         &taxid_species_map,
-        &cli_args.output_dir)?;
-
+        &cli_args.output_dir,
+    ) {
+        Ok(_) => {
+        }
+        Err(e) => {
+            eprintln!(
+                "Error: Failed to write single taxon results to directory '{}': {}",
+                cli_args.output_dir.display(), 
+                e 
+            );
+            return ExitCode::FAILURE; 
+        }
+    }
     if cli_args.save_plots != PlotType::None {
         println!("Generating enrichment plots\n");
         let species_plots_subdir = cli_args.output_dir.join("single_taxon_results").join("plots");
-        fs::create_dir_all(&species_plots_subdir)?;
+        fs::create_dir_all(&species_plots_subdir).unwrap_or_else(|e| {
+            eprintln!("Error creating species plot  directory: {}", e);
+        });
 
         let (processed_species_data, go_term_to_protein_set) = process_species_data(
             significant_species_results,
@@ -475,14 +538,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         println!("Reading taxonomic lineage information from: {}\n", DEFAULT_LINEAGE.to_string());
         
-        let lineage = read_lineage(
-            DEFAULT_LINEAGE.to_string()
-        )?;
+        let lineage = match read_lineage(DEFAULT_LINEAGE.to_string()) {
+            Ok(lineage) => lineage,
+            Err(e) => {
+                eprintln!("\nError reading taxonomic lineage information from '{}':", DEFAULT_LINEAGE.to_string());
+                eprintln!("{}", e);
+                return ExitCode::FAILURE;
+            }
+        };
 
-        let superkingdom = get_superkingdom(
-            &taxon_ids,
-            &lineage
-        )?;
+        let superkingdom = match get_superkingdom(&taxon_ids, &lineage) {
+            Ok(superkingdom) => superkingdom,
+            Err(e) => {
+                eprintln!("\nError determining superkingdom for taxon IDs: {}", e);
+                return ExitCode::FAILURE;
+            }
+        };
         
         println!("Grouping species based on {}\n", level_to_combine);
         
@@ -530,17 +601,30 @@ fn main() -> Result<(), Box<dyn Error>> {
             cli_args.min_odds_ratio,
             level_to_combine);
         
-        write_taxonomy_results(
-            &significant_taxonomy_results,
+        match write_taxonomy_results(
+        &significant_taxonomy_results,
             &ontology,
             &cli_args.output_dir,
             level_to_combine
-        )?;
+        ) {
+            Ok(_) => {
+            }
+            Err(e) => {
+                eprintln!(
+                    "Error: Failed to write taxonomy results to directory '{}': {}",
+                    cli_args.output_dir.display(), 
+                    e 
+                );
+                return ExitCode::FAILURE; 
+            }
+        }
 
         if cli_args.save_plots != PlotType::None{
             let taxonomy_plots_subdir = cli_args.output_dir.join("combined_taxonomy_results").join("plots");
-            fs::create_dir_all(&taxonomy_plots_subdir)?;
-            
+            fs::create_dir_all(&taxonomy_plots_subdir).unwrap_or_else(|e| {
+                eprintln!("Error creating taxonomy plot directory: {}", e);
+            });
+
             let taxonomy_plot_data = prepare_plot_data(
                 &significant_taxonomy_results, 
                 &ontology);
@@ -580,5 +664,5 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     
     println!("Finished analysis\n");
-    Ok(())
+    ExitCode::SUCCESS
 }
