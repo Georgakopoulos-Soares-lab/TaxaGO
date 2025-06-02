@@ -130,13 +130,13 @@ pub fn generate_mermaid_chart(
     %%{init: {'flowchart': {'diagramPadding': 10,'nodeSpacing':20,'rankSpacing':20}}}%%\n\
     flowchart LR\n\
     %% Style declarations\n\
-    classDef BP fill:#0084c44b,stroke:black\n\
-    classDef MF fill:#05daed80,stroke:black\n\
+    classDef BP fill:#1200c580,stroke:black\n\
+    classDef MF fill:#a9bff2ff,stroke:black\n\
     classDef CC fill:#4dffa669,stroke:black\n\
     classDef inputNode fill:#0000003d,stroke:black\n\
-    classDef intersectingNode fill:#d900c756,stroke:black\n\
+    classDef intersectingNode fill:#8c00c787,stroke:black\n\
     classDef legendNode fill:white, stroke:black\n\
-    classDef bothNode fill:#1300c64d, stroke:black\n\
+    classDef bothNode fill:#d900c756, stroke:black\n\
     \n\
     %% Edge legend\n\
     subgraph Legends[ ]\n\
