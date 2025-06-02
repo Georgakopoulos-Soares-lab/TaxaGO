@@ -16,6 +16,7 @@ use TaxaGO::utils::download;
 use lazy_static::lazy_static;
 use std::env::var;
 use std::path::PathBuf;
+use actix_files;
 
 #[derive(Deserialize)]
 struct QueryParams {
@@ -2373,6 +2374,7 @@ async fn main() -> std::io::Result<()> {
             .service(upload_file)
             .service(clear_background_folder)
             .service(test_copy_plots)
+            .service(actix_files::Files::new("/static", "./static").show_files_listing())
     })
     .bind("127.0.0.1:8080")?
     .run();
