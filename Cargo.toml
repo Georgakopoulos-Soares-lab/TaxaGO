@@ -9,10 +9,6 @@ name = "taxago"
 path = "src/bin/taxago.rs"
 
 [[bin]]
-name = "taxago-interactive"
-path = "src/bin/main.rs"
-
-[[bin]]
 name = "common-ancestors"
 path = "src/bin/common_ancestor.rs"
 
@@ -36,7 +32,7 @@ dirs = "6.0.0"
 statrs = "0.18.0"
 csv = "1.3.1"
 compact_str = "0.9.0"
-jemallocator = "0.5.4"
+mimalloc = "0.1.48"
 rustc-hash = "2.1.1"
 polars = { version = "0.46.0", features = ["csv", "lazy", "is_in", "ndarray"] }
 nalgebra = "0.33.2"
@@ -49,22 +45,11 @@ itertools = "0.14.0"
 strum = "0.27.1"
 strum_macros = "0.27.1"
 fdg = { git = "https://github.com/grantshandy/fdg.git" }
-actix-web = "4.4.0"
-actix-files = "0.6.2"
-actix-multipart = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.0", features = ["full"] }
-reqwest = { version = "0.11", features = ["json"] }
-time = { version = "0.3", features = ["formatting"] }
-log = "0.4"
-env_logger = "0.10"
 anyhow = "1.0"
-ctrlc = "3.4"
-webbrowser = "0.8"
-futures = "0.3"
-tempfile = "3.2"
+
 
 [build-dependencies]
-flate2 = "1.1.1"
+flate2 = {version = "1.1.1", default-features = false, features = ["zlib-rs"]}
 tar = "0.4.44"

@@ -2057,7 +2057,8 @@
             display: flex;
             opacity: 1;
         }
-    </style>
+      body.page-fade-out { opacity:0; transition: opacity 0.25s ease-in-out; }
+</style>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
     <script>
         mermaid.initialize({
@@ -2113,7 +2114,7 @@
                 }
             } else {
                 try {
-                    fetch('/ancestor-mermaid')
+                    taxago.fetch('/ancestor-mermaid')
                         .then(response => response.text())
                         .then(mermaidCode => {
                             document.getElementById('fullscreen-diagram-content').innerHTML = 
@@ -2607,7 +2608,7 @@
                     </tr>
                 `).join('');
 
-                const response = await fetch('/get_results');
+                const response = await taxago.fetch('/get_results');
                 if (!response.ok) {
                     throw new Error('Results not found');
                 }
@@ -2781,7 +2782,7 @@
                                     const link = document.createElement('a');
                                     link.style.display = 'none';
                                     document.body.appendChild(link);
-                                    const response = await fetch(`/download/${format}`);
+                                    const response = await taxago.fetch(`/download/${format}`);
                                     if (!response.ok) {
                                         throw new Error(`Download failed for ${format}`);
                                     }
@@ -2794,14 +2795,9 @@
                                         }
                                     }
                                     const blob = await response.blob();
-                                    const url = window.URL.createObjectURL(blob);
-                                    link.href = url;
-                                    link.download = filename;
-                                    link.click();
-                                    window.URL.revokeObjectURL(url);
-                                    document.body.removeChild(link);
-                                    console.log(`[TaxaGO] Downloaded ${filename}`);
-                                    await new Promise(res => setTimeout(res, 500));
+                                    const arrayBuffer = await blob.arrayBuffer();
+                                    await taxago.saveFile(new Uint8Array(arrayBuffer), filename);
+                                    console.log(`[TaxaGO] Saved ${filename} to Downloads folder`);
                                 }
                             }
                             await downloadWithDelay(selectedFormats);
@@ -2841,12 +2837,12 @@
     <div id="diagram-fullscreen-container">
         <div class="fullscreen-controls">
             <div style="display: flex; gap: 0.5rem;">
-                <a href="/ancestor-graph" download="ancestor_graph.pdf" class="fullscreen-button" style="background-color: var(--success-color);">
+                <button class="fullscreen-button" style="background-color: var(--success-color);" onclick="downloadAncestorPDF()">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
                     Download PDF
-                </a>
+                </button>
             </div>
             <button class="fullscreen-button close-fullscreen-button" onclick="toggleDiagramFullscreen()">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2884,7 +2880,7 @@
         <div class="function-buttons-container">
             <div class="primary-actions">
                 <button class="primary-button download-button">Download Results</button>
-                <button class="primary-button" style="background-color: var(--text-secondary)" onclick="clearDataAndRedirect()">New Analysis</button>
+                <button class="primary-button" style="background-color: var(--text-secondary)" id="new-analysis-btn">New Analysis</button>
                 <button class="primary-button" style="background-color: var(--text-tertiary)" onclick="window.location.href='/loading?subsequent=true&odds_ratio_threshold=1.0&n_protein_threshold=1'">Change Results</button>
             </div>
             <div class="secondary-actions">
@@ -2929,17 +2925,17 @@
                 <div class="plots-grid">
                     <div class="main-plot">
                         <div class="plot-loading">Loading plot...</div>
-                        <iframe id="bp-plot1" class="plot-frame" src="/plots/bp_bar.html" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <iframe id="bp-plot1" class="plot-frame" src="plots://bp_bar.html" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                     
                     <div class="secondary-plots">
                         <div class="secondary-plot">
                             <div class="plot-loading">Loading plot...</div>
-                            <iframe id="bp-plot2" class="plot-frame" src="/plots/bp_bubble.html" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <iframe id="bp-plot2" class="plot-frame" src="plots://bp_bubble.html" style="width: 100%; height: 100%; border: none;"></iframe>
                         </div>
                         <div class="secondary-plot">
                             <div class="plot-loading">Loading plot...</div>
-                            <iframe id="bp-plot3" class="plot-frame" src="/plots/bp_network.html" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <iframe id="bp-plot3" class="plot-frame" src="plots://bp_network.html" style="width: 100%; height: 100%; border: none;"></iframe>
                         </div>
                     </div>
                 </div>
@@ -2949,17 +2945,17 @@
                 <div class="plots-grid">
                     <div class="main-plot">
                         <div class="plot-loading">Loading plot...</div>
-                        <iframe id="mf-plot1" class="plot-frame" src="/plots/mf_bar.html" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <iframe id="mf-plot1" class="plot-frame" src="plots://mf_bar.html" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                     
                     <div class="secondary-plots">
                         <div class="secondary-plot">
                             <div class="plot-loading">Loading plot...</div>
-                            <iframe id="mf-plot2" class="plot-frame" src="/plots/mf_bubble.html" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <iframe id="mf-plot2" class="plot-frame" src="plots://mf_bubble.html" style="width: 100%; height: 100%; border: none;"></iframe>
                         </div>
                         <div class="secondary-plot">
                             <div class="plot-loading">Loading plot...</div>
-                            <iframe id="mf-plot3" class="plot-frame" src="/plots/mf_network.html" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <iframe id="mf-plot3" class="plot-frame" src="plots://mf_network.html" style="width: 100%; height: 100%; border: none;"></iframe>
                         </div>
                     </div>
                 </div>
@@ -2969,17 +2965,17 @@
                 <div class="plots-grid">
                     <div class="main-plot">
                         <div class="plot-loading">Loading plot...</div>
-                        <iframe id="cc-plot1" class="plot-frame" src="/plots/cc_bar.html" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <iframe id="cc-plot1" class="plot-frame" src="plots://cc_bar.html" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                     
                     <div class="secondary-plots">
                         <div class="secondary-plot">
                             <div class="plot-loading">Loading plot...</div>
-                            <iframe id="cc-plot2" class="plot-frame" src="/plots/cc_bubble.html" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <iframe id="cc-plot2" class="plot-frame" src="plots://cc_bubble.html" style="width: 100%; height: 100%; border: none;"></iframe>
                         </div>
                         <div class="secondary-plot">
                             <div class="plot-loading">Loading plot...</div>
-                            <iframe id="cc-plot3" class="plot-frame" src="/plots/cc_network.html" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <iframe id="cc-plot3" class="plot-frame" src="plots://cc_network.html" style="width: 100%; height: 100%; border: none;"></iframe>
                         </div>
                     </div>
                 </div>
@@ -2992,7 +2988,7 @@
                 const plotTabContents = document.querySelectorAll('.plot-tab-content');
 
                 function checkPlotExists(url, callback) {
-                    fetch(url, { method: 'HEAD' })
+                    taxago.fetch(url, { method: 'HEAD' })
                         .then(response => {
                             callback(response.ok);
                         })
@@ -3096,7 +3092,7 @@
                     let bubbleExists = false;
                     let networkExists = false;
                     
-                    checkPlotExists(`/plots/${namespace}_bar_plot.html`, exists => {
+                    checkPlotExists(`plots/${namespace}_bar_plot.html`, exists => {
                         barExists = exists;
                         const plotContainer = document.querySelector(`#${namespace}-plots .main-plot`);
                         if (!exists && plotContainer) {
@@ -3105,7 +3101,7 @@
                         checkAllPlots();
                     });
 
-                    checkPlotExists(`/plots/${namespace}_bubble_plot.html`, exists => {
+                    checkPlotExists(`plots/${namespace}_bubble_plot.html`, exists => {
                         bubbleExists = exists;
                         const plotContainer = document.querySelector(`#${namespace}-plots .secondary-plot:first-of-type`);
                         if (!exists && plotContainer) {
@@ -3114,7 +3110,7 @@
                         checkAllPlots();
                     });
 
-                    checkPlotExists(`/plots/${namespace}_network_plot.html`, exists => {
+                    checkPlotExists(`plots/${namespace}_network_plot.html`, exists => {
                         networkExists = exists;
                         const plotContainer = document.querySelector(`#${namespace}-plots .secondary-plot:last-of-type`);
                         if (!exists && plotContainer) {
@@ -3138,6 +3134,30 @@
                 checkNamespacePlots('cc');
                 
                 setupIframeErrorHandling();
+
+                async function hydratePlotIframes() {
+                    const iframes = document.querySelectorAll('iframe.plot-frame');
+                    for (const iframe of iframes) {
+                        try {
+                            const src = iframe.getAttribute('src') || '';
+                            if (!src || !src.startsWith('plots://')) continue;
+                            const fileName = src.replace('plots://', '');
+                            const res = await taxago.fetch(`/plots/${fileName}`);
+                            const html = await res.text();
+                            if (html && typeof html === 'string') {
+                                iframe.removeAttribute('src');
+                                iframe.setAttribute('srcdoc', html);
+                            }
+                        } catch (e) {
+                            console.warn('Failed to inline plot into iframe via srcdoc:', e);
+                        }
+                    }
+                }
+
+                // Force reload of iframes after a short delay to ensure proper rendering
+                setTimeout(() => {
+                    hydratePlotIframes();
+                }, 100);
 
                 plotTabButtons.forEach(button => {
                     button.addEventListener('click', () => {
@@ -3232,6 +3252,34 @@
                                             setTimeout(() => {
                                                 iframe.src = currentSrc;
                                             }, 30); 
+                                        }
+                                    } else if (iframe.getAttribute('srcdoc')) {
+                                        // Toggle srcdoc to force re-render when switching tabs
+                                        if (iframe.dataset.isReloading !== 'true') {
+                                            iframe.dataset.isReloading = 'true';
+                                            const currentDoc = iframe.getAttribute('srcdoc');
+                                            if (loadingIndicator) loadingIndicator.style.display = 'flex';
+                                            iframe.style.opacity = '0';
+                                            const handleLoad = () => {
+                                                if (loadingIndicator) loadingIndicator.style.display = 'none';
+                                                iframe.style.opacity = '1';
+                                                cleanupListeners();
+                                            };
+                                            const handleError = () => {
+                                                if (loadingIndicator) loadingIndicator.style.display = 'none';
+                                                cleanupListeners();
+                                            };
+                                            const cleanupListeners = () => {
+                                                iframe.removeEventListener('load', handleLoad);
+                                                iframe.removeEventListener('error', handleError);
+                                                delete iframe.dataset.isReloading; 
+                                            };
+                                            iframe.addEventListener('load', handleLoad);
+                                            iframe.addEventListener('error', handleError);
+                                            iframe.setAttribute('srcdoc', '');
+                                            setTimeout(() => {
+                                                iframe.setAttribute('srcdoc', currentDoc);
+                                            }, 30);
                                         }
                                     } else if (loadingIndicator) {
                                         try {
@@ -4009,7 +4057,7 @@
                                 const link = document.createElement('a');
                                 link.style.display = 'none';
                                 document.body.appendChild(link);
-                                const response = await fetch(`/download/${format}`);
+                                const response = await taxago.fetch(`/download/${format}`);
                                 if (!response.ok) {
                                     throw new Error(`Download failed for ${format}`);
                                 }
@@ -4210,19 +4258,26 @@
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            const newAnalysisButton = document.querySelector('button[onclick="clearDataAndRedirect()"]');
+            const newAnalysisButton = document.querySelector('#new-analysis-btn');
             if (newAnalysisButton) {
                 newAnalysisButton.removeAttribute('onclick');
                 newAnalysisButton.addEventListener('click', async function() {
+                    console.log('[TaxaGO] New Analysis button clicked');
                     try {
-                        await fetch('/clear-results', { method: 'POST' });
+                        console.log('[TaxaGO] Calling /clear-results');
+                        await taxago.fetch('/clear-results', { method: 'POST' });
+                        console.log('[TaxaGO] /clear-results completed');
                         
-                        await fetch('/clear-data-folder', { method: 'POST' });
+                        console.log('[TaxaGO] Calling /clear-data-folder');
+                        await taxago.fetch('/clear-data-folder', { method: 'POST' });
+                        console.log('[TaxaGO] /clear-data-folder completed');
                         
-                        window.location.href = '/';
+                        document.body.classList.add('page-fade-out');
+                        setTimeout(() => { window.location.href = 'index.html'; }, 250);
                     } catch (error) {
                         console.error('Error clearing data:', error);
-                        window.location.href = '/';
+                        document.body.classList.add('page-fade-out');
+                        setTimeout(() => { window.location.href = 'index.html'; }, 250);
                     }
                 });
             }
@@ -4237,7 +4292,7 @@
                 changeResultsButton.style.cursor = 'not-allowed';
                 changeResultsButton.title = 'Change Results is not available for single testing';
                 
-                fetch('/check-testing-type')
+                taxago.fetch('/check-testing-type')
                     .then(response => response.json())
                     .then(data => {
                         console.log("Testing type check result:", data); 
@@ -4506,11 +4561,11 @@
             const selectionList = modal.querySelector('#selectionList');
             
             try {
-                const combinedFilesResponse = await fetch('/get-combined-files');
+                const combinedFilesResponse = await taxago.fetch('/get-combined-files');
                 const combinedFiles = await combinedFilesResponse.json();
                 const hasCombinedResults = combinedFilesResponse.ok && combinedFiles.length > 0;
                 
-                const singleFilesResponse = await fetch('/get-single-files');
+                const singleFilesResponse = await taxago.fetch('/get-single-files');
                 const singleFiles = singleFilesResponse.ok ? await singleFilesResponse.json() : [];
                 
                 if (hasCombinedResults) {
@@ -4635,7 +4690,7 @@
                         modal.style.display = 'none';
                         
                         try {
-                            const copyResponse = await fetch('/copy-results-file', {
+                            const copyResponse = await taxago.fetch('/copy-results-file', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -4649,7 +4704,8 @@
                             
                             localStorage.setItem('selectedBackground', JSON.stringify(selectedOption));
                             
-                            window.location.reload();
+                            document.body.classList.add('page-fade-out');
+                            setTimeout(()=>{ window.location.reload(); }, 250);
                         } catch (error) {
                             console.error('Error copying results file:', error);
                             alert('Error copying results file: ' + error.message);
@@ -4891,8 +4947,8 @@
                 
                 try {
                     const goTerms = Array.from(selectedTerms);
-                    
-                    const response = await fetch('/run-ancestor-analysis', {
+                    console.log(`\n[TaxaGO] taxago ancestor ${goTerms.join(' ')}\n`);
+                    const response = await taxago.fetch('/run-ancestor-analysis', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -4923,12 +4979,12 @@
                                         </button>
                                         <span class="tooltip-text">Click on any term box in the graph to open its QuickGO page in a new tab.</span>
                                     </div>
-                                    <a href="/ancestor-graph" download="ancestor_graph.pdf" class="fullscreen-button" style="background-color: var(--success-color);">
+                                    <button class="fullscreen-button" style="background-color: var(--success-color);" onclick="downloadAncestorPDF()">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                         </svg>
                                         Download PDF
-                                    </a>
+                                    </button>
                                     <button class="fullscreen-button" onclick="toggleDiagramFullscreen()">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
@@ -4948,7 +5004,7 @@
                         </div>
                     `;
                     
-                    fetch('/ancestor-mermaid')
+                    taxago.fetch('/ancestor-mermaid')
                         .then(response => {
                             if (!response.ok) {
                                 throw new Error('Failed to fetch Mermaid diagram');
@@ -4959,22 +5015,29 @@
                             const mermaidContainer = document.getElementById('mermaid-diagram');
                             
                             if (mermaidCode.trim() === "No common ancestors found between the provided GO terms") {
+                                // Hide all control buttons (info, download, fullscreen)
                                 const controlsContainer = document.querySelector('#ancestor-graph-container .fullscreen-button').closest('div');
                                 if (controlsContainer) {
                                     controlsContainer.style.display = 'none';
                                 }
                                 
                                 mermaidContainer.innerHTML = `
-                                    <div style="padding: 3rem; text-align: center; color: var(--text-secondary); background-color: var(--card-background); border-radius: 0.5rem; min-height: 300px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                                        <div>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 1.5rem; color: var(--text-tertiary);">
-                                                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
-                                                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
-                                                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
-                                                <line x1="2" y1="2" x2="22" y2="22"></line>
-                                            </svg>
-                                            <p style="font-size: 1.25rem; font-weight: 500; margin-bottom: 0.75rem;">No Common Ancestors Found</p>
-                                            <p style="color: var(--text-tertiary); max-width: 400px; margin: 0 auto; line-height: 1.5;">The selected GO terms do not share any common ancestors in the GO hierarchy. Try selecting terms from the same branch or more closely related biological processes.</p>
+                                    <div style="padding: 4rem 2rem; text-align: center; color: var(--text-secondary); background: linear-gradient(135deg, var(--card-background) 0%, rgba(255,255,255,0.05) 100%); border-radius: 0.75rem; min-height: 350px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid rgba(255,255,255,0.1);">
+                                        <div style="max-width: 500px;">
+                                            <div style="margin-bottom: 2rem;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-tertiary); opacity: 0.7;">
+                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                    <path d="M8 12h8"></path>
+                                                    <path d="M12 8v8"></path>
+                                                </svg>
+                                            </div>
+                                            <h3 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-primary);">No Common Ancestors Found</h3>
+                                            <p style="color: var(--text-secondary); font-size: 1.1rem; line-height: 1.6; margin-bottom: 1.5rem;">The GO terms you selected don't share any common ancestors in the Gene Ontology hierarchy.</p>
+                                            <div style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 0.5rem; border-left: 4px solid var(--primary-color);">
+                                                <p style="color: var(--text-tertiary); font-size: 0.95rem; line-height: 1.5; margin: 0;">
+                                                    <strong>💡 Tip:</strong> Try selecting GO terms from the same biological process, molecular function, or cellular component branch for better results.
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                 `;
@@ -5010,11 +5073,29 @@
                         })
                         .catch(error => {
                             console.error('Error fetching Mermaid diagram:', error);
+                            // Hide all control buttons (info, download, fullscreen)
+                            const controlsContainer = document.querySelector('#ancestor-graph-container .fullscreen-button').closest('div');
+                            if (controlsContainer) {
+                                controlsContainer.style.display = 'none';
+                            }
+                            
                             document.getElementById('mermaid-diagram').innerHTML = `
-                                <div style="padding: 2rem; color: var(--error-color);">
-                                    Error loading diagram. Please try again.
-                                    <div style="margin-top: 1rem;">
-                                        <a href="/ancestor-graph" target="_blank" rel="noopener noreferrer" style="color: var(--primary-color);">View as PDF instead</a>
+                                <div style="padding: 4rem 2rem; text-align: center; color: var(--text-secondary); background: linear-gradient(135deg, var(--card-background) 0%, rgba(255,255,255,0.05) 100%); border-radius: 0.75rem; min-height: 350px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid rgba(255,255,255,0.1);">
+                                    <div style="max-width: 500px;">
+                                        <div style="margin-bottom: 2rem;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-tertiary); opacity: 0.7;">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <path d="M8 12h8"></path>
+                                                <path d="M12 8v8"></path>
+                                            </svg>
+                                        </div>
+                                        <h3 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-primary);">No Common Ancestors Found</h3>
+                                        <p style="color: var(--text-secondary); font-size: 1.1rem; line-height: 1.6; margin-bottom: 1.5rem;">The GO terms you selected don't share any common ancestors in the Gene Ontology hierarchy.</p>
+                                        <div style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 0.5rem; border-left: 4px solid var(--primary-color);">
+                                            <p style="color: var(--text-tertiary); font-size: 0.95rem; line-height: 1.5; margin: 0;">
+                                                <strong>💡 Tip:</strong> Try selecting GO terms from the same biological process, molecular function, or cellular component branch for better results.
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             `;
@@ -5251,17 +5332,23 @@
                 
                 try {
                     const goTerms = Array.from(selectedTerms);
-                    
                     const similarityMethod = document.querySelector('input[name="similarity-method"]:checked').value;
                     
-                    const response = await fetch('/run-semantic-similarity', {
+                    console.log(`\n[TaxaGO] taxago similarity ${similarityMethod} ${goTerms.join(' ')}\n`);
+                    
+                    // Get propagation settings from URL parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const propagateEnabled = urlParams.get('propagate_enabled') === 'true';
+                    
+                    const response = await taxago.fetch('/run-semantic-similarity', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({ 
                             go_terms: goTerms,
-                            method: similarityMethod
+                            method: similarityMethod,
+                            propagate_enabled: propagateEnabled
                         }),
                     });
                     
@@ -5269,10 +5356,29 @@
                         throw new Error('Failed to run semantic similarity analysis');
                     }
                     
-                    const result = await response.json();
+                    // Fetch the semantic similarity results from the TSV file
+                    const similarityResponse = await taxago.fetch('/semantic-similarity-results');
+                    if (!similarityResponse.ok) {
+                        throw new Error('Failed to fetch semantic similarity results');
+                    }
+                    
+                    const tsvData = await similarityResponse.text();
+                    const lines = tsvData.trim().split('\n');
+                    const similarityScores = {};
+                    
+                    // Parse TSV data
+                    for (let i = 1; i < lines.length; i++) { // Skip header
+                        const parts = lines[i].split('\t');
+                        if (parts.length >= 3) {
+                            const term1 = parts[0];
+                            const term2 = parts[1];
+                            const score = parseFloat(parts[2]);
+                            similarityScores[`${term1}-${term2}`] = score;
+                            similarityScores[`${term2}-${term1}`] = score; // Symmetric
+                        }
+                    }
                     
                     document.getElementById('semantic-similarity-results').style.display = 'block';
-                    
                     document.getElementById('semantic-similarity-results').scrollIntoView({ behavior: 'smooth' });
                     
                     const resultsContainer = document.getElementById('similarity-results-container');
@@ -5309,8 +5415,8 @@
                                             <tr>
                                                 <td style="padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); font-weight: 500; background-color: var(--card-background); min-width: 120px;">${term1}</td>
                                                 ${goTerms.map(term2 => {
-                                                    const score = result.similarityScores[`${term1}-${term2}`] || 
-                                                                 result.similarityScores[`${term2}-${term1}`] || 
+                                                    const score = similarityScores[`${term1}-${term2}`] || 
+                                                                 similarityScores[`${term2}-${term1}`] || 
                                                                  (term1 === term2 ? 1 : 0);
                                                     
                                                     const intensity = Math.min(Math.max(score, 0), 1);
@@ -5381,6 +5487,22 @@
                 
                 document.querySelector('input[name="similarity-method"][value="resnik"]').checked = true;
                 
+            }
+        }
+
+        async function downloadAncestorPDF() {
+            try {
+                const response = await taxago.fetch('/ancestor-graph');
+                if (!response.ok) {
+                    throw new Error('Failed to download ancestor PDF');
+                }
+                const blob = await response.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                await taxago.saveFile(new Uint8Array(arrayBuffer), 'common_ontology_graph.pdf');
+                console.log('[TaxaGO] Saved ancestor PDF to Downloads folder');
+            } catch (error) {
+                console.error('Error downloading ancestor PDF:', error);
+                alert('Error downloading PDF. Please try again.');
             }
         }
     </script>

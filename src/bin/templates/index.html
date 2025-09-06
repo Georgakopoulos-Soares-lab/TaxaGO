@@ -1854,8 +1854,10 @@
             e.stopPropagation();  // Prevent event from bubbling up to dropzone
             
             try {
+                console.log('Demo button clicked, fetching demo file...');
+                
                 // Fetch the demo file
-                const response = await fetch('demo/user_example.csv');
+                const response = await taxago.fetch('demo/user_example.csv');
                 if (!response.ok) {
                     throw new Error(`Failed to fetch demo file: ${response.statusText}`);
                 }
@@ -1865,21 +1867,19 @@
                 // Create a File object from the blob
                 const file = new File([blob], 'user_example.csv', { type: 'text/csv' });
                 
-                // Create FormData and append the file
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('dropzone', 'study-population');
-                
                 // Upload the file to the server
-                console.log('Uploading demo file to server...');
-                const uploadResponse = await fetch('/upload-file', {
-                    method: 'POST',
-                    body: formData
-                });
+                console.log('Uploading demo file to backend filesystem...');
+                const buffer = await file.arrayBuffer();
+                console.log('Buffer size:', buffer.byteLength);
+                
+                const uploadResponse = await taxago.uploadFile(buffer, file.name, 'study-population');
+                console.log('Upload response:', uploadResponse);
                 
                 if (!uploadResponse.ok) {
-                    throw new Error(`Failed to upload demo file: ${uploadResponse.statusText}`);
+                    throw new Error(`Failed to upload demo file: ${uploadResponse.error || 'Unknown error'}`);
                 }
+                
+                selectedFilePath = uploadResponse.savedAs;
                 console.log('Demo file uploaded successfully');
                 
                 // Get the dropzone and trigger the file selection
@@ -1935,19 +1935,11 @@
             newInput.style.display = 'none';
             
             if (inputId === 'new-file-input') {
-                // For background population, accept .txt files and enable directory selection
+                // For background population, accept .txt files (validation happens in change handler)
                 newInput.accept = '.txt';
-                newInput.setAttribute('webkitdirectory', '');
-                newInput.setAttribute('directory', '');
                 newInput.setAttribute('multiple', '');
                 
-                // Add change event listener to handle both single and multiple files
-                newInput.addEventListener('change', function(e) {
-                    const files = e.target.files;
-                    if (files && files.length > 0) {
-                        console.log(`Selected ${files.length} files`);
-                    }
-                });
+                // Note: File picker validation happens in setupDropzone
             } else {
                 // For other inputs, set appropriate accept attribute
                 if (inputId === 'file-input') {
@@ -2025,9 +2017,15 @@
                         
                         // Upload each valid file
                         console.log(`Uploading ${validFiles.length} valid background files`);
-                        validFiles.forEach((file, index) => {
+                        validFiles.forEach(async (file, index) => {
                             console.log(`Uploading file ${index + 1}/${validFiles.length}: ${file.name}`);
-                            saveFileInfo(file.name, file.path || URL.createObjectURL(file), 'background-population', file);
+                            const buffer = await file.arrayBuffer();
+                            const uploadResponse = await taxago.uploadFile(buffer, file.name, 'background-population');
+                            if (uploadResponse.ok) {
+                                console.log(`Successfully uploaded: ${file.name}`);
+                            } else {
+                                console.error(`Failed to upload: ${file.name}`);
+                            }
                         });
                         
                         checkAnalysisReady();
@@ -2104,9 +2102,15 @@
                         
                         // Upload each valid file
                         console.log(`Uploading ${validFiles.length} valid background files`);
-                        validFiles.forEach((file, index) => {
+                        validFiles.forEach(async (file, index) => {
                             console.log(`Uploading file ${index + 1}/${validFiles.length}: ${file.name}`);
-                            saveFileInfo(file.name, file.path || URL.createObjectURL(file), 'background-population', file);
+                            const buffer = await file.arrayBuffer();
+                            const uploadResponse = await taxago.uploadFile(buffer, file.name, 'background-population');
+                            if (uploadResponse.ok) {
+                                console.log(`Successfully uploaded: ${file.name}`);
+                            } else {
+                                console.error(`Failed to upload: ${file.name}`);
+                            }
                         });
                         
                         checkAnalysisReady();
@@ -2170,7 +2174,7 @@
                     } else if (dropzoneId === 'new-drop-area') {
                         // For background population, always delete the entire folder
                         // Send a request to clear the background_population folder
-                        fetch('/clear-background-folder', {
+                        taxago.fetch('/clear-background-folder', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -2387,29 +2391,23 @@
             try {
                 console.log(`Preparing to upload file: ${filename}, dropzone: ${dropzone}`);
                 
-                // Create a FormData object to send the file
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('filename', filename);
-                formData.append('dropzone', dropzone);
-                
                 console.log(`Sending file upload request for: ${filename}`);
-                
-                // First upload the file
-                const uploadResponse = await fetch('/upload-file', {
-                    method: 'POST',
-                    body: formData
-                });
+                const buffer = await file.arrayBuffer();
+                const uploadResponse = await taxago.uploadFile(buffer, filename, dropzone);
+                if (uploadResponse.ok && dropzone === 'study-population') {
+                    selectedFilePath = uploadResponse.savedAs;
+                }
+
                 
                 if (!uploadResponse.ok) {
-                    console.error('Failed to upload file:', await uploadResponse.text());
+                    console.error('Failed to upload file');
                     return;
                 }
                 
                 console.log(`File uploaded successfully: ${filename}`);
                 
                 // Then save the file info
-                const response = await fetch('/save-file-info', {
+                const response = await taxago.fetch('/save-file-info', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2435,7 +2433,7 @@
         // Function to delete file information from the server
         async function deleteFileInfo(filename) {
             try {
-                const response = await fetch('/delete-file-info', {
+                const response = await taxago.fetch('/delete-file-info', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2484,7 +2482,7 @@
                 
                 // First, clear previous results
                 try {
-                    await fetch('/clear-results', {
+                    await taxago.fetch('/clear-results', {
                         method: 'POST',
                     });
                 } catch (clearError) {
@@ -2500,7 +2498,7 @@
                 // Create URL parameters
                 const propagateEnabled = document.getElementById('propagate-toggle').checked;
                 const paramsObj = {
-                    study_pop_path: file.name,
+                    study_pop_path: selectedFilePath || file.name,
                     odds_ratio_threshold: document.getElementById('odds-ratio-input').value,
                     n_protein_threshold: document.getElementById('n-protein-input').value,
                     lineage_percentage: document.getElementById('lineage-percentage-input').value,
@@ -2520,6 +2518,13 @@
                 if (propagateEnabled) {
                     paramsObj.propagate_algorithm = document.querySelector('input[name="propagate-algorithm"]:checked')?.value || 'classic';
                 }
+                // Save analysis settings to localStorage for semantic similarity
+                localStorage.setItem('analysisSettings', JSON.stringify({
+                    propagate_enabled: propagateEnabled,
+                    propagate_algorithm: propagateEnabled ? 
+                        (document.querySelector('input[name="propagate-algorithm"]:checked')?.value || 'classic') : null
+                }));
+                
                 const params = new URLSearchParams(paramsObj);
 
                 // Print the command that would be executed
@@ -2556,7 +2561,7 @@
                 }
 
                 // Manually build the query string to ensure evidence_codes is always present
-                let url = '/loading?';
+                let url = 'loading.html?';
                 url += Array.from(params.entries())
                     .filter(([key]) => key !== 'evidence_codes')
                     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)

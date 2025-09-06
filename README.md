@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.svg" alt="TaxaGO Logo" width="500"/>
+  <img src="static/logo.svg" alt="TaxaGO Logo" width="500"/>
 </p>
 
 ---

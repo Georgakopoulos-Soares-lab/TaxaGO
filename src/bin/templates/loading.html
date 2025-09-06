@@ -245,7 +245,8 @@
         .selection-list:hover::-webkit-scrollbar-thumb {
             opacity: 1;
         }
-    </style>
+      body.page-fade-out { opacity: 0; transition: opacity 0.25s ease-in-out; }
+</style>
 </head>
 <body>
     <div class="loading-container" id="loadingContainer" style="display: none;">
@@ -287,7 +288,10 @@
                     propagate_enabled: urlParams.get('propagate_enabled') === 'true',
                     combine_enabled: urlParams.get('combine_enabled') === 'true',
                     taxonomic_level: urlParams.get('taxonomic_level'),
-                    multiple_testing: urlParams.get('multiple_testing') === 'true'
+                    multiple_testing: urlParams.get('multiple_testing') === 'true',
+                    propagate_algorithm: urlParams.get('propagate_algorithm'),
+                    vcv_matrix_path: urlParams.get('vcv_matrix_path'),
+                    evidence_codes: urlParams.get('evidence_codes')
                 };
 
                 console.log("Analysis parameters:", analysisParams);
@@ -295,7 +299,7 @@
                 const isMultipleTesting = urlParams.get('multiple_testing') === 'true';
                 console.log("Is multiple testing:", isMultipleTesting);
 
-                const response = await fetch('/execute', {
+                const response = await taxago.fetch('/execute', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -317,7 +321,10 @@
                     if (!isMultipleTesting) {
                         const oddsRatio = urlParams.get('odds_ratio_threshold');
                         const nProtein = urlParams.get('n_protein_threshold');
-                        window.location.href = `/results?odds_ratio_threshold=${oddsRatio}&n_protein_threshold=${nProtein}`;
+                        const propagateEnabled = urlParams.get('propagate_enabled');
+                        document.body.classList.add('page-fade-out');
+                        const dest = `results.html?odds_ratio_threshold=${oddsRatio}&n_protein_threshold=${nProtein}&propagate_enabled=${propagateEnabled}`;
+                        setTimeout(()=>{ window.location.href = dest; }, 250);
                     } else {
                         await loadCategories();
                     }
@@ -332,7 +339,7 @@
 
         async function loadCategories() {
             try {
-                const categoriesResponse = await fetch('/get-saved-categories');
+                const categoriesResponse = await taxago.fetch('/get-saved-categories');
                 if (!categoriesResponse.ok) {
                     throw new Error('Failed to load categories');
                 }
@@ -356,7 +363,7 @@
                     combinedGroup.appendChild(combinedTitle);
                     
                     try {
-                        const combinedFilesResponse = await fetch('/get-combined-files');
+                        const combinedFilesResponse = await taxago.fetch('/get-combined-files');
                         if (combinedFilesResponse.ok) {
                             const combinedFiles = await combinedFilesResponse.json();
                             
@@ -426,7 +433,7 @@
                     singleGroup.appendChild(singleTitle);
                     
                     try {
-                        const singleFilesResponse = await fetch('/get-single-files');
+                        const singleFilesResponse = await taxago.fetch('/get-single-files');
                         if (singleFilesResponse.ok) {
                             const singleFiles = await singleFilesResponse.json();
                             
@@ -499,7 +506,7 @@
                     singleGroup.appendChild(singleTitle);
                     
                     try {
-                        const singleFilesResponse = await fetch('/get-single-files');
+                        const singleFilesResponse = await taxago.fetch('/get-single-files');
                         if (singleFilesResponse.ok) {
                             const singleFiles = await singleFilesResponse.json();
                             
@@ -579,7 +586,7 @@
                 modal.style.display = 'none';
                 
                 try {
-                    const copyResponse = await fetch('/copy-results-file', {
+                    const copyResponse = await taxago.fetch('/copy-results-file', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -595,14 +602,20 @@
                     const urlParams = new URLSearchParams(window.location.search);
                     const oddsRatio = urlParams.get('odds_ratio_threshold');
                     const nProtein = urlParams.get('n_protein_threshold');
-                    
+                    const propagateEnabled = urlParams.get('propagate_enabled');
+                    let dest;
                     if (selectedOption.type === 'combined_file') {
-                        window.location.href = `/results?odds_ratio_threshold=${oddsRatio}&n_protein_threshold=${nProtein}&combined_file=${encodeURIComponent(selectedOption.filename)}`;
+                        dest = `results.html?odds_ratio_threshold=${oddsRatio}&n_protein_threshold=${nProtein}&propagate_enabled=${propagateEnabled}&combined_file=${encodeURIComponent(selectedOption.filename)}`;
                     } else if (selectedOption.type === 'single_file') {
-                        window.location.href = `/results?odds_ratio_threshold=${oddsRatio}&n_protein_threshold=${nProtein}&single_file=${encodeURIComponent(selectedOption.filename)}`;
+                        dest = `results.html?odds_ratio_threshold=${oddsRatio}&n_protein_threshold=${nProtein}&propagate_enabled=${propagateEnabled}&single_file=${encodeURIComponent(selectedOption.filename)}`;
                     } else {
-                        window.location.href = `/results?odds_ratio_threshold=${oddsRatio}&n_protein_threshold=${nProtein}&selected_background=${encodeURIComponent(JSON.stringify(selectedOption))}`;
+                        dest = `results.html?odds_ratio_threshold=${oddsRatio}&n_protein_threshold=${nProtein}&propagate_enabled=${propagateEnabled}&selected_background=${encodeURIComponent(JSON.stringify(selectedOption))}`;
                     }
+                    // Hide modal and apply fade-out
+                    modal.style.display = 'none';
+                    document.body.classList.remove('modal-open');
+                    document.body.classList.add('page-fade-out');
+                    setTimeout(() => { window.location.href = dest; }, 250);
                 } catch (error) {
                     console.error('Error copying results file:', error);
                     alert('Error copying results file: ' + error.message);

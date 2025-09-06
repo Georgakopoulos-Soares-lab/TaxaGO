@@ -1,0 +1,36 @@
+{
+  "name": "taxago",
+  "version": "0.1.0",
+  "description": "A phylogenetically-aware Gene Ontology Enrichment Analysis tool with unified scoring across taxonomic levels",
+  "main": "electron/main.js",
+  "scripts": {
+    "build": "node scripts/build-backend.js",
+    "package": "node scripts/package-app.js",
+    "dev": "cd electron && npm run dev",
+    "install-electron": "cd electron && npm install",
+    "build-electron": "cd electron && npm run build",
+    "dist": "cd electron && npm run dist",
+    "clean": "rm -rf electron/dist electron/node_modules target"
+  },
+  "keywords": [
+    "bioinformatics",
+    "gene-ontology",
+    "enrichment-analysis",
+    "phylogenetics",
+    "rust",
+    "electron"
+  ],
+  "author": "TaxaGO Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/taxago.git"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "sharp": "^0.34.3"
+  }
+}
