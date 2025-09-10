@@ -1,10 +1,11 @@
 use std::env::var;
 use std::fs;
-use std::io::BufReader;
+use std::io::{BufReader, copy};
 use std::path::Path;
 use flate2::bufread::GzDecoder;
 use tar::Archive;
 use std::error::Error;
+use std::time::Duration;
 use std::collections::HashSet;
 use duct::cmd;
 
@@ -14,8 +15,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let dest_path = Path::new(&cargo_home).join("taxago_assets");
 
     if !source_file.exists() {
-        println!("cargo::error=taxago_assets.tar.gz is not found! Make sure you have downloaded it from the Zenodo");
-        return Ok(());
+        let url = "https://zenodo.org/records/14860780/files/taxago_assets.tar.gz?download=1";
+        download_from_zenodo(url, source_file)?;
     }
 
     let extract_marker = dest_path.join(".extracted");
@@ -39,6 +40,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     run_mermaid_install()?;
     Ok(())
 }
+
+fn download_from_zenodo(url: &str, out_path: &Path) -> Result<(), Box<dyn Error>> {
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("build.rs downloader")
+        .timeout(Duration::from_secs(300))
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()?;
+
+    let mut resp = client.get(url).send()?.error_for_status()?;
+    let mut file = fs::File::create(out_path)?;
+    copy(&mut resp, &mut file)?;
+    Ok(())
+}
+
 
 fn extract_taxago_assets(
     source: &Path, 
