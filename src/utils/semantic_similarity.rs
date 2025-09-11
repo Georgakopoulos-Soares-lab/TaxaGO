@@ -93,8 +93,6 @@ impl TermPair {
     }
 }
 
-
-
 pub const IS_A_WEIGHT: f64 = 0.8;
 pub const PART_OF_WEIGHT: f64 = 0.6;
 

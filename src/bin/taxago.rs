@@ -9,7 +9,6 @@ use std::env::var;
 use std::process::ExitCode;
 use rustc_hash::{FxHashMap, FxHashSet};
 use daggy::NodeIndex;
-use lazy_static::lazy_static;
 use std::path::PathBuf;
 use dirs::home_dir;
 
@@ -25,61 +24,22 @@ use TaxaGO::analysis::{
     count_propagation::*,
     phylogenetic_meta_analysis::*,
     enrichment_plots::*
-
 };
 
-lazy_static! {
-    static ref DEFAULT_OBO_PATH: String = {
-        let cargo_home = var("CARGO_HOME")
-            .unwrap_or_else(|_| {
-                home_dir()
-                    .expect("Could not determine home directory")
-                    .join(".cargo")
-                    .to_string_lossy()
-                    .into_owned()
-            });
-        PathBuf::from(cargo_home)
-            .join("taxago_assets")
-            .join("go.obo")
-            .to_string_lossy()
-            .into_owned()
-    };
-}
-
-lazy_static! {
-    static ref DEFAULT_BACKGROUND: String = {
-        let cargo_home = var("CARGO_HOME")
-            .unwrap_or_else(|_| {
-                home_dir()
-                    .expect("Could not determine home directory")
-                    .join(".cargo")
-                    .to_string_lossy()
-                    .into_owned()
-            });
-        PathBuf::from(cargo_home)
-            .join("taxago_assets")
-            .join("background_pop")
-            .to_string_lossy()
-            .into_owned()
-    };
-}
-
-lazy_static! {
-    static ref DEFAULT_LINEAGE: String = {
-        let cargo_home = var("CARGO_HOME")
-            .unwrap_or_else(|_| {
-                home_dir()
-                    .expect("Could not determine home directory")
-                    .join(".cargo")
-                    .to_string_lossy()
-                    .into_owned()
-            });
-        PathBuf::from(cargo_home)
-            .join("taxago_assets")
-            .join("lineage.txt")
-            .to_string_lossy()
-            .into_owned()
-    };
+fn get_default_asset_path(filename: &str) -> String {
+    let cargo_home = var("CARGO_HOME")
+        .unwrap_or_else(|_| {
+            home_dir()
+                .expect("Could not determine home directory")
+                .join(".cargo")
+                .to_string_lossy()
+                .into_owned()
+        });
+    PathBuf::from(cargo_home)
+        .join("taxago_assets")
+        .join(filename)
+        .to_string_lossy()
+        .into_owned()
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -103,9 +63,8 @@ struct CliArgs {
         long = "obo",
         value_name = "FILE",
         help = "Path to the Gene Ontology file in OBO format.",
-        default_value_t = DEFAULT_OBO_PATH.to_string(),
     )]
-    obo_file: String,
+    obo_file: Option<String>,
     
     #[arg(
         short = 's',
@@ -121,9 +80,8 @@ struct CliArgs {
         long = "background",
         value_name = "DIRECTORY",
         help = "Directory containing background populations.",
-        default_value_t = DEFAULT_BACKGROUND.to_string(),
     )]
-    background_pop: String,
+    background_pop: Option<String>,
 
     #[arg(
         short = 'e',
@@ -249,6 +207,13 @@ struct CliArgs {
 fn main() -> ExitCode{
     let cli_args: CliArgs = CliArgs::parse();
     
+    let default_obo_path = get_default_asset_path("go.obo");
+    let default_background_path = get_default_asset_path("background_pop");
+    let default_lineage_path = get_default_asset_path("lineage.txt");
+    
+    let obo_file = cli_args.obo_file.unwrap_or(default_obo_path);
+    let background_pop = cli_args.background_pop.unwrap_or(default_background_path);
+    
     let cargo_home = var("CARGO_HOME")
             .unwrap_or_else(|_| {
                 home_dir()
@@ -274,14 +239,14 @@ fn main() -> ExitCode{
         eprintln!("Error creating output directory: {}", e);
     });
     
-    let obo_file = PathBuf::from(&cli_args.obo_file);
+    let obo_file_path = PathBuf::from(&obo_file);
 
-    println!("\nReading ontology information from: {}", &obo_file.to_string_lossy());
+    println!("\nReading ontology information from: {}", &obo_file_path.to_string_lossy());
 
-     let ontology = match parse_obo_file(&obo_file) {
+     let ontology = match parse_obo_file(&obo_file_path) {
         Ok(parsed_ontology) => parsed_ontology,
         Err(e) => {
-            eprintln!("\nError processing OBO file '{}':", cli_args.obo_file);
+            eprintln!("\nError processing OBO file '{}':", obo_file);
             eprintln!("{}", e);
             return ExitCode::FAILURE; 
         }
@@ -292,7 +257,7 @@ fn main() -> ExitCode{
     let (ontology_graph, go_id_to_node_index) = match build_ontology_graph(&ontology) {
         Ok(graph_data) => graph_data,
         Err(e) => {
-            eprintln!("\nError building ontology graph from OBO file '{}':", cli_args.obo_file);
+            eprintln!("\nError building ontology graph from OBO file '{}':", obo_file);
             eprintln!("{}", e);
             return ExitCode::FAILURE;
         }
@@ -311,7 +276,7 @@ fn main() -> ExitCode{
         &root_go_ids
     );
     
-    println!("Reading background populations from: {}\n", &cli_args.background_pop);
+    println!("Reading background populations from: {}\n", &background_pop);
     let taxon_ids: FxHashSet<TaxonID> = match collect_taxon_ids(&PathBuf::from(&cli_args.study_pop)) {
         Ok(taxon_ids) => taxon_ids,
         Err(e) => {
@@ -331,7 +296,7 @@ fn main() -> ExitCode{
 
     let mut background_population = match BackgroundPop::read_background_pop(
         &taxon_ids, 
-        &cli_args.background_pop,
+        &background_pop,
         &categories
     ) {
         Ok(Some(background_pop)) => {
@@ -339,7 +304,7 @@ fn main() -> ExitCode{
             background_pop
         },
         Ok(None) => {
-            eprintln!("Error: No background population data could be loaded from directory '{}'", cli_args.background_pop);
+            eprintln!("Error: No background population data could be loaded from directory '{}'", background_pop);
             return ExitCode::FAILURE;
         },
         Err(e) => {
@@ -463,10 +428,10 @@ fn main() -> ExitCode{
         cli_args.min_odds_ratio
     );
         
-    let taxid_species_map = match taxid_to_species(DEFAULT_LINEAGE.to_string()) {
+    let taxid_species_map = match taxid_to_species(default_lineage_path.clone()) {
         Ok(map) => map,
         Err(e) => {
-            eprintln!("\nError reading taxonomic lineage information from '{}':", DEFAULT_LINEAGE.to_string());
+            eprintln!("\nError reading taxonomic lineage information from '{}':", default_lineage_path);
             eprintln!("{}", e);
             return ExitCode::FAILURE;
         }
@@ -538,12 +503,12 @@ fn main() -> ExitCode{
     
     if let Some(level_to_combine) = &cli_args.combine_results {
 
-        println!("Reading taxonomic lineage information from: {}\n", DEFAULT_LINEAGE.to_string());
+        println!("Reading taxonomic lineage information from: {}\n", default_lineage_path);
         
-        let lineage = match read_lineage(DEFAULT_LINEAGE.to_string()) {
+        let lineage = match read_lineage(default_lineage_path.clone()) {
             Ok(lineage) => lineage,
             Err(e) => {
-                eprintln!("\nError reading taxonomic lineage information from '{}':", DEFAULT_LINEAGE.to_string());
+                eprintln!("\nError reading taxonomic lineage information from '{}':", default_lineage_path);
                 eprintln!("{}", e);
                 return ExitCode::FAILURE;
             }

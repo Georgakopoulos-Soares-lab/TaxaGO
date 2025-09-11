@@ -2,7 +2,6 @@ use clap::Parser;
 use rustc_hash::FxHashMap;
 use std::error::Error;
 use std::process::Command;
-use lazy_static::lazy_static;
 use std::path::PathBuf;
 use dirs::home_dir;
 use std::env::var;
@@ -11,22 +10,20 @@ use daggy::NodeIndex;
 use TaxaGO::parsers::obo_parser::*;
 use TaxaGO::utils::common_ancestor::*;
 
-lazy_static! {
-    static ref DEFAULT_OBO_PATH: String = {
-        let cargo_home = var("CARGO_HOME")
-            .unwrap_or_else(|_| {
-                home_dir()
-                    .expect("Could not determine home directory")
-                    .join(".cargo")
-                    .to_string_lossy()
-                    .into_owned()
-            });
-        PathBuf::from(cargo_home)
-            .join("taxago_assets")
-            .join("go.obo")
-            .to_string_lossy()
-            .into_owned()
-    };
+fn get_default_obo_path() -> String {
+    let cargo_home = var("CARGO_HOME")
+        .unwrap_or_else(|_| {
+            home_dir()
+                .expect("Could not determine home directory")
+                .join(".cargo")
+                .to_string_lossy()
+                .into_owned()
+        });
+    PathBuf::from(cargo_home)
+        .join("taxago_assets")
+        .join("go.obo")
+        .to_string_lossy()
+        .into_owned()
 }
 
 #[derive(Parser, Debug)]
@@ -37,10 +34,8 @@ struct CliArgs {
         long = "obo",
         value_name = "OBO_FILE",
         help = "Path to the Gene Ontology file in OBO format.",
-        default_value_t = DEFAULT_OBO_PATH.to_string(),
-    
     )]
-    obo_file: String,
+    obo_file: Option<String>,
     
     #[arg(
         short = 't',
@@ -83,7 +78,13 @@ fn parse_go_terms(terms: &str) -> Result<Vec<u32>, String> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let cli_args: CliArgs = CliArgs::parse();  
+    let cli_args: CliArgs = CliArgs::parse();
+    
+    // Calculate default path at runtime
+    let default_obo_path = get_default_obo_path();
+    
+    // Use provided value or default
+    let obo_file = cli_args.obo_file.unwrap_or(default_obo_path);
     
     let target_go_ids = match parse_go_terms(&cli_args.go_terms) {
         Ok(ids) => ids,
@@ -93,8 +94,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
     
-    let obo_file = PathBuf::from(&cli_args.obo_file);
-    let ontology = parse_obo_file(&obo_file)?;
+    let obo_file_path = PathBuf::from(&obo_file);
+    let ontology = parse_obo_file(&obo_file_path)?;
     let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
     
     let node_index_to_go_id: FxHashMap<NodeIndex, u32> = go_id_to_node_index

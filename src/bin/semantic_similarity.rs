@@ -1,7 +1,6 @@
 use clap::Parser;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::env::var;
-use lazy_static::lazy_static;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use dirs::home_dir;
@@ -15,40 +14,20 @@ use TaxaGO::utils::semantic_similarity::*;
 use TaxaGO::utils::common_ancestor::*;
 use TaxaGO::analysis::count_propagation::*;
 
-lazy_static! {
-    static ref DEFAULT_OBO_PATH: String = {
-        let cargo_home = var("CARGO_HOME")
-            .unwrap_or_else(|_| {
-                home_dir()
-                    .expect("Could not determine home directory")
-                    .join(".cargo")
-                    .to_string_lossy()
-                    .into_owned()
-            });
-        PathBuf::from(cargo_home)
-            .join("taxago_assets")
-            .join("go.obo")
-            .to_string_lossy()
-            .into_owned()
-    };
-}
-
-lazy_static! {
-    static ref DEFAULT_BACKGROUND: String = {
-        let cargo_home = var("CARGO_HOME")
-            .unwrap_or_else(|_| {
-                home_dir()
-                    .expect("Could not determine home directory")
-                    .join(".cargo")
-                    .to_string_lossy()
-                    .into_owned()
-            });
-        PathBuf::from(cargo_home)
-            .join("taxago_assets")
-            .join("background_pop")
-            .to_string_lossy()
-            .into_owned()
-    };
+fn get_default_asset_path(filename: &str) -> String {
+    let cargo_home = var("CARGO_HOME")
+        .unwrap_or_else(|_| {
+            home_dir()
+                .expect("Could not determine home directory")
+                .join(".cargo")
+                .to_string_lossy()
+                .into_owned()
+        });
+    PathBuf::from(cargo_home)
+        .join("taxago_assets")
+        .join(filename)
+        .to_string_lossy()
+        .into_owned()
 }
 
 #[derive(Parser, Debug)]
@@ -59,10 +38,8 @@ struct CliArgs {
         long = "obo",
         value_name = "OBO_FILE",
         help = "Path to the Gene Ontology file in OBO format.",
-        default_value_t = DEFAULT_OBO_PATH.to_string(),
-    
     )]
-    obo_file: String,
+    obo_file: Option<String>,
     
     #[arg(
         short='t',
@@ -78,7 +55,6 @@ struct CliArgs {
         value_name = "TAXON_IDS",
         help = "Comma-separated list of Taxon IDs [e.g., 9606,10090]",
         default_value = "9606",
-
     )]
     taxon_ids: String,
     
@@ -87,9 +63,8 @@ struct CliArgs {
         long = "background",
         value_name = "BACKGROUND_DIR",
         help = "Directory containing background populations.",
-        default_value_t = DEFAULT_BACKGROUND.to_string(),
     )]
-    background_dir: String,
+    background_dir: Option<String>,
 
     #[arg(
         short = 'd',
@@ -97,7 +72,6 @@ struct CliArgs {
         value_name = "RESULTS_DIR",
         help = "Directory to write results.",
         default_value = "./",
-
     )]
     output_dir: String,
     
@@ -121,13 +95,22 @@ struct CliArgs {
 
 fn main() -> Result<(), Box<dyn Error>> {
 
-    let cli_args: CliArgs = CliArgs::parse();  
+    let cli_args: CliArgs = CliArgs::parse();
+    
+    // Calculate default paths at runtime
+    let default_obo_path = get_default_asset_path("go.obo");
+    let default_background_path = get_default_asset_path("background_pop");
+    
+    // Use provided values or defaults
+    let obo_file = cli_args.obo_file.unwrap_or(default_obo_path);
+    let background_dir = cli_args.background_dir.unwrap_or(default_background_path);
+    
     create_dir_all(&cli_args.output_dir)?;
     
-    println!("\nReading ontology information from: {}\n\nBuilding ontology graph\n", &cli_args.obo_file);
+    println!("\nReading ontology information from: {}\n\nBuilding ontology graph\n", &obo_file);
 
-    let obo_file = PathBuf::from(&cli_args.obo_file);
-    let ontology = parse_obo_file(&obo_file)?;
+    let obo_file_path = PathBuf::from(&obo_file);
+    let ontology = parse_obo_file(&obo_file_path)?;
     let (ontology_graph, go_id_to_node_index) = build_ontology_graph(&ontology)?;
     
     let node_index_to_go_id: FxHashMap<NodeIndex, u32> = go_id_to_node_index
@@ -144,7 +127,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     propagation_order.reverse();
     
-    println!("Reading background populations from: {}\n", &cli_args.background_dir);
+    println!("Reading background populations from: {}\n", &background_dir);
     
     let taxon_ids: FxHashSet<TaxonID> = cli_args.taxon_ids.split(',')
                                                         .map(|s| s.trim())
@@ -160,7 +143,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut background_population = match BackgroundPop::read_background_pop(
         &taxon_ids, 
-        &cli_args.background_dir,
+        &background_dir,
         &categories
     )? {
         Some(background_pop) => {
