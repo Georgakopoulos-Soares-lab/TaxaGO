@@ -52,7 +52,7 @@
 ## 1. Graphical Abstract
 
 <p align="center">
-  <img src="abstract.png" alt="TaxaGO Logo" width="1000"/>
+  <img src="static/abstract.png" alt="TaxaGO Logo" width="1000"/>
 </p>
 
 ## 2. Benchmark Results
