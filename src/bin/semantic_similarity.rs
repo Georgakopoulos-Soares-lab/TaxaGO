@@ -97,11 +97,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let cli_args: CliArgs = CliArgs::parse();
     
-    // Calculate default paths at runtime
     let default_obo_path = get_default_asset_path("go.obo");
     let default_background_path = get_default_asset_path("background_pop");
     
-    // Use provided values or defaults
     let obo_file = cli_args.obo_file.unwrap_or(default_obo_path);
     let background_dir = cli_args.background_dir.unwrap_or(default_background_path);
     
@@ -169,7 +167,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         )?;
 
         background_population.propagate_counts(&taxon_ids, &ancestor_cache);
-        
     }
 
     let go_term_count: FxHashMap<u32, FxHashMap<u32, usize>> = background_population.go_term_count;
@@ -188,6 +185,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+
     let ic_results = calculate_information_content(
         &go_term_count,
         &expanded_terms,

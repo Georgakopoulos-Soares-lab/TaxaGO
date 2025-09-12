@@ -460,7 +460,7 @@ fn main() -> ExitCode{
                 cli_args.output_dir.display(), 
                 e 
             );
-            return ExitCode::FAILURE; 
+            // return ExitCode::FAILURE; 
         }
     }
     if cli_args.save_plots != PlotType::None {

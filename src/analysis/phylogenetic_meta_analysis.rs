@@ -95,9 +95,13 @@ pub fn svd_transform(
 
     let dim = s_nalgebra_vec.len();
     
-    let eps = 1e-8;
+    let eps = 1e-6;
     let inv_sqrt = DMatrix::from_fn(dim, dim, |r,c| if r==c { 
-        1.0 / s_nalgebra_vec[r].sqrt().max(eps) 
+        if s_nalgebra_vec[r] > eps {
+            1.0 / s_nalgebra_vec[r].sqrt()
+        } else {
+            0.0
+        }
     } else { 
         0.0 
     });

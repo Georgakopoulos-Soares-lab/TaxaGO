@@ -34,7 +34,6 @@ impl fmt::Display for Method {
     }
 }
 
-
 #[derive(Debug)]
 pub struct TermPair {
     pub term1: u32,
@@ -76,19 +75,18 @@ impl TermPair {
         pair.similarity = match method { 
             Method::Resnik => pair.mica.1,
             Method::Lin => {
-                if pair.ic_term1 == 0.0 || pair.ic_term2 == 0.0 || (pair.ic_term1 + pair.ic_term2) == 0.0 {
-                    0.0
-                } else {
-                    (2.0 * pair.mica.1) / (pair.ic_term1 + pair.ic_term2)
-                }
+                let denom = pair.ic_term1 + pair.ic_term2;
+                if denom == 0.0 { 0.0 } else { (2.0 * pair.mica.1) / denom }
             }
             Method::JiangConrath => {
-                let distance = pair.ic_term1 + pair.ic_term2 - 2.0 * pair.mica.1;
-                1.0 / (1.0 + distance.max(0.0)) 
+                let distance = (pair.ic_term1 + pair.ic_term2 - 2.0 * pair.mica.1).max(0.0);
+                1.0 / (1.0 + distance)
             },
             Method::Wang => {0.0}
-
         };
+        if !pair.similarity.is_finite() || pair.similarity < 0.0 {
+            pair.similarity = 0.0;
+        }
         pair
     }
 }
@@ -169,31 +167,26 @@ pub fn process_go_terms_input(input: &str) -> Result<FxHashSet<u32>, String> {
 pub fn calculate_information_content(
     background_go_term_counts: &FxHashMap<u32, FxHashMap<u32, usize>>,
     go_terms: &FxHashSet<u32>,
-    go_id_to_node_index: &FxHashMap<u32, NodeIndex>,
+    _go_id_to_node_index: &FxHashMap<u32, NodeIndex>,
 ) -> FxHashMap<TaxonID, FxHashMap<u32, InformationContent>> {
     background_go_term_counts
         .iter()
         .map(|(&taxon_id, counts)| {
             let total_annotations: usize = counts.values().copied().sum();
-            
+            let alpha = 1.0_f64;
+            let v = counts.len().max(1) as f64;
+            let denom = (total_annotations as f64) + alpha * v;
+
             let ic_map: FxHashMap<u32, InformationContent> = go_terms
                 .iter()
                 .filter_map(|&go_id| {
-                    if let Some(&count) = counts.get(&go_id) {
-                        if count > 0 && total_annotations > 0 {
-                            let probability = count as f64 / total_annotations as f64;
-                            let ic = -probability.ln();
-                            Some((go_id, ic))
-                        } else {
-                            if go_id_to_node_index.contains_key(&go_id) {
-                                Some((go_id, f64::INFINITY))
-                            } else {
-                                None
-                            }
-                        }
-                    } else {
-                        None
+                    if denom == 0.0 {
+                        return None;
                     }
+                    let c = *counts.get(&go_id).unwrap_or(&0) as f64;
+                    let p = (c + alpha) / denom;
+                    let ic = -p.ln();
+                    Some((go_id, ic))
                 })
                 .collect();
             
@@ -212,8 +205,9 @@ pub fn find_mica_for_pair(
 ) -> Option<(u32, f64)> {
     if term1 == term2 {
         if let Some(&ic) = ic_values.get(&term1) {
-            return Some((term1, ic));
+            if ic.is_finite() { return Some((term1, ic)); }
         }
+        return None;
     }
     
     let node_idx1 = match go_id_to_node_index.get(&term1) {
@@ -237,20 +231,19 @@ pub fn find_mica_for_pair(
     
     for ancestor_id in common_ancestors {  
         if let Some(&ic) = ic_values.get(&ancestor_id) {
-            if ic > max_ic {
+            if ic.is_finite() && ic > max_ic {
                 max_ic = ic;
                 mica_id = ancestor_id;
             }
         }
     }
     
-    if mica_id != 0 {
+    if mica_id != 0 && max_ic.is_finite() {
         Some((mica_id, max_ic))
     } else {
         None
     }
 }
-
 
 pub fn generate_term_pairs(
     go_terms: &FxHashSet<u32>, 
@@ -269,7 +262,7 @@ pub fn generate_term_pairs(
         Method::Wang => {
             println!("Calculating Wang's similarity for term pairs...");
             for i in 0..terms_vec.len() {
-                for j in i..terms_vec.len() { // Calculate for each pair including self-comparison
+                for j in i..terms_vec.len() {
                     let term1 = terms_vec[i];
                     let term2 = terms_vec[j];
 
@@ -281,7 +274,8 @@ pub fn generate_term_pairs(
                         node_index_to_go_id,
                         global_rev_topo_order,
                     ) {
-                        Ok(sim_score) => {
+                        Ok(mut sim_score) => {
+                            if !sim_score.is_finite() || sim_score < 0.0 { sim_score = 0.0; }
                             pairs.push(TermPair::new_for_wang(term1, term2, sim_score));
                         }
                         Err(e) => {
@@ -289,7 +283,7 @@ pub fn generate_term_pairs(
                                 "Error calculating Wang's similarity for GO:{:07} and GO:{:07}: {}",
                                 term1, term2, e
                             );
-                            pairs.push(TermPair::new_for_wang(term1, term2, 0.0)); // Default to 0.0 on error
+                            pairs.push(TermPair::new_for_wang(term1, term2, 0.0));
                         }
                     }
                 }
@@ -312,34 +306,31 @@ pub fn generate_term_pairs(
                     let term1 = terms_vec[i];
                     let term2 = terms_vec[j];
 
-                    let ic_term1 = ic_values_for_taxon.get(&term1).copied().unwrap_or_else(|| {
-                        if go_id_to_node_index.contains_key(&term1) { f64::INFINITY } else { 0.0 }
-                    });
-                    let ic_term2 = ic_values_for_taxon.get(&term2).copied().unwrap_or_else(|| {
-                        if go_id_to_node_index.contains_key(&term2) { f64::INFINITY } else { 0.0 }
-                    });
+                    let ic_term1 = match ic_values_for_taxon.get(&term1) {
+                        Some(v) if v.is_finite() => *v,
+                        _ => continue,
+                    };
+                    let ic_term2 = match ic_values_for_taxon.get(&term2) {
+                        Some(v) if v.is_finite() => *v,
+                        _ => continue,
+                    };
 
-                    let mica_result = find_mica_for_pair(
+                    let mica = match find_mica_for_pair(
                         term1,
                         term2,
                         ontology_graph,
                         go_id_to_node_index,
                         node_index_to_go_id,
                         ic_values_for_taxon,
-                    );
+                    ) {
+                        Some((id, ic)) if ic.is_finite() => (id, ic),
+                        _ => continue,
+                    };
 
-                    let mica = mica_result.unwrap_or_else(|| {
-                        if term1 == term2 {
-                             (term1, ic_term1)
-                        } else {
-                            (0, 0.0) 
-                        }
-                    });
-
-
-                    pairs.push(TermPair::new_for_ic(
+                    let pair = TermPair::new_for_ic(
                         term1, term2, ic_term1, ic_term2, mica, method,
-                    ));
+                    );
+                    pairs.push(pair);
                 }
             }
         }
@@ -394,7 +385,6 @@ pub fn calculate_s_values(
         if !ancestors.contains(&current_go_id) {
             continue;
         }
-
         if current_go_id == term_id {
             continue;
         }
@@ -436,7 +426,6 @@ pub fn calculate_semantic_value(
     s_values.values().sum()
 }
 
-
 pub fn wang_similarity(
     term1_id: GOTermID,
     term2_id: GOTermID,
@@ -466,7 +455,6 @@ pub fn wang_similarity(
     )?;
 
     let sv_term1 = calculate_semantic_value(&s_values_term1);
-
     let sv_term2 = calculate_semantic_value(&s_values_term2);
 
     if sv_term1 == 0.0 || sv_term2 == 0.0 {
@@ -486,7 +474,8 @@ pub fn wang_similarity(
         return Ok(0.0);
     }
 
-    let similarity = sum_common_s_values / denominator;
+    let mut similarity = sum_common_s_values / denominator;
+    if !similarity.is_finite() || similarity < 0.0 { similarity = 0.0; }
 
     Ok(similarity)
 }
@@ -494,7 +483,7 @@ pub fn wang_similarity(
 pub fn write_similarity_to_tsv(
     term_pairs: &[TermPair],
     go_terms: &FxHashSet<GOTermID>,
-    taxon_id: TaxonID,
+    _taxon_id: TaxonID,
     method: Method,
     output_dir: &str,
 ) -> Result<(), String> {
@@ -509,7 +498,7 @@ pub fn write_similarity_to_tsv(
 
     let filename = format!(
         "{}/similarity_{}_taxon_{}.tsv",
-        output_dir, method_filename_part, taxon_id
+        output_dir, method_filename_part, _taxon_id
     );
     println!("Writing {} similarity matrix to {}", method, filename);
 
