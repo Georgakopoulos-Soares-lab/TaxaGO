@@ -3,7 +3,7 @@ use std::fs::{read_dir, File};
 use std::io::{BufRead, BufReader, ErrorKind};
 use std::path::PathBuf;
 use std::sync::Arc;
-use csv::Reader;  
+use csv::ReaderBuilder;
 use rayon::prelude::*;
 use crate::parsers::background_parser::*;
 use compact_str::CompactString;
@@ -46,7 +46,11 @@ impl StudyPop {
             }
             Err(e) => return Err(Box::new(e)),
         };
-        let mut csv_reader = Reader::from_reader(file);
+        let mut csv_reader = ReaderBuilder::new()
+            .trim(csv::Trim::All)
+            .flexible(true)
+            .has_headers(true)
+            .from_reader(file);
 
         let mut taxon_map: FxHashMap<TaxonID, FxHashSet<Protein>> = FxHashMap::default();
 
@@ -206,7 +210,7 @@ impl StudyPop {
                 term_count
                     .iter()
                     .filter_map(|(term_id, &count)| {
-                        if count <= threshold {
+                        if count < threshold {
                             Some(term_id.clone())
                         } else {
                             None
@@ -410,7 +414,11 @@ pub fn collect_taxon_ids(
                         Box::new(e) as Box<dyn std::error::Error + Send + Sync + 'static>
                     }
                 })?;
-                let mut csv_reader = Reader::from_reader(file);
+                let mut csv_reader = ReaderBuilder::new()
+                    .trim(csv::Trim::All)
+                    .flexible(true)
+                    .has_headers(true)
+                    .from_reader(file);
                 let header_taxons: Vec<TaxonID> = csv_reader
                     .headers()
                     .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync + 'static>)?

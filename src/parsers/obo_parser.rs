@@ -242,7 +242,7 @@ pub fn parse_obo_file(obo_file_path: &PathBuf) -> Result<OboMap, OboParserError>
         }
     }
     
-    if new_term && current_id != 0 {
+    if new_term && current_id != 0 && !obsolete_term {
         obo_terms.insert(current_id, mem::take(&mut current_term));
     }
     

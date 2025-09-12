@@ -54,6 +54,8 @@ fn process_and_filter_results(
             return;
         }
 
+        let min_required_count = (threshold * species_count as f64).ceil() as usize;
+
         let empty_map = FxHashMap::default();
         let family_go_terms = go_term_counts.get(family).unwrap_or(&empty_map);
         
@@ -63,9 +65,8 @@ fn process_and_filter_results(
                     let go_terms_with_variance: FxHashMap<GOTermID, GOTermResults> = go_terms.iter()
                         .filter_map(|(go_term_id, go_term_result)| {
                             let go_term_count = family_go_terms.get(go_term_id).unwrap_or(&0);
-                            let prevalence = *go_term_count as f64 / species_count as f64;
                             
-                            if prevalence >= threshold {
+                            if *go_term_count >= min_required_count {
                                 Some((*go_term_id, go_term_result.clone()))
                             } else {
                                 None

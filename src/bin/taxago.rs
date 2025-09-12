@@ -87,7 +87,7 @@ struct CliArgs {
         short = 'e',
         long = "evidence",
         value_name = "CATEGORY",
-        help = "Evidence code categories to parse in background associations. [possible values: all, experimental, phylogenetic, computational, author, curator, automatic]",
+        help = "Evidence code categories to parse in background associations. [possible values: all, experimental, phylogenetic, computational, author, curator, electronic]",
         default_value = "all"
     )]
     evidence_categories: String,   
@@ -151,7 +151,7 @@ struct CliArgs {
         long = "correction-method",
         value_enum,
         help = "Method to adjust p-values for multiple test correction.",
-        default_value_t = AdjustmentMethod::Bonferroni
+        default_value_t = AdjustmentMethod::BenjaminiHochberg
     )]
     correction_method: AdjustmentMethod,
 
@@ -183,7 +183,7 @@ struct CliArgs {
         long = "permutations",
         value_name = "COUNT",
         help = "Number of permutations for phylogenetic meta-analysis.",
-        default_value_t = 1000
+        default_value_t = 10000
     )]
     permutations: u32,
 

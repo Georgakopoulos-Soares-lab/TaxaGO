@@ -32,7 +32,7 @@ impl AdjustmentMethod {
 
 trait PValueAdjustable {
     type Key;
-    
+
     fn extract_p_value(&self) -> f64;
     fn extract_log_odds_ratio(&self) -> f64;
     fn with_adjusted_p_value(&self, new_p_value: f64) -> Self;
@@ -40,105 +40,95 @@ trait PValueAdjustable {
 
 impl PValueAdjustable for GOTermResults {
     type Key = u32;
-    
-    fn extract_p_value(&self) -> f64 {
-        self.p_value
-    }
 
-    fn extract_log_odds_ratio(&self) -> f64 {
-        self.log_odds_ratio
-    }
-    
+    fn extract_p_value(&self) -> f64 { self.p_value }
+    fn extract_log_odds_ratio(&self) -> f64 { self.log_odds_ratio }
+
     fn with_adjusted_p_value(&self, new_p_value: f64) -> Self {
         Self {
             log_odds_ratio: self.log_odds_ratio,
             p_value: new_p_value,
             contingency_table: self.contingency_table,
-            variance: self.variance
+            variance: self.variance,
         }
     }
 }
 
 impl PValueAdjustable for TaxonomyGOResult {
     type Key = String;
-    
-    fn extract_p_value(&self) -> f64 {
-        self.p_value
-    }
 
-    fn extract_log_odds_ratio(&self) -> f64 {
-        self.log_odds_ratio
-    }
+    fn extract_p_value(&self) -> f64 { self.p_value }
+    fn extract_log_odds_ratio(&self) -> f64 { self.log_odds_ratio }
 
-    
     fn with_adjusted_p_value(&self, new_p_value: f64) -> Self {
         Self {
             log_odds_ratio: self.log_odds_ratio,
             p_value: new_p_value,
-            species_number: self.species_number
+            species_number: self.species_number,
         }
     }
 }
 
-fn adjust_p_values<T: PValueAdjustable + Clone>(
+fn adjust_p_values_grouped<T>(
     results: &FxHashMap<T::Key, FxHashMap<u32, T>>,
     method: AdjustmentMethod,
     significance_threshold: Option<f64>,
-    log_odds_ratio_threshold: f64
+    log_odds_ratio_threshold: f64,
 ) -> FxHashMap<T::Key, FxHashMap<u32, T>>
 where
+    T: PValueAdjustable + Clone,
     T::Key: Clone + Hash + Eq,
 {
     if matches!(method, AdjustmentMethod::None) {
-        println!("No p-value adjustment performed. Applying p-value and log odds ratio filter to original values.\n");
-        let mut filtered_results = FxHashMap::default();
+        let mut filtered = FxHashMap::default();
         for (key, go_terms) in results {
-            for (&go_id, result_item) in go_terms {
-                let p_value_passes = significance_threshold.map_or(true, |thresh| result_item.extract_p_value() <= thresh);
-                let log_odds_passes = result_item.extract_log_odds_ratio() >= log_odds_ratio_threshold;
-
-                if p_value_passes && log_odds_passes {
-                    filtered_results
-                        .entry(key.clone())
+            for (&go_id, res) in go_terms {
+                let pass_p = significance_threshold.map_or(true, |thr| res.extract_p_value() <= thr);
+                let pass_es = res.extract_log_odds_ratio() >= log_odds_ratio_threshold;
+                if pass_p && pass_es {
+                    filtered.entry(key.clone())
                         .or_insert_with(FxHashMap::default)
-                        .insert(go_id, result_item.clone());
+                        .insert(go_id, res.clone());
                 }
             }
         }
-        return filtered_results;
+        return filtered;
     }
-    
-    let mut all_pvalues = Vec::new();
-    let mut pvalue_mapping = Vec::new();
-    
-    for (key, go_terms) in results {
-        for (&go_id, result) in go_terms {
-            all_pvalues.push(result.extract_p_value());
-            pvalue_mapping.push((key.clone(), go_id, result.clone()));
-        }
-    }
-    
-    let adjusted_pvalues = if let Some(proc) = method.to_procedure() {
-        adjust(&all_pvalues, proc)
-    } else {
-        all_pvalues
-    };
-    
-    let mut adjusted_results = FxHashMap::default();
-    for (index, (key, go_id, result)) in pvalue_mapping.into_iter().enumerate() {
-        let adjusted_p = adjusted_pvalues[index];
-        let p_value_passes = significance_threshold.map_or(true, |threshold| adjusted_p <= threshold);
-        let log_odds_passes = result.extract_log_odds_ratio() >= log_odds_ratio_threshold;
 
-        if p_value_passes && log_odds_passes {
-            adjusted_results
-                .entry(key)
-                .or_insert_with(FxHashMap::default)
-                .insert(go_id, result.with_adjusted_p_value(adjusted_p));
+    // Group by species/taxonomy key only (not by namespace)
+    let mut groups: FxHashMap<T::Key, Vec<(u32, T)>> = FxHashMap::default();
+    for (key, go_terms) in results.iter() {
+        for (&go_id, res) in go_terms.iter() {
+            groups.entry(key.clone())
+                  .or_default()
+                  .push((go_id, res.clone()));
         }
     }
-    
-    adjusted_results
+
+    let mut out: FxHashMap<T::Key, FxHashMap<u32, T>> = FxHashMap::default();
+    for (key, rows) in groups {
+        // Collect all p-values for this species/taxonomy
+        let pvals: Vec<f64> = rows.iter().map(|(_, r)| r.extract_p_value()).collect();
+        
+        // Apply multiple testing correction across all GO terms for this species
+        let adj = if let Some(proc_) = method.to_procedure() {
+            adjust(&pvals, proc_)
+        } else {
+            pvals
+        };
+
+        // Filter results based on adjusted p-values and effect size
+        for ((go_id, res), q) in rows.into_iter().zip(adj.into_iter()) {
+            let pass_p = significance_threshold.map_or(true, |thr| q <= thr);
+            let pass_es = res.extract_log_odds_ratio() >= log_odds_ratio_threshold;
+            if pass_p && pass_es {
+                out.entry(key.clone())
+                    .or_insert_with(FxHashMap::default)
+                    .insert(go_id, res.with_adjusted_p_value(q));
+            }
+        }
+    }
+    out
 }
 
 pub fn adjust_species_p_values(
@@ -147,12 +137,12 @@ pub fn adjust_species_p_values(
     significance_threshold: Option<f64>,
     log_odds_ratio_threshold: f64,
 ) -> SpeciesResults {
-    println!("Adjusting single taxon p-values using method: {:?}\n", adjustment_method);
-    adjust_p_values(
-        results, 
-        adjustment_method, 
+    println!("Adjusting single taxon p-values using method: {:?} (grouped by species)\n", adjustment_method);
+    adjust_p_values_grouped(
+        results,
+        adjustment_method,
         significance_threshold,
-        log_odds_ratio_threshold
+        log_odds_ratio_threshold,
     )
 }
 
@@ -163,11 +153,11 @@ pub fn adjust_taxonomy_p_values(
     log_odds_ratio_threshold: f64,
     level: &String,
 ) -> TaxonomyResults {
-    println!("Adjusting p-values at {} level using method: {:?}\n", level, adjustment_method);
-    adjust_p_values(
-        results, 
-        adjustment_method, 
+    println!("Adjusting p-values at {} level using method: {:?} (grouped by taxonomy)\n", level, adjustment_method);
+    adjust_p_values_grouped(
+        results,
+        adjustment_method,
         significance_threshold,
-        log_odds_ratio_threshold
+        log_odds_ratio_threshold,
     )
 }

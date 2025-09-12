@@ -120,7 +120,7 @@ pub fn map_input_to_category(
                 "electronic" => EvidenceCategory::Electronic,
                 _ => return Err(IoError::new(
                     ErrorKind::InvalidInput,
-                    format!("Unrecognized evidence category: {}. Valid categories are: experimental, phylogenetic, computational, author, curator, automatic, or all.", trimmed_part)
+                    format!("Unrecognized evidence category: {}. Valid categories are: experimental, phylogenetic, computational, author, curator, electronic, or all.", trimmed_part)
                 ))
             };
             
@@ -130,7 +130,7 @@ pub fn map_input_to_category(
         if categories.is_empty() {
             return Err(IoError::new(
                 ErrorKind::InvalidInput,
-                "No valid evidence categories provided. Valid categories are: experimental, phylogenetic, computational, author, curator, automatic, or all."
+                "No valid evidence categories provided. Valid categories are: experimental, phylogenetic, computational, author, curator, electronic, or all."
             ));
         }
         

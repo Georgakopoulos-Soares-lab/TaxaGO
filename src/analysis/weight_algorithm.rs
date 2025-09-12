@@ -82,7 +82,7 @@ impl EnrichmentAnalysis {
                                 let initial_score_result = self.calculate_weighted_score(
                                     term_id,
                                     taxon_id,
-                                    study_pop.clone(),
+                                    study_pop,
                                     background_pop,
                                     node_weights.get(&term_id),
                                 );
@@ -142,7 +142,7 @@ impl EnrichmentAnalysis {
         let results = self.calculate_weighted_score(
             term_id,
             taxon_id,
-            study_pop.clone(),
+            study_pop,
             background_pop,
             node_weights.get(&term_id),
         );
@@ -179,7 +179,7 @@ impl EnrichmentAnalysis {
                         );
 
                         let updated_child_results = self.calculate_weighted_score(
-                            child_id, taxon_id, study_pop.clone(), background_pop, node_weights.get(&child_id),
+                            child_id, taxon_id, study_pop, background_pop, node_weights.get(&child_id),
                         );
                         go_term_results.insert(child_id, updated_child_results);
                     }
@@ -260,7 +260,7 @@ impl EnrichmentAnalysis {
         &self,
         term_id: GOTermID,
         taxon_id: TaxonID,
-        study_pop: StudyPop,
+        study_pop: &StudyPop,
         background_pop: &BackgroundPop,
         term_specific_protein_weights: Option<&FxHashMap<Protein, f64>>,
     ) -> GOTermResults {
@@ -288,7 +288,7 @@ impl EnrichmentAnalysis {
         } else {
             weighted_study_proteins_in_term_float += study_proteins_in_term.len() as f64;
         }
-        let weighted_study_proteins_in_term = weighted_study_proteins_in_term_float.ceil() as usize;
+        let weighted_study_proteins_in_term = weighted_study_proteins_in_term_float.round() as usize;
 
         let background_total_in_term_count = background_pop
             .go_term_count

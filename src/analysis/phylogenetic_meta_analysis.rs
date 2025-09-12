@@ -87,25 +87,21 @@ pub fn svd_transform(
 ) -> ArrayBase<OwnedRepr<f64>, Dim<[usize; 2]>> { 
     
     let nd_array_original = vcv_matrix_df.to_ndarray::<Float64Type>(IndexOrder::C).unwrap();
-
     let na_matrix = ndarray2_to_nalgebra(&nd_array_original);
     
     let svd_result = na_matrix.svd(true, true);
-    let u_nalgebra = svd_result.u.expect("SVD U matrix not computed by nalgebra"); // This is U
+    let u_nalgebra = svd_result.u.expect("SVD U matrix not computed by nalgebra");
     let s_nalgebra_vec = svd_result.singular_values;
 
     let dim = s_nalgebra_vec.len();
-    let sqrt_s_nalgebra_diag = DMatrix::from_fn(dim, dim, |r, c| {
-        if r == c {
-            s_nalgebra_vec[r].sqrt()
-        } else {
-            0.0
-        }
+    
+    let eps = 1e-8;
+    let inv_sqrt = DMatrix::from_fn(dim, dim, |r,c| if r==c { 
+        1.0 / s_nalgebra_vec[r].sqrt().max(eps) 
+    } else { 
+        0.0 
     });
-    
-    let tnew_nalgebra = &u_nalgebra * sqrt_s_nalgebra_diag * u_nalgebra.transpose();
-    
-    let mDnew_nalgebra = tnew_nalgebra.try_inverse().expect("Matrix t_new (U*sqrt(D)*U^T) is not invertible.");
+    let mDnew_nalgebra = &u_nalgebra * inv_sqrt * u_nalgebra.transpose();
 
     nalgebra_to_ndarray2(&mDnew_nalgebra)
 }

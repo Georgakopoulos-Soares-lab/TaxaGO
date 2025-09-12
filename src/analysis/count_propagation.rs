@@ -6,6 +6,7 @@ use daggy::{NodeIndex, Walker};
 use std::sync::Arc;
 use::rayon::prelude::*;
 use petgraph::algo::toposort;
+use petgraph::visit::IntoNodeIdentifiers;
 
 #[derive(Debug, Default, Clone)]
 pub struct GOAncestorCache {
@@ -35,7 +36,10 @@ impl GOAncestorCache {
             })
             .collect();
         
-        let topo_result = toposort(ontology_graph, None).unwrap();
+        let topo_result = toposort(ontology_graph, None)
+            .unwrap_or_else(|_| {
+                ontology_graph.node_identifiers().collect()
+            });
 
         let mut propagation_order: Vec<GOTermID> = topo_result
             .iter()
