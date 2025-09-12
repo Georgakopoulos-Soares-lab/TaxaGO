@@ -103,29 +103,6 @@ fn run_mermaid_install() -> Result<(), Box<dyn Error>> {
 }
 
 fn install_mermaid_windows() -> Result<(), Box<dyn Error>> {
-    if cmd!("where", "npm").run().is_err() {
-        println!("cargo:warning=npm not found. Attempting to install Node.js via Chocolatey...");
-        
-        if cmd!("where", "choco").run().is_err() {
-            println!("cargo:warning=Installing Chocolatey...");
-            let install_result = cmd!("powershell", "-ExecutionPolicy", "Bypass", "-c", 
-                "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))")
-                .run();
-            
-            if install_result.is_err() {
-                println!("cargo:warning=Failed to install Chocolatey. Please install Node.js manually.");
-                return Ok(());
-            }
-        }
-        
-        let nodejs_result = cmd!("choco", "install", "nodejs", "--version=20.18.0", "-y").run();
-        if nodejs_result.is_err() {
-            println!("cargo:warning=Failed to install Node.js via Chocolatey. Please install manually.");
-            return Ok(());
-        }
-        
-        cmd!("powershell", "-c", "refreshenv").run().ok();
-    }
 
     if cmd!("where", "mmdc").run().is_err() {
         println!("cargo:warning=Installing Mermaid CLI...");
