@@ -165,6 +165,13 @@ struct CliArgs {
     
     #[arg(
         short = 'l',
+        long = "lineage-file",
+        value_name = "FILE",
+        help = "Path to the taxonomic lineage information file.",
+    )]
+    lineage_file: Option<String>,
+
+    #[arg(
         long = "lineage-percentage",
         value_name = "PERCENTAGE",
         help = "Percentage of species inside the taxonomic level where GO term must be found.",
@@ -173,6 +180,7 @@ struct CliArgs {
     lineage_percentage: f64,
 
     #[arg(
+        short = 'v',
         long = "vcv-matrix",
         value_name = "FILE",
         help = "Path to a custom variance-covariance matrix file for phylogenetic meta-analysis.",
@@ -210,6 +218,7 @@ fn main() -> ExitCode{
     let default_obo_path = get_default_asset_path("go.obo");
     let default_background_path = get_default_asset_path("background_pop");
     let default_lineage_path = get_default_asset_path("lineage.txt");
+    let lineage_file = cli_args.lineage_file.unwrap_or(default_lineage_path);
     
     let obo_file = cli_args.obo_file.unwrap_or(default_obo_path);
     let background_pop = cli_args.background_pop.unwrap_or(default_background_path);
@@ -428,10 +437,10 @@ fn main() -> ExitCode{
         cli_args.min_odds_ratio
     );
         
-    let taxid_species_map = match taxid_to_species(default_lineage_path.clone()) {
+    let taxid_species_map = match taxid_to_species(lineage_file.clone()) {
         Ok(map) => map,
         Err(e) => {
-            eprintln!("\nError reading taxonomic lineage information from '{}':", default_lineage_path);
+            eprintln!("\nError reading taxonomic lineage information from '{}':", lineage_file);
             eprintln!("{}", e);
             return ExitCode::FAILURE;
         }
@@ -503,12 +512,12 @@ fn main() -> ExitCode{
     
     if let Some(level_to_combine) = &cli_args.combine_results {
 
-        println!("Reading taxonomic lineage information from: {}\n", default_lineage_path);
+        println!("Reading taxonomic lineage information from: {}\n", lineage_file);
         
-        let lineage = match read_lineage(default_lineage_path.clone()) {
+        let lineage = match read_lineage(lineage_file.clone()) {
             Ok(lineage) => lineage,
             Err(e) => {
-                eprintln!("\nError reading taxonomic lineage information from '{}':", default_lineage_path);
+                eprintln!("\nError reading taxonomic lineage information from '{}':", lineage_file);
                 eprintln!("{}", e);
                 return ExitCode::FAILURE;
             }
