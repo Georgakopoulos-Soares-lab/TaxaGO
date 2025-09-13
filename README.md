@@ -107,25 +107,21 @@ See [Input File Formats](#input-file-formats) for additional details.
     git clone https://github.com/Georgakopoulos-Soares-lab/TaxaGO
     cd TaxaGO
     ```
-3.  **Download `taxago_assets.tar.gz` from Zenodo.**
 
-4.  **Move `taxago_assets.tar.gz` inside the cloned repository.**
-
-5.  **Install TaxaGO:**
+3.  **Install TaxaGO:**
     ```bash
     cargo install --path .
     ```
     After installation a `taxago_assets` directory will be created in the `$CARGO_HOME` (specified during Rust installation).
 
-6.  **Once installed, the following executables will be available in your system's PATH:**
+4.  **Once installed, the following executables will be available in your system's PATH:**
     * `taxago`: Main executable for the GOEA analyses.
     * `semantic-similarity`: Tool for calculating GO term semantic similarity.
     * `common-ancestors`: Tool for finding and visualizing common GO ancestors.
-    * `taxago-interactive`: Interactive user-interface executable.
 
 ## 6. Usage
 
-TaxaGO provides a suite of tools for Gene Ontology Enrichment Analysis. The main executables are `taxago`, `semantic-similarity`, `common-ancestors`, and `taxago-interactive`.
+TaxaGO provides a suite of tools for Gene Ontology Enrichment Analysis. The main executables are `taxago`, `semantic-similarity`, `common-ancestors`.
 
 ### Gene Ontology Enrichment Analysis
 
