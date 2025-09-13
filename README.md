@@ -86,12 +86,10 @@ The data and detailed scripts for this case study can be found in the dedicated 
 ### Prerequisites
 
 * **Rust Toolchain:** Version 1.87.0 or later is recommended. Install from the original [Rust website](https://www.rust-lang.org/tools/install).
-* **Mermaid CLI (`mmdc`):** Required **only** for the `common-ancestors` tool to generate PDF outputs from Mermaid diagrams. Installation from the official [Mermaid CLI repository](https://github.com/mermaid-js/mermaid-cli).
-* **Jemalloc:** TaxaGO uses `jemallocator` for potentially better memory allocation performance.
+* **JavaScript with npm**
+* Compiler tools (g++ and gcc)
 
 ### Required Assets
-
-TaxaGO uses several data files for its operations. We provide a pre-compiled `taxago_assets.tar.gz` containing the ontology information, pre-processed background populations for 12,131 species with their corresponding taxonomic and phylogenetic information. The pre-compiled file can be downloaded from [Zenodo](https://zenodo.org/records/14860780).
 
 If you want to use your own data, here is a brief description of each one:
 * **`go.obo`**: The Gene Ontology OBO file, can be downloaded from the [Gene Ontology Consortium](http://geneontology.org/docs/download-ontology/).
@@ -109,25 +107,21 @@ See [Input File Formats](#input-file-formats) for additional details.
     git clone https://github.com/Georgakopoulos-Soares-lab/TaxaGO
     cd TaxaGO
     ```
-3.  **Download `taxago_assets.tar.gz` from Zenodo.**
 
-4.  **Move `taxago_assets.tar.gz` inside the cloned repository.**
-
-5.  **Install TaxaGO:**
+3.  **Install TaxaGO:**
     ```bash
     cargo install --path .
     ```
     After installation a `taxago_assets` directory will be created in the `$CARGO_HOME` (specified during Rust installation).
 
-6.  **Once installed, the following executables will be available in your system's PATH:**
+4.  **Once installed, the following executables will be available in your system's PATH:**
     * `taxago`: Main executable for the GOEA analyses.
     * `semantic-similarity`: Tool for calculating GO term semantic similarity.
     * `common-ancestors`: Tool for finding and visualizing common GO ancestors.
-    * `taxago-interactive`: Interactive user-interface executable.
 
 ## 6. Usage
 
-TaxaGO provides a suite of tools for Gene Ontology Enrichment Analysis. The main executables are `taxago`, `semantic-similarity`, `common-ancestors`, and `taxago-interactive`.
+TaxaGO provides a suite of tools for Gene Ontology Enrichment Analysis. The main executables are `taxago`, `semantic-similarity`, `common-ancestors`.
 
 ### Gene Ontology Enrichment Analysis
 
