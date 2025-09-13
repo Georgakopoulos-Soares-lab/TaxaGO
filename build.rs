@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let dest_path = Path::new(&cargo_home).join("taxago_assets");
 
     if !source_file.exists() {
-        let url = "https://zenodo.org/records/14860780/files/taxago_assets.tar.gz?download=1";
+        let url = "https://zenodo.org/records/17113938/files/taxago_assets.tar.gz?download=1";
         download_from_zenodo(url, source_file)?;
     }
 
