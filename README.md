@@ -116,6 +116,8 @@ See [Input File Formats](#input-file-formats) for additional details.
 
     After installation a `taxago_assets` directory will be created in the `$CARGO_HOME` (specified during Rust installation).
 
+    Be mindfull, that during the initial installation TaxaGO downloads the `taxago_assets` from Zenodo (~2.0GB), and depending on internet speed and Zenodo API limits, it might take some time (~1-2 hours).
+
 5.  **Once installed, the following executables will be available in your system's PATH:**
     * `taxago`: Main executable for the GOEA analyses.
     * `semantic-similarity`: Tool for calculating GO term semantic similarity.
