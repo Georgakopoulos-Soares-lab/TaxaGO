@@ -112,7 +112,7 @@ See [Input File Formats](#input-file-formats) for additional details.
     ```bash
     cargo install --path .
     ```
-    If you encounter issues with Linux installation you can try to install using: ```bash CC=gcc CXX=g++ cargo install —path .```
+    If you encounter issues with Linux installation you can try to install using: ```RUSTFLAGS="-C target-cpu=native" CC=gcc CXX=g++ cargo install --path .```
 
     After installation a `taxago_assets` directory will be created in the `$CARGO_HOME` (specified during Rust installation).
 
