@@ -437,7 +437,7 @@ pub fn bar_plot(
             
             match plot_type {
                 PlotType::Interactive => {
-                    let html_file = namespace_subdir.join(format!("{}_bar_plot.html", taxon_name));
+                    let html_file = namespace_subdir.join(format!("{}_bar_plot.html", sanitize_filename(&taxon_name)));
                     plot.write_html(html_file); 
                 }
                 PlotType::Static => {
@@ -445,7 +445,7 @@ pub fn bar_plot(
                     plot.write_image(svg_file, ImageFormat::PDF, 940, 460, 1.0);
                 }
                 PlotType::Both => {
-                    let html_file = namespace_subdir.join(format!("{}_bar_plot.html", taxon_name));
+                    let html_file = namespace_subdir.join(format!("{}_bar_plot.html", sanitize_filename(&taxon_name)));
                     plot.write_html(html_file); 
 
                     let svg_file = namespace_subdir.join(format!("{}_bar_plot.svg", taxon_name));
@@ -634,7 +634,7 @@ pub fn bubble_plot(
 
             match plot_type {
                 PlotType::Interactive => {
-                    let html_file = namespace_subdir.join(format!("{}_bubble_plot.html", taxon_name));
+                    let html_file = namespace_subdir.join(format!("{}_bubble_plot.html", sanitize_filename(&taxon_name)));
                     plot.write_html(html_file); 
                 }
                 PlotType::Static => {
@@ -642,7 +642,7 @@ pub fn bubble_plot(
                     plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
                 }
                 PlotType::Both => {
-                    let html_file = namespace_subdir.join(format!("{}_bubble_plot.html", taxon_name));
+                    let html_file = namespace_subdir.join(format!("{}_bubble_plot.html", sanitize_filename(&taxon_name)));
                     plot.write_html(html_file); 
 
                     let svg_file = namespace_subdir.join(format!("{}_bubble_plot.svg", taxon_name));
@@ -1336,7 +1336,7 @@ pub fn network_plot(
                     
                     match plot_type {
                         PlotType::Interactive => {
-                            let html_file = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
+                            let html_file = namespace_subdir.join(format!("{}_network_plot.html", sanitize_filename(&taxon_name)));
                             plot.write_html(html_file); 
                         }
                         PlotType::Static => {
@@ -1344,7 +1344,7 @@ pub fn network_plot(
                             plot.write_image(svg_file, ImageFormat::SVG, 940, 460, 1.0);
                         }
                         PlotType::Both => {
-                            let html_file = namespace_subdir.join(format!("{}_network_plot.html", taxon_name));
+                            let html_file = namespace_subdir.join(format!("{}_network_plot.html", sanitize_filename(&taxon_name)));
                             plot.write_html(html_file); 
         
                             let svg_file = namespace_subdir.join(format!("{}_network_plot.svg", taxon_name));
@@ -1359,4 +1359,16 @@ pub fn network_plot(
         })?;
 
 Ok(())
+}
+
+fn sanitize_filename(name: &str) -> String {
+    name.replace("/", "_")
+        .replace(":", "_")
+        .replace("\\", "_")
+        .replace("*", "_")
+        .replace("?", "_")
+        .replace("\"", "_")
+        .replace("<", "_")
+        .replace(">", "_")
+        .replace("|", "_")
 }

@@ -95,7 +95,7 @@ pub fn write_single_taxon_results(
             .unwrap_or(&taxon_id.to_string())
             .replace(" ", "_");
 
-        let filename = results_dir.join(format!("{}_GOEA_results.txt", species_name));
+        let filename = results_dir.join(format!("{}_GOEA_results.txt", sanitize_filename(&species_name)));
         let file = File::create(&filename)?;
         let mut writer = BufWriter::with_capacity(BUFFER_SIZE, file);
         
@@ -149,7 +149,7 @@ pub fn write_taxonomy_results(
     let mut line_buffer = String::with_capacity(256);
     
     for (taxonomy, go_terms) in data {
-        let filename = results_dir.join(format!("{}_GOEA_results.txt", taxonomy));
+        let filename = results_dir.join(format!("{}_GOEA_results.txt", sanitize_filename(taxonomy)));
         let file = File::create(&filename)?;
         let mut writer = BufWriter::with_capacity(BUFFER_SIZE, file);
         
@@ -184,4 +184,16 @@ pub fn write_taxonomy_results(
         writer.flush()?;
     }
     Ok(())
+}
+
+fn sanitize_filename(name: &str) -> String {
+    name.replace("/", "_")
+        .replace(":", "_")
+        .replace("\\", "_")
+        .replace("*", "_")
+        .replace("?", "_")
+        .replace("\"", "_")
+        .replace("<", "_")
+        .replace(">", "_")
+        .replace("|", "_")
 }
